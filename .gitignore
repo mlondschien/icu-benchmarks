@@ -1,0 +1,7 @@
+*.egg
+*.egg-info
+.pytest_cache
+__pycache__
+data/
+slurm-*.out
+*.png
