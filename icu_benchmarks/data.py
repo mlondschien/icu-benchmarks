@@ -247,19 +247,20 @@ def outcomes():
     # This is a "once per patient" prediction task. At time step 24h, a label is
     # assigned. All other timesteps are missing.
     mortality_at_24h = (
-        pl.when(pl.col("time_hours").eq(24))
+        pl.when(pl.col("time_hours").eq(23))  # time_hours==23 is the 24th time step.
         .then(pl.col("death_icu").first())
         .alias("mortality_at_24h")
-    )
+    ).alias("mortality_at_24h")
 
     # decompensation_at_24h
     # This has label is true if the patient dies within the next 24 hours. Else, this
     # is false.
     decompensation_at_24h = (
-        pl.when(pl.col("time_hours").max() - pl.col("time_hours") <= 24)
+        # Need <24 (or <=23) s.t. we get 24x the label `death_icu`.
+        pl.when(pl.col("time_hours").max() - pl.col("time_hours") < 24)
         .then(pl.col("death_icu"))
         .otherwise(False)
-    )
+    ).alias("decompensation_at_24h")
 
     # respiratory_failure_at_24h
     # If the PaO2/FiO2 ratio is below 200, the patient is considered to have a
@@ -269,7 +270,7 @@ def outcomes():
     # hours, the label is false. If there are no events within the next 24 hours, the
     # label is missing.
     RESP_PF_DEF_TSH = 200.0
-    events = (pl.col("po2") / pl.col("fio2") / 100.0) < RESP_PF_DEF_TSH
+    events = (pl.col("po2") / pl.col("fio2") * 100.0) < RESP_PF_DEF_TSH
     resp_failure_at_24h = eep_label(events, 24).alias("respiratory_failure_at_24h")
 
     # remaining_los
@@ -304,7 +305,7 @@ def outcomes():
     # any map increasing drug. If the mean arterial pressure is above 65 and the patient
     # is not on any map increasing drug, bad_map is False. If the patient does not have
     # a map value and is not on any map increasing drug, bad_map is None.
-    bad_map = pl.coalesce(pl.col("map") <= 65, drugs_indicator.replace(False, None))
+    bad_map = pl.coalesce(drugs_indicator.replace(False, None), pl.col("map") <= 65)
 
     bad_lact = pl.col("lact") >= 2
     # An event occurs if the map is "bad" (low or on drugs) and the lactate is high.
