@@ -320,7 +320,7 @@ def outcomes():
     # kidney_failure_at_48h
     # The patient has a kidney failure if they are in stage 3 according to
     # https://kdigo.org/wp-content/uploads/2016/10/KDIGO-2012-AKI-Guideline-English.pdf
-    relative_creatine = pl.col("crea") / pl.col("crea").rolling_min(
+    relative_creatine = pl.col("crea") / pl.col("crea").shift(1).rolling_min(
         window_size=7 * 24, min_periods=1
     )
 

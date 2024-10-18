@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import polars as pl
 import pytest
@@ -84,8 +86,30 @@ def test_polars_nan_or(args, expected):
             pl.Series([False] * 36),
         ),
         (
+            "remaining_los",
+            pl.DataFrame(
+                {
+                    "los_icu": 4.0,
+                    "time_hours": np.arange(0, 4 * 24),
+                }
+            ),
+            pl.Series(np.arange(4 * 24, 0, -1) / 24),
+        ),
+    ],
+)
+def test_outcomes(outcome_name, input, expected):
+    expr = [e for e in outcomes() if e.meta.output_name() == outcome_name][0]
+    assert_series_equal(
+        input.with_columns(expr).select(outcome_name).to_series(),
+        expected.rename(outcome_name),
+    )
+
+
+@pytest.mark.parametrize(
+    "outcome_name, input, expected_events, expected_labels",
+    [
+        (
             "respiratory_failure_at_24h",
-            # events (in blocks of 12): - - - 1 - - 0
             pl.DataFrame(
                 {
                     "po2": [None] * 12
@@ -102,17 +126,8 @@ def test_polars_nan_or(args, expected):
                     + [50] * 12,
                 }
             ),
+            pl.Series([None] * 36 + [True] * 12 + [None] * 24 + [False] * 12),
             pl.Series([None] * 12 + [True] * 24 + [None] * 12 + [False] * 35 + [None]),
-        ),
-        (
-            "remaining_los",
-            pl.DataFrame(
-                {
-                    "los_icu": 4.0,
-                    "time_hours": np.arange(0, 4 * 24),
-                }
-            ),
-            pl.Series(np.arange(4 * 24, 0, -1) / 24),
         ),
         (
             "circulatory_failure_at_8h",
@@ -126,11 +141,12 @@ def test_polars_nan_or(args, expected):
                     "teophyllin_ind": None,
                     "dopa_ind": None,
                     "adh_ind": None,
-                    # events (in blocks of 4): - - 0 - 1
                     "map": [70] * 4 + [None] * 4 + [70] * 4 + [60] * 4 + [60] * 4,
                     "lact": [1] * 4 + [1] * 4 + [1] * 4 + [1] * 4 + [3] * 4,
                 }
             ),
+            # events (in blocks of 4): - - 0 - 1
+            pl.Series([None] * 8 + [False] * 4 + [None] * 4 + [True] * 4),
             pl.Series([False] * 8 + [True] * 8 + [None] * 4),
         ),
         (
@@ -150,13 +166,45 @@ def test_polars_nan_or(args, expected):
                     "lact": [1] * 4 + [1] * 4 + [1] * 4 + [1] * 4 + [3] * 4,
                 }
             ),
+            pl.Series([False] * 4 + [None] * 4 + [False] * 4 + [None] * 4 + [True] * 4),
             pl.Series([False] * 8 + [True] * 8 + [None] * 4),
+        ),
+        (
+            "kidney_failure_at_48h",
+            pl.DataFrame(
+                {
+                    "crea": [1.0] * 24 + [None] * 72 + [2.0] * 72 + [4.0] * 48,
+                    "urine_rate": 70,
+                    "weight": 70,
+                }
+            ),
+            pl.Series(
+                [False] * 24 + [None] * 72 + [False] * 72 + [True] * 24 + [False] * 24
+            ),
+            pl.Series(
+                [False] * 23
+                + [None] * 25
+                + [False] * 72
+                + [True] * 48
+                + [None] * 24
+                + [False] * 23
+                + [None]
+            ),
         ),
     ],
 )
-def test_outcomes(outcome_name, input, expected):
+def test_eep_outcomes(outcome_name, input, expected_events, expected_labels):
     expr = [e for e in outcomes() if e.meta.output_name() == outcome_name][0]
+
     assert_series_equal(
         input.with_columns(expr).select(outcome_name).to_series(),
-        expected.rename(outcome_name),
+        expected_labels.rename(outcome_name),
+    )
+
+    horizon = int(re.search(r"\d+", outcome_name).group(0))
+    input = input.insert_column(0, expected_events.rename("expected_events"))
+    assert_series_equal(
+        input.select(eep_label(pl.col("expected_events"), horizon)).to_series(),
+        input.with_columns(expr).select(outcome_name).to_series(),
+        check_names=False,
     )
