@@ -15,8 +15,6 @@ variable_reference = variable_reference.with_columns(
 
 CONTINUOUS_VARIABLES = variable_reference.filter(pl.col("DataType").eq("continuous"))
 CONTINUOUS_VARIABLES = CONTINUOUS_VARIABLES.select("VariableTag").to_series().to_list()
-# Not exported in ricu. We add them manually.
-CONTINUOUS_VARIABLES += ["pf_ratio", "rel_urine_rate"]
 
 CATEGORICAL_VARIABLES = variable_reference.filter(pl.col("DataType").eq("categorical"))
 CATEGORICAL_VARIABLES = (
@@ -402,11 +400,11 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         dyn = dyn.with_columns(pl.col(row[0]).clip(row[1], row[2]))
 
     # Log transform some of the continuous variables. If the variable has a lower bound
-    # equal to 0 and a non-missing upper bound, we use an offset: 1e-3 * upper bound.
+    # equal to 0 and a non-missing upper bound, we use an offset: 1e-4 * upper bound.
     log_variables = variable_reference.filter(pl.col("LogTransform").eq("true"))
     for row in log_variables.select("VariableTag", "LowerBound", "UpperBound").rows():
         if row[1] == 0 and row[2] is not None:
-            dyn = dyn.with_columns(pl.col(row[0]) + 0.001 * row[2])
+            dyn = dyn.with_columns(pl.col(row[0]) + 1e-4 * row[2])
 
         dyn = dyn.with_columns(pl.col(row[0]).log().replace([np.nan, -np.inf], None))
 
@@ -438,12 +436,6 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     enum_variables = variable_reference.filter(pl.col("DataType").eq("categorical"))
     for col, values in enum_variables.select("VariableTag", "PossibleValues").rows():
         dyn = dyn.with_columns(pl.col(col).cast(pl.String).cast(pl.Enum(values)))
-
-    # Compute additional variables that are not exported in ricu.
-    dyn = dyn.with_columns(
-        (pl.col("po2") / (pl.col("fio2"))).alias("pf_ratio"),
-        (pl.col("urine_rate") / pl.col("weight")).alias("rel_urine_rate"),
-    )
 
     expressions = [pl.col("time_hours")]
     expressions += [pl.col(var).forward_fill() for var in CONTINUOUS_VARIABLES]
