@@ -6,7 +6,7 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 5	sex	Sex	static	v0.0	demographic	None	None	categorical	None	None	Gender of a person, male, female, not-observed	["C1522384"]	None	["Female", "Male"]
 6	height	Height	static	v0.0	demographic	None	cm	continuous	10	230	Body height of a person	["C0005890"]	false	None
 7	hr	Heart Rate	observation	v0.0	circulatory	None	bpm	continuous	0	300	Heart rate	["C0018810"]	false	None
-8	fio2	FiO2	observation	v0.0	respiratory	None	%	continuous	21	100	Fraction of insipred oxygen	["C0428167"]	false	None
+8	fio2	FiO2	observation	v0.0	respiratory	None	%	continuous	21	100	Fraction of insipred oxygen	["C0428167"]	true	None
 9	resp	Respiratory Rate	observation	v0.0	respiratory	None	insp/min	continuous	0	120	Respiratory rate as inspirations per minute	["C0231832"]	true	None
 10	temp	Temperature	observation	v0.0	infection	None	C	continuous	32	42	Body temperature	["C0005903"]	false	None
 11	crea	Creatinine	observation	v0.0	metabolic_renal	None	mg/dL	continuous	0	15	Creatinine in blood sample	["C0010294"]	true	None
@@ -14,7 +14,7 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 13	po2	Partial Pressure of Oxygen	observation	v0.0	respiratory	None	mmHg	continuous	40	600	Partial pressure of oxygen in the blood	["C0391840"]	true	None
 14	ethnic	Ethnic Group	static	v0.0	demographic	None	None	categorical	None	None	Ethnic Group	["C0015031"]	None	["asian", "black", "white", "other"]
 15	alb	Albumin	observation	v0.0	gastrointestinal	None	g/dL	continuous	0	6	Main protein of human blood plasma	["C0036773"]	false	None
-16	alp	Alkaline Phosphatase	observation	v0.0	gastrointestinal	None	IU/L	continuous	0	None	Leukemia related test	["C0002059"]	true	None
+16	alp	Alkaline Phosphatase	observation	v0.0	gastrointestinal	None	IU/L	continuous	0	4000	Leukemia related test	["C0002059"]	true	None
 17	alt	Alanine Aminotransferase	observation	v0.0	gastrointestinal	None	IU/L	continuous	0	None	GI related test	["C0201836"]	true	None
 18	ast	Aspartate Aminotransferase	observation	v0.0	gastrointestinal	None	IU/L	continuous	0	None	GI and muscle related test	["C0201899"]	true	None
 19	be	Base excess	observation	v0.0	metabolic_renal	None	mmol/l	continuous	-25	25	Base excess is defined as the amount of strong acid that must be added to each liter of fully oxygenated blood to return the pH to 7.40.	["C0201985"]	false	None
@@ -25,15 +25,15 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 24	bun	Blood urea nitrogen	observation	v0.0	metabolic_renal	None	mg/dL	continuous	0	200	High values indicate kidney complications	["C0600137"]	true	None
 25	ca	Calcium	observation	v0.0	metabolic_renal	None	mg/dL	continuous	4	20	None	["C0006675"]	false	None
 26	cai	Calcium Ionized	observation	v0.0	metabolic_renal	None	mmol/L	continuous	0.5	2	None	["C0373561"]	false	None
-27	ck	Creatine Kinase	observation	v0.0	circulatory	None	IU/L	continuous	0	None	None	["C0010287"]	true	None
-28	ckmb	Creatine Kinase MB	observation	v0.0	circulatory	None	ng/mL	continuous	0	None	None	["C0523584"]	true	None
+27	ck	Creatine Kinase	observation	v0.0	circulatory	None	IU/L	continuous	0	1000000	None	["C0010287"]	true	None
+28	ckmb	Creatine Kinase MB	observation	v0.0	circulatory	None	ng/mL	continuous	0	2500	None	["C0523584"]	true	None
 29	cl	Chloride	observation	v0.0	metabolic_renal	None	mmol/l	continuous	80	130	None	["C0201952"]	false	None
-30	crp	C-reactive protein	observation	v0.0	infection	None	mg/L	continuous	0	None	Inflammation marker	["C0006560"]	true	None
+30	crp	C-reactive protein	observation	v0.0	infection	None	mg/L	continuous	0	2000	Inflammation marker	["C0006560"]	true	None
 31	dbp	Diastolic blood pressure	observation	v0.0	circulatory	None	mmHg	continuous	0	200	Diastolic blood pressure, blood pressure when heart rests	["C0428883"]	false	None
 32	fgn	Fibrinogen	observation	v0.0	circulatory	None	mg/dL	continuous	0	1500	None	["C0016006"]	false	None
 33	glu	Glucose	observation	v0.0	metabolic_renal	None	mg/dL	continuous	0	1000	None	["C0017725"]	true	None
 34	hgb	Hemoglobin	observation	v0.0	circulatory	None	g/dL	continuous	4	18	Oxygen carrying protein	["C0019046"]	false	None
-35	inr_pt	Prothrombin	observation	v0.0	circulatory	None	None	continuous	None	None	Prothrombin time/international normalized ratio	["C0033706"]	true	None
+35	inr_pt	Prothrombin	observation	v0.0	circulatory	None	None	continuous	0	50	Prothrombin time/international normalized ratio	["C0033706"]	true	None
 36	k	Potassium	observation	v0.0	metabolic_renal	None	mmol/l	continuous	0	10	None	["C0032821"]	false	None
 37	lymph	Lymphocytes	observation	v0.0	infection	None	%	continuous	0	100	White blood cells	["C0024264"]	true	None
 41	methb	Methemoglobin	observation	v0.0	circulatory	None	%	continuous	0	100	A product of hemoglobin produced by oxidation	["C0025635"]	true	None
@@ -44,10 +44,10 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 46	ph	pH of blood	observation	v0.0	metabolic_renal	None	None	continuous	6.8	8	pH of blood sample	["C0853363"]	false	None
 47	phos	Phosphate	observation	v0.0	metabolic_renal	None	mg/dL	continuous	0	40	None	["C0523826"]	true	None
 48	plt	Platelet Count	observation	v0.0	circulatory	None	G/l	continuous	5	1200	Blood component reacting to bleeding, wound healing	["C1287267"]	true	None
-49	ptt	Partial thromboplastin time	observation	v0.0	circulatory	None	sec	continuous	0	None	Blood test that looks at how long it takes for blood to clot	["C5552692"]	true	None
+49	ptt	Partial thromboplastin time	observation	v0.0	circulatory	None	sec	continuous	0	250	Blood test that looks at how long it takes for blood to clot	["C5552692"]	true	None
 50	sbp	Systolic blood pressure	observation	v0.0	circulatory	None	mmHg	continuous	0	300	Blood pressure during heart beat	["C1306620"]	false	None
-51	tnt	Troponin t	observation	v0.0	circulatory	None	ng/mL	continuous	0	None	None	["C0077404"]	true	None
-52	wbc	White blood cell count	observation	v0.0	infection	None	G/l	continuous	0	None	White blood cell count	["C0023508"]	true	None
+51	tnt	Troponin t	observation	v0.0	circulatory	None	ng/mL	continuous	0	100	None	["C0077404"]	true	None
+52	wbc	White blood cell count	observation	v0.0	infection	None	G/l	continuous	0	1000	White blood cell count	["C0023508"]	true	None
 53	basos	Basophils	observation	v0.0	infection	None	%	continuous	0	50	Granular leukocytes	["C0004827"]	true	None
 54	eos	Eosinophils	observation	v0.0	infection	None	%	continuous	0	50	Granular leukocytes	["C0014467"]	true	None
 55	mgcs	Glasgow Comma Scale Motor	observation	v0.0	neuro	None	None	continuous	1	6	Glasgow Comma Scale Motor	["C0559290"]	false	[1, 2, 3, 4, 5, 6]
@@ -56,14 +56,14 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 58	egcs	Glasgow Comma Scale Eye 	observation	v0.0	neuro	None	None	continuous	1	4	Glasgow Comma Scale Eye	["C0559289"]	false	[1, 2, 3, 4]
 59	hct	Hematocrit	observation	v0.0	circulatory	None	%	continuous	15	60	The volume of packed red blood cells in a blood specimen	["C0018935"]	true	None
 60	rbc	Red blood cell count	observation	v0.0	circulatory	None	m/uL	continuous	0	20	Red blood cell count	["C0014772"]	true	None
-61	tri	Troponin I	observation	v0.0	circulatory	None	ng/mL	continuous	0	None	None	["C0077401"]	true	None
+61	tri	Troponin I	observation	v0.0	circulatory	None	ng/mL	continuous	0	500	None	["C0077401"]	true	None
 62	etco2	Endtital CO2	observation	v0.0	respiratory	None	mmHg	continuous	10	60	Largest measured CO2 concentration, usually at exhalation	["C3267130"]	false	None
 63	rass	Richmond Agitation Sedation Scale	observation	v0.0	neuro	None	None	continuous	-5	4	Scale used to measure the agitation or sedation level of a person	["C4720839"]	false	[-5, -4, -3, -2, -1, 0, 1, 2, 3, 4]
-64	hbco	Carboxyhemoglobin	observation	v0.0	circulatory	None	None	continuous	None	None	Hemoglobin in which the sites usually bound to oxygen are bound to carbon monoxide.	["C0007061"]	true	None
+64	hbco	Carboxyhemoglobin	observation	v0.0	circulatory	None	None	continuous	0	100	Hemoglobin in which the sites usually bound to oxygen are bound to carbon monoxide.	["C0007061"]	true	None
 65	esr	Erythrocyte sedimentation rate	observation	v0.0	infection	None	None	continuous	0	200	Erythrocyte sedimentation rate	["C1176468"]	true	None
-66	pt	Prothrombine time	observation	v0.0	circulatory	None	sec	continuous	0	None	Prothrombine time	["C0033707"]	true	None
+66	pt	Prothrombine time	observation	v0.0	circulatory	None	sec	continuous	0	250	Prothrombine time	["C0033707"]	true	None
 68	adm	Patient admission type	static	v0.0	demographic	None	None	categorical	None	None	Patient admission type	["C0030673"]	None	["surg", "med", "other"]
-69	hba1c	Hemoglobin A1C	observation	v0.0	metabolic_renal	None	%	continuous	None	None	A1C is a blood test for type 2 diabetes and prediabetes.	["C0474680"]	true	None
+69	hba1c	Hemoglobin A1C	observation	v0.0	metabolic_renal	None	%	continuous	0	100	A1C is a blood test for type 2 diabetes and prediabetes.	["C0474680"]	true	None
 71	samp	Body fluid sampling, detected bacterial growth	observation	v0.0	infection	None	None	categorical	None	None	Body fluid sampling, testing for bacterial infection, true/false/Missing	["C0004623"]	false	[false, true]
 72	spo2	Pulse Oxymetry Oxygen Saturation	observation	v0.0	respiratory	None	%	continuous	50	100	Pulse oxymetry measured blood oxygen saturation	["C0483415", "C0523807"]	false	None
 73	sao2	Oxygen saturation in arterial blood	observation	v0.0	respiratory	None	%	continuous	50	100	Oxygen saturation in arterial blood as determined by blood sample	["C0428175"]	false	None
@@ -88,6 +88,8 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 93	lip	lipase	observation	v0.1	gastrointestinal	None	U/L	continuous	0	4000	Lipase	["C0023764"]	true	None
 94	ufilt	ultrafiltration on continuous RRT	treatment	v0.1	metabolic_renal	None	ml	treatment_cont	0	7000	RRT (Renal Replacement Therapy)	["C0041612"]	true	None
 95	ufilt_ind	ultrafiltration on continuous RRT as indicator variable	treatment	v0.1	metabolic_renal	None	None	treatment_ind	None	None	RRT (Renal Replacement Therapy)	["C0041612"]	true	None
+96	rel_urine_rate	Urine rate per hour by weight	observation	v1.1	metabolic_renal	None	mL/h/kg	continuous	0	50	Urine output per hour by weight (relative rate)	None	true	None
+97	pf_ratio	Ratio of PaO2 and FiO2	observation	v1.1	respiratory	None	mmHg	continuous	40	3000	Partial pressure of oxygen in the blood relative to inspured oxigen	None	true	None
 1001	dobu	dobutamine	treatment	v1.0	circulatory	vasopressor_inotrope	mcg/min	treatment_cont	0	8000	Dobutamine as a rate	["C0012963"]	true	None
 1002	levo	levosimendan	treatment	v1.0	circulatory	vasopressor_inotrope	mcg/min	treatment_cont	0	200	Levosimendan as a rate	["C0246904"]	true	None
 1003	norepi	norepinephrine	treatment	v1.0	circulatory	vasopressor_inotrope	mcg/min	treatment_cont	0	100	Norepinephrine as a rate	["C0028351"]	true	None
