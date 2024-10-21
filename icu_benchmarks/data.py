@@ -440,7 +440,8 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     # to string first.
     enum_variables = variable_reference.filter(pl.col("DataType").eq("categorical"))
     for col, values in enum_variables.select("VariableTag", "PossibleValues").rows():
-        dyn = dyn.with_columns(pl.col(col).cast(pl.String).cast(pl.Enum(values)))
+        enum = pl.Enum(values + ["(MISSING)"])
+        dyn = dyn.with_columns(pl.col(col).cast(pl.String).cast(enum))
 
     expressions = [pl.col("time_hours")]
     expressions += [pl.col(var).forward_fill() for var in CONTINUOUS_VARIABLES]
