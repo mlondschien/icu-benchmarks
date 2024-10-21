@@ -14,7 +14,12 @@ variable_reference = variable_reference.with_columns(
 )
 
 CONTINUOUS_VARIABLES = variable_reference.filter(pl.col("DataType").eq("continuous"))
-CONTINUOUS_VARIABLES = CONTINUOUS_VARIABLES.select("VariableTag").to_series().to_list()
+CONTINUOUS_VARIABLES = CONTINUOUS_VARIABLES.select(
+    pl.when("LogTransform")
+    .then(pl.concat_str(pl.lit("log_"), "VariableTag"))
+    .otherwise(pl.col("VariableTag"))
+)
+CONTINUOUS_VARIABLES = CONTINUOUS_VARIABLES.to_series().to_list()
 
 CATEGORICAL_VARIABLES = variable_reference.filter(pl.col("DataType").eq("categorical"))
 CATEGORICAL_VARIABLES = (
@@ -65,7 +70,8 @@ def continuous_features(column_name, time_col, horizons=[8, 24]):
         timexcol_sum = timexcol_cs - timexcol_cs.shift(horizon, fill_value=0)
         nonnulls_sum = nonnulls - nonnulls.shift(horizon, fill_value=0)
 
-        col_mean = col_sum / nonnulls_sum
+        # Use when to avoid division by zero & s.t. column contains Nones, not nans.
+        col_mean = pl.when(nonnulls_sum > 0).then(col_sum / nonnulls_sum)
 
         # std = sum_i (x_i - mean)^2 / n = sum_i x_i^2 / n - mean^2
         col_std = (col_sq_sum / nonnulls_sum - col_mean * col_mean).clip(0, None).sqrt()
@@ -96,42 +102,38 @@ def discrete_features(column_name, time_col, horizons=[8, 24]):
     Compute discrete features for a column.
 
     These are:
-    - mode: The mode of the column within the last `horizon` hours. Ignores "(MISSING)".
+    - mode: The mode of the column within the last `horizon` hours. Ignores missing
+      values.
     - num_nonmissing: The number of non-missing values within the last `horizon` hours.
     """
 
     def get_rolling_mode(series, horizon):
         """Compute rolling mode for a series of (value, time) tuples."""
-        # If the column was all "(MISSING)" (and thus now empty), `mode` returns an
-        # empty list. Else, it returns a list with the mode(s) of the column. This list
-        # has multiple entries if there's ties. We take the first entry as the mode.
+        # If the column contains only missings, `mode` returns an empty list. Else, it
+        # returns a list with the mode(s) of the column. This list has multiple entries
+        # if there's ties. We take the first entry (after sorting) as the mode.
         return (
             pl.select(col=series[0], time=series[1])
             .rolling(index_column="time", period=f"{horizon}i")
             .agg(pl.col("col").drop_nulls().mode())
             .select(
                 pl.when(pl.col("col").list.len() >= 1)
-                .then(pl.col("col").list.first())
+                .then(pl.col("col").list.sort().list.first())
                 .fill_null("(MISSING)")
             )
             .to_series()
-            .to_list()
         )
 
-    nonnulls = (pl.col(column_name) != "(MISSING)").cum_sum()
+    nonnulls = (pl.col(column_name).is_not_null()).cum_sum()
 
     expressions = list()
 
     for horizon in horizons:
-        # We take the column `column_name` and remove all "(MISSING)" values. Else, the
-        # rolling mode would (almost) always return "(MISSING)". We then do a rolling
-        # mode over the column with "(MISSING)" removed.
         col_mode = pl.map_groups(
-            exprs=(pl.col(column_name).replace("(MISSING)", None), pl.col(time_col)),
+            exprs=(pl.col(column_name), pl.col(time_col)),
             function=lambda series: get_rolling_mode(series, horizon),
             return_dtype=pl.List(pl.String),
-        )
-
+        ).replace("(MISSING)", None)
         nonnulls_sum = nonnulls - nonnulls.shift(horizon, fill_value=0)
 
         expressions += [
@@ -393,7 +395,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     if nan_columns:
         raise ValueError(f"The following columns contain nans: {nan_columns}")
 
-    # Clip continuous variables according to the bounds in the variable reference.
+    # Clip continuous variables according to the bounds in the variable reference
     for row in variable_reference.select(
         "VariableTag", "LowerBound", "UpperBound"
     ).rows():
@@ -401,12 +403,15 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
     # Log transform some of the continuous variables. If the variable has a lower bound
     # equal to 0 and a non-missing upper bound, we use an offset: 1e-4 * upper bound.
-    log_variables = variable_reference.filter(pl.col("LogTransform").eq("true"))
+    log_variables = variable_reference.filter(pl.col("LogTransform"))
     for row in log_variables.select("VariableTag", "LowerBound", "UpperBound").rows():
         if row[1] == 0 and row[2] is not None:
-            dyn = dyn.with_columns(pl.col(row[0]) + 1e-4 * row[2])
+            col = (pl.col(row[0]) + 1e-4 * row[2]).log()
+        else:
+            col = pl.col(row[0]).log()
 
-        dyn = dyn.with_columns(pl.col(row[0]).log().replace([np.nan, -np.inf], None))
+        alias = f"log_{row[0]}"
+        dyn = dyn.with_columns(col.replace([np.nan, -np.inf], None).alias(alias))
 
     # Lazy polars.DataFrame.upsample for time_column with dtype int.
     # The result is a DataFrame with a row for each hour between 0 and the maximum
