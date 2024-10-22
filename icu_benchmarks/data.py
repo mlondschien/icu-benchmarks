@@ -133,8 +133,8 @@ def discrete_features(column_name, time_col, horizons=[8, 24]):
             exprs=(pl.col(column_name), pl.col(time_col)),
             function=lambda series: get_rolling_mode(series, horizon),
             return_dtype=pl.List(pl.String),
-        ).replace("(MISSING)", None)
-        nonnulls_sum = nonnulls - nonnulls.shift(horizon, fill_value=0)
+        )
+        nonnulls_sum = nonnulls - nonnulls.shift(horizon, fill_value=0).cast(pl.Float64)
 
         expressions += [
             col_mode.alias(f"{column_name}_mode_h{horizon}"),
@@ -443,10 +443,15 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         enum = pl.Enum(values + ["(MISSING)"])
         dyn = dyn.with_columns(pl.col(col).cast(pl.String).cast(enum))
 
-    expressions = [pl.col("time_hours")]
+    expressions = [
+        pl.col("time_hours"),
+        (pl.col("stay_id").hash() / 2.0**64).alias("hash"),  # useful for subsetting
+    ]
     expressions += [pl.col(var).forward_fill() for var in CONTINUOUS_VARIABLES]
-    expressions += [pl.col(var) for var in CATEGORICAL_VARIABLES]
-    expressions += [pl.col(var) for var in TREATMENT_INDICATORS]
+    # We treat "missing" as a separate category.
+    expressions += [pl.col(var).fill_null("(MISSING)") for var in CATEGORICAL_VARIABLES]
+    # Should we include treatment indicators at all?
+    expressions += [pl.col(var).fill_null(0) for var in TREATMENT_INDICATORS]
 
     for f in CONTINUOUS_VARIABLES:
         expressions += continuous_features(f, "time_hours", horizons=[8, 24])
