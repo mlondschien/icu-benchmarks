@@ -1,4 +1,5 @@
 from pathlib import Path
+from time import perf_counter
 
 import click
 import numpy as np
@@ -248,7 +249,7 @@ def outcomes():
     # assigned. All other timesteps are missing.
     mortality_at_24h = (
         pl.when(pl.col("time_hours").eq(23))  # time_hours==23 is the 24th time step.
-        .then(pl.col("death_icu").first())
+        .then(pl.col("death_icu").first().fill_null(False))
         .alias("mortality_at_24h")
     ).alias("mortality_at_24h")
 
@@ -382,7 +383,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
     dyn = pl.scan_parquet(data_dir / dataset / "dyn.parquet")
     sta = pl.scan_parquet(data_dir / dataset / "sta.parquet")
-    dyn = dyn.join(sta, on="stay_id", how="full", coalesce=True)
+    dyn = dyn.join(sta, on="stay_id", how="full", coalesce=True, validate="m:1")
 
     dyn = dyn.with_columns(
         (pl.col("time").dt.total_hours()).cast(pl.Int32).alias("time_hours")
@@ -451,7 +452,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     # We treat "missing" as a separate category.
     expressions += [pl.col(var).fill_null("(MISSING)") for var in CATEGORICAL_VARIABLES]
     # Should we include treatment indicators at all?
-    expressions += [pl.col(var).fill_null(0) for var in TREATMENT_INDICATORS]
+    expressions += [pl.col(var).fill_null(False) for var in TREATMENT_INDICATORS]
 
     for f in CONTINUOUS_VARIABLES:
         expressions += continuous_features(f, "time_hours", horizons=[8, 24])
@@ -465,7 +466,11 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     expressions += outcomes()
 
     q = dyn.group_by("stay_id").agg(expressions).explode(pl.exclude("stay_id"))
+
+    tic = perf_counter()
     out = q.collect()
+    toc = perf_counter()
+    print(f"Time to compute features: {toc - tic:.2f}s")
     out.write_parquet(data_dir / dataset / "features.parquet")
 
 
