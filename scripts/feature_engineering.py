@@ -448,6 +448,13 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     expressions = [
         pl.col("time_hours"),
         (pl.col("stay_id").hash() / 2.0**64).alias("hash"),  # useful for subsetting
+        pl.when(pl.col("hash") < 0.7)
+        .then("train")
+        .when(pl.col("hash") < 0.85)
+        .then("val")
+        .otherwise("test")
+        .alias("split"),
+        pl.lit(dataset).alias("dataset"),
     ]
     expressions += [pl.col(var).forward_fill() for var in CONTINUOUS_VARIABLES]
     # We treat "missing" as a separate category.
@@ -472,7 +479,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     out = q.collect()
     toc = perf_counter()
     print(f"Time to compute features: {toc - tic:.2f}s")
-    out.write_parquet(data_dir / dataset / "features.parquet")
+    out.write_parquet(data_dir / dataset / "features.parquet", partition_by="split")
 
 
 if __name__ == "__main__":
