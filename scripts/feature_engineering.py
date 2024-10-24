@@ -9,7 +9,8 @@ from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
 
 variable_reference = pl.read_csv(
     VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"]
-)
+).filter(pl.col("DatasetVersion").is_not_null())
+
 variable_reference = variable_reference.with_columns(
     pl.col("PossibleValues").str.json_decode()
 )
@@ -405,9 +406,9 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     # Log transform some of the continuous variables. If the variable has a lower bound
     # equal to 0 and a non-missing upper bound, we use an offset: 1e-4 * upper bound.
     log_variables = variable_reference.filter(pl.col("LogTransform"))
-    for row in log_variables.select("VariableTag", "LowerBound", "UpperBound").rows():
-        if row[1] == 0 and row[2] is not None:
-            col = (pl.col(row[0]) + 1e-4 * row[2]).log()
+    for row in log_variables.select("VariableTag", "LogTransformEps").rows():
+        if row[1] is not None:
+            col = (pl.col(row[0]) + row[1]).log()
         else:
             col = pl.col(row[0]).log()
 
