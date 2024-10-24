@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from time import perf_counter
 
@@ -6,6 +7,15 @@ import numpy as np
 import polars as pl
 
 from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
+
+logger = logging.getLogger(__name__)
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 
 variable_reference = pl.read_csv(
     VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"]
@@ -380,12 +390,15 @@ def outcomes():
 @click.option("--dataset", type=str, required=True)
 @click.option("--data_dir", type=str, default=None)
 def main(dataset: str, data_dir: str | Path | None):  # noqa D
+    logger.info(f"dataset: {dataset}")
     data_dir = Path(data_dir) if data_dir is not None else Path(DATA_DIR)
 
     dyn = pl.scan_parquet(data_dir / dataset / "dyn.parquet")
     sta = pl.scan_parquet(data_dir / dataset / "sta.parquet")
+    logger.info(
+        f"len(dyn): {dyn.select(pl.len()).collect().item()}, len(sta): {sta.select(pl.len()).collect().item()}"
+    )
     dyn = dyn.join(sta, on="stay_id", how="full", coalesce=True, validate="m:1")
-
     dyn = dyn.with_columns(
         (pl.col("time").dt.total_hours()).cast(pl.Int32).alias("time_hours")
     )
@@ -445,17 +458,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         enum = pl.Enum(values + ["(MISSING)"])
         dyn = dyn.with_columns(pl.col(col).cast(pl.String).cast(enum))
 
-    expressions = [
-        pl.col("time_hours"),
-        (pl.col("stay_id").hash() / 2.0**64).alias("hash"),  # useful for subsetting
-        pl.when(pl.col("hash") < 0.7)
-        .then("train")
-        .when(pl.col("hash") < 0.85)
-        .then("val")
-        .otherwise("test")
-        .alias("split"),
-        pl.lit(dataset).alias("dataset"),
-    ]
+    expressions = ["time_hours"]
     expressions += [pl.col(var).forward_fill() for var in CONTINUOUS_VARIABLES]
     # We treat "missing" as a separate category.
     expressions += [pl.col(var).fill_null("(MISSING)") for var in CATEGORICAL_VARIABLES]
@@ -475,10 +478,21 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
     q = dyn.group_by("stay_id").agg(expressions).explode(pl.exclude("stay_id"))
 
+    q = q.with_columns(
+        (pl.col("stay_id").hash() / 2.0**64).alias("hash"),  # useful for subsetting
+        pl.when(pl.col("hash") < 0.7)
+        .then(pl.lit("train"))
+        .when(pl.col("hash") < 0.85)
+        .then(pl.lit("val"))
+        .otherwise(pl.lit("test"))
+        .alias("split"),
+        pl.lit(dataset).alias("dataset"),
+    )
     tic = perf_counter()
     out = q.collect()
     toc = perf_counter()
-    print(f"Time to compute features: {toc - tic:.2f}s")
+    logger.info(f"Time to compute features: {toc - tic:.2f}s")
+    logger.info(f"out.shape: {out.shape}")
     out.write_parquet(data_dir / dataset / "features.parquet", partition_by="split")
 
 
