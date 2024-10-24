@@ -3,7 +3,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_series_equal
 
-from icu_benchmarks.data import (
+from icu_benchmarks.feature_engineering import (
     continuous_features,
     discrete_features,
     treatment_features,

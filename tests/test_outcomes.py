@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_series_equal
 
-from icu_benchmarks.data import eep_label, outcomes, polars_nan_or
+from icu_benchmarks.feature_engineering import eep_label, outcomes, polars_nan_or
 
 
 def to_bool(x):
