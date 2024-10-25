@@ -48,7 +48,7 @@ def continuous_features(column_name, time_col, horizons=[8, 24]):
 
     These are:
     - mean: The mean of the column within the last `horizon` hours. This is nan if there
-      are no non-missing values within the last `horizon` hours.
+      are only missing values within the last `horizon` hours.
     - std: The standard deviation of the column within the last `horizon` hours. This is
       nan if there are less than 2 non-missing values within the last `horizon` hours.
     - slope: The slope of the column within the last `horizon` hours. Uses hours as the
