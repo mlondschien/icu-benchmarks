@@ -42,7 +42,7 @@ TREATMENT_INDICATORS = variable_reference.filter(pl.col("DataType").eq("treatmen
 TREATMENT_INDICATORS = TREATMENT_INDICATORS.select("VariableTag").to_series().to_list()
 
 
-def continuous_features(column_name, time_col, horizons=[8, 24]):
+def continuous_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
     """
     Compute continuous features for a column.
 
@@ -56,6 +56,15 @@ def continuous_features(column_name, time_col, horizons=[8, 24]):
       `horizon` hours.
     - fraction_nonnull: The fraction of non-missing values within the last `horizon`.
     - all_missing: True if all values within the last `horizon` are missing.
+
+    Parameters
+    ----------
+    column_name : str
+        Name of column for which to compute features. E.g., `hr`.
+    time_col : str
+        Name of the time column. E.g., `time_hours`.
+    horizons : list[int]
+        Horizons for which to compute the features. E.g., [8, 24].
     """
     # All features can be computed using cumulative sums. To "ignore" missing values,
     # we fill them with 0.
@@ -109,7 +118,7 @@ def continuous_features(column_name, time_col, horizons=[8, 24]):
     return expressions
 
 
-def discrete_features(column_name, time_col, horizons=[8, 24]):
+def discrete_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
     """
     Compute discrete features for a column.
 
@@ -117,6 +126,15 @@ def discrete_features(column_name, time_col, horizons=[8, 24]):
     - mode: The mode of the column within the last `horizon` hours. Ignores missing
       values.
     - num_nonmissing: The number of non-missing values within the last `horizon` hours.
+
+    Parameters
+    ----------
+    column_name : str
+        Name of column for which to compute features. E.g., `hr`.
+    time_col : str
+        Name of the time column. E.g., `time_hours`.
+    horizons : list[int]
+        Horizons for which to compute the features. E.g., [8, 24].
     """
 
     def get_rolling_mode(series, horizon):
@@ -156,7 +174,7 @@ def discrete_features(column_name, time_col, horizons=[8, 24]):
     return expressions
 
 
-def treatment_features(column_name, time_col, horizons=[8, 24]):
+def treatment_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
     """
     Compute treatment features for a column.
 
@@ -164,6 +182,15 @@ def treatment_features(column_name, time_col, horizons=[8, 24]):
     - num_nonmissing: The number of non-missing values within the last `horizon` hours.
     - any_nonmissing: True if there is a non-missing value within the last `horizon`
     hours.
+
+    Parameters
+    ----------
+    column_name : str
+        Name of column for which to compute features. E.g., `hr`.
+    time_col : str
+        Not used.
+    horizons : list[int]
+        Horizons for which to compute the features. E.g., [8, 24].
     """
     col_cs = pl.col(column_name).cast(pl.Int32).fill_null(0).cum_sum()
 
@@ -178,7 +205,7 @@ def treatment_features(column_name, time_col, horizons=[8, 24]):
     return expressions
 
 
-def eep_label(events, horizon):
+def eep_label(events: pl.Expr, horizon: int):
     """
     From an event series, create a label for the early event prediction (eep) task.
 
@@ -198,6 +225,13 @@ def eep_label(events, horizon):
 
     Note that at the time step of a positive event, the label is always missing. At the
     time step of a negative event, the label could be true, false, or missing.
+
+    Parameters
+    ----------
+    events : pl.Expr
+        An expression for an event series. Boolean with possibly missing values.
+    horizon : int
+        The horizon for the early event prediction task.
     """
     positive_labels = events.replace(False, None).backward_fill(horizon)
     # shift(-1) and backward_fill(horizon - 1) excludes the last zero.
@@ -207,7 +241,7 @@ def eep_label(events, horizon):
     )
 
 
-def polars_nan_or(*args):
+def polars_nan_or(*args: pl.Expr):
     """
     Nan or operation for polars Series.
 
