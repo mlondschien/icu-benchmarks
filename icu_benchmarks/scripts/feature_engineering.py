@@ -285,7 +285,7 @@ def outcomes():
       the next 8 hours. Circulatory failure is defined via blood pressure and lactate.
       Blood pressure is considered low if the mean arterial pressure is below 65 or if
       the patient is on any blood pressure increasing drug. Lactate is high if it is
-      above 2. If the two criteria (map and lactate) don't agree, or if one of them is
+      above 2 mmol/l. If the two criteria (map and lactate) don't agree, or if one of them is
       missing, the event label is missing.
     - kidney_failure_at_48h: Whether the patient has a kidney failure within the next 48
       hours. The patient has a kidney failure if they are in stage 3 according to the
