@@ -68,6 +68,7 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
     """
     # All features can be computed using cumulative sums. To "ignore" missing values,
     # we fill them with 0.
+    col = pl.col(column_name).fill_null(0)
     # time is never null. But we want to ignore entries corresponding to missing values
     # in `column_name`.
     time = pl.when(pl.col(column_name).is_null()).then(0).otherwise(pl.col(time_col))
@@ -75,7 +76,7 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
 
     time_cs = time.cum_sum()
     time_sq_cs = (time * time).cum_sum()
-    col = pl.col(column_name).fill_null(0)
+
     col_cs = col.cum_sum()
     col_sq_cs = (col * col).cum_sum()
     timexcol_cs = (time * col).cum_sum()
