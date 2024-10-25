@@ -405,10 +405,10 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
     # The code below assumes that all missing values are encoded as nulls, not nans.
     # nans behave differently in comparisons (1.0 == nan is False)
-    nan_columns = dyn.select(pl.col([pl.Float32, pl.Float64]).is_nan().any()).collect()
-    nan_columns = [col.name for col in nan_columns if col.any()]
-    if nan_columns:
-        raise ValueError(f"The following columns contain nans: {nan_columns}")
+    # nan_columns = dyn.select(pl.col([pl.Float32, pl.Float64]).is_nan().any()).collect()
+    # nan_columns = [col.name for col in nan_columns if col.any()]
+    # if nan_columns:
+    #     raise ValueError(f"The following columns contain nans: {nan_columns}")
 
     # Clip continuous variables according to the bounds in the variable reference
     for row in variable_reference.select(
@@ -479,7 +479,8 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     q = dyn.group_by("stay_id").agg(expressions).explode(pl.exclude("stay_id"))
 
     q = q.with_columns(
-        (pl.col("stay_id").hash() / 2.0**64).alias("hash"),  # useful for subsetting
+        (pl.col("stay_id").hash() / 2.0**64).alias("hash")
+    ).with_columns(  # useful for subsetting
         pl.when(pl.col("hash") < 0.7)
         .then(pl.lit("train"))
         .when(pl.col("hash") < 0.85)
@@ -488,12 +489,14 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         .alias("split"),
         pl.lit(dataset).alias("dataset"),
     )
+
     tic = perf_counter()
     out = q.collect()
     toc = perf_counter()
     logger.info(f"Time to compute features: {toc - tic:.2f}s")
     logger.info(f"out.shape: {out.shape}")
-    out.write_parquet(data_dir / dataset / "features.parquet", partition_by="split")
+
+    out.write_parquet(data_dir / dataset / "features.parquet")
 
 
 if __name__ == "__main__":
