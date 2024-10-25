@@ -272,9 +272,8 @@ def outcomes():
     Compute outcomes.
 
     These are:
-    - mortality_at_24h: Whether the patient dies within the next 24 hours. This is a
-      "once per patient" prediction task. At the time step 24h, a label
-      true/false is assigned. All other timesteps are missing.
+    - mortality_at_24h: A single label at time 24h after entry to the ICU whether the
+      patient dies in the ICU. THis is a "once per patient" prediction task.
     - decompensation_at_24h: Whether the patient decompensates within the next 24 hours.
       This has label is true if the patient dies within the next 24 hours. Else, this is
       false. This does not have missing values.
@@ -290,16 +289,17 @@ def outcomes():
       missing, the event label is missing.
     - kidney_failure_at_48h: Whether the patient has a kidney failure within the next 48
       hours. The patient has a kidney failure if they are in stage 3 according to the
-      KDIGO guidelines.
+      KDIGO guidelines:
+      https://kdigo.org/wp-content/uploads/2016/10/KDIGO-2012-AKI-Guideline-English.pdf
     """
     # mortality_at_24h
     # This is a "once per patient" prediction task. At time step 24h, a label is
     # assigned. All other timesteps are missing.
     mortality_at_24h = (
-        pl.when(pl.col("time_hours").eq(23))  # time_hours==23 is the 24th time step.
+        pl.when(pl.col("time_hours").eq(24))
         .then(pl.col("death_icu").first().fill_null(False))
         .alias("mortality_at_24h")
-    ).alias("mortality_at_24h")
+    )
 
     # decompensation_at_24h
     # This has label is true if the patient dies within the next 24 hours. Else, this
@@ -354,9 +354,12 @@ def outcomes():
     # any map increasing drug. If the mean arterial pressure is above 65 and the patient
     # is not on any map increasing drug, bad_map is False. If the patient does not have
     # a map value and is not on any map increasing drug, bad_map is None.
-    bad_map = pl.coalesce(drugs_indicator.replace(False, None), pl.col("map") <= 65)
+    LOW_MAP_TSH = 65.0
+    low_map = pl.col("map") <= LOW_MAP_TSH
+    bad_map = pl.coalesce(drugs_indicator.replace(False, None), low_map)
 
-    bad_lact = pl.col("lact") >= 2
+    HIGH_LACT_TSH = 2.0
+    bad_lact = pl.col("lact") >= HIGH_LACT_TSH
     # An event occurs if the map is "bad" (low or on drugs) and the lactate is high.
     # If the map is "good" (not low and not on drugs) and the lactate is not high, the
     # event label is negative. If the map and lact don't agree, or if one of them is
@@ -409,7 +412,7 @@ def outcomes():
         anuria,
     )
     # If the weight is missing, the patient could only ever have a positive label, as
-    # creatine related conditions are always missing. We thus set the label to missing.
+    # urine related conditions are always missing. We thus set the label to missing.
     aki_3 = pl.when(pl.col("weight").is_null()).then(None).otherwise(aki_3)
     kidney_failure_at_48h = eep_label(aki_3, 48).alias("kidney_failure_at_48h")
 
@@ -442,10 +445,10 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
     # The code below assumes that all missing values are encoded as nulls, not nans.
     # nans behave differently in comparisons (1.0 == nan is False)
-    # nan_columns = dyn.select(pl.col([pl.Float32, pl.Float64]).is_nan().any()).collect()
-    # nan_columns = [col.name for col in nan_columns if col.any()]
-    # if nan_columns:
-    #     raise ValueError(f"The following columns contain nans: {nan_columns}")
+    nan_columns = dyn.select(pl.col([pl.Float32, pl.Float64]).is_nan().any()).collect()
+    nan_columns = [col.name for col in nan_columns if col.any()]
+    if nan_columns:
+        raise ValueError(f"The following columns contain nans: {nan_columns}")
 
     # Clip continuous variables according to the bounds in the variable reference
     for row in variable_reference.select(
@@ -453,8 +456,9 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     ).rows():
         dyn = dyn.with_columns(pl.col(row[0]).clip(row[1], row[2]))
 
-    # Log transform some of the continuous variables. If the variable has a lower bound
-    # equal to 0 and a non-missing upper bound, we use an offset: 1e-4 * upper bound.
+    # Log transform some of the continuous variables. For variables with a lower bound
+    # equal to 0, we add a small epsilon to avoid taking the log of 0. The epsilon
+    # should be in the order of the measurement precision.
     log_variables = variable_reference.filter(pl.col("LogTransform"))
     for row in log_variables.select("VariableTag", "LogTransformEps").rows():
         if row[1] is not None:
