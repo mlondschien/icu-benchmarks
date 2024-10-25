@@ -88,8 +88,8 @@ def test_continuous_features(feature, input, expected):
             ],
             pl.Series(
                 [
-                    None,
-                    None,
+                    "(MISSING)",
+                    "(MISSING)",
                     "a",
                     "a",
                     "b",
@@ -124,7 +124,7 @@ def test_continuous_features(feature, input, expected):
                 "a",
                 "a",
             ],
-            pl.Series([0, 0, 1, 2, 3, 4, 4, 5, 6, 6, 5, 4, 4, 4], dtype=pl.UInt32),
+            pl.Series([0, 0, 1, 2, 3, 4, 4, 5, 6, 6, 5, 4, 4, 4], dtype=pl.Float64),
         ),
     ],
 )
