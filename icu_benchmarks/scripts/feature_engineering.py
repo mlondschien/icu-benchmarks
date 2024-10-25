@@ -144,8 +144,10 @@ def discrete_features(column_name: str, time_col: str, horizons: list[int] = [8,
         # returns a list with the mode(s) of the column. This list has multiple entries
         # if there's ties. We take the first entry (after sorting) as the mode.
         return (
-            pl.select(col=series[0], time=series[1])
-            .rolling(index_column="time", period=f"{horizon}i")
+            pl.select(col=series[0], _time=series[1])
+            # Use period="xi" (index-based), as polars does not support time-based with
+            # the period column a `Duration`. It only supports this for "absolute" time.
+            .rolling(index_column="_time", period=f"{horizon}i")
             .agg(pl.col("col").drop_nulls().mode())
             .select(
                 pl.when(pl.col("col").list.len() >= 1)
