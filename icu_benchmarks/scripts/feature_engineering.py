@@ -283,7 +283,7 @@ def outcomes():
     - remaining_los: The remaining length of stay in the ICU.
     - circulatory_failure_at_8h: Whether the patient has a circulatory failure within
       the next 8 hours. Circulatory failure is defined via blood pressure and lactate.
-      Blood pressure is considered low if the mean arterial pressure is below 65 or if
+      Blood pressure is considered low if the mean arterial pressure is below 65 mmHg or if
       the patient is on any blood pressure increasing drug. Lactate is high if it is
       above 2 mmol/l. If the two criteria (map and lactate) don't agree, or if one of them is
       missing, the event label is missing.
