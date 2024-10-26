@@ -29,13 +29,7 @@ jobs:
       - name: Install repository
         run: python -m pip install --no-build-isolation --no-deps --disable-pip-version-check -e .
       - name: Pytest
-        run: pytest --cov --cov-report xml tests
-      - name: codecov
-        uses: codecov/codecov-action@v4.3.1
-        with:
-          file: ./coverage.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
-          name: pytest-python${{ matrix.PYTHON_VERSION }}
+        run: pytest tests
 
 
   pre-commit-checks:
