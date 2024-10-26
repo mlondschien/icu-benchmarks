@@ -6,7 +6,8 @@ from polars.testing import assert_series_equal
 from icu_benchmarks.scripts.feature_engineering import (
     continuous_features,
     discrete_features,
-    treatment_features,
+    treatment_continuous_features,
+    treatment_indicator_features,
 )
 
 
@@ -184,8 +185,32 @@ def test_discrete_features(feature, input, expected):
         ),
     ],
 )
-def test_treatment_features(feature, input, expected):
-    features = treatment_features("feature", "time")
+def test_treatment_indicator_features(feature, input, expected):
+    features = treatment_indicator_features("feature", "time")
+    name = f"feature_{feature}"
+    expr = [e for e in features if e.meta.output_name() == name][0]
+
+    df = pl.DataFrame({"feature": input, "time": range(len(input))})
+
+    result = df.select(expr).to_series()
+
+    assert_series_equal(
+        result, pl.Series(expected), check_names=False, check_dtypes=False
+    )
+
+
+@pytest.mark.parametrize(
+    "feature, input, expected",
+    [
+        (
+            "mean_h8",
+            [1.0, 1.0, None, None, None, None, 1.0, 1.0],
+            [1.0, 1.0, 2 / 3, 0.5, 2 / 5, 2 / 6, 3 / 7, 0.5],
+        ),
+    ],
+)
+def test_treatment_comtinuous_features(feature, input, expected):
+    features = treatment_continuous_features("feature", "time")
     name = f"feature_{feature}"
     expr = [e for e in features if e.meta.output_name() == name][0]
 

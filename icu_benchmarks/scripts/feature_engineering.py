@@ -41,6 +41,11 @@ CATEGORICAL_VARIABLES = (
 TREATMENT_INDICATORS = variable_reference.filter(pl.col("DataType").eq("treatment_ind"))
 TREATMENT_INDICATORS = TREATMENT_INDICATORS.select("VariableTag").to_series().to_list()
 
+TREATMENT_CONTINUOUS = variable_reference.filter(
+    pl.col("DataType").eq("treatment_cont")
+)
+TREATMENT_CONTINUOUS = TREATMENT_CONTINUOUS.select("VariableTag").to_series().to_list()
+
 
 def continuous_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
     """
@@ -177,9 +182,11 @@ def discrete_features(column_name: str, time_col: str, horizons: list[int] = [8,
     return expressions
 
 
-def treatment_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
+def treatment_indicator_features(
+    column_name: str, time_col: str, horizons: list[int] = [8, 24]
+):
     """
-    Compute treatment features for a column.
+    Compute features for a treatment indicator column.
 
     These are:
     - num_nonmissing: The number of non-missing values within the last `horizon` hours.
@@ -205,6 +212,37 @@ def treatment_features(column_name: str, time_col: str, horizons: list[int] = [8
             col_sum.alias(f"{column_name}_num_nonmissing_h{horizon}"),
             (col_sum > 0).alias(f"{column_name}_any_nonmissing_h{horizon}"),
         ]
+    return expressions
+
+
+def treatment_continuous_features(
+    column_name: str, time_col: str, horizons: list[int] = [8, 24]
+):
+    """
+    Compute features for a variable with continuous treatment values.
+
+    These are:
+    - mean: The mean of the column within the last `horizon` hours after imputing with
+      zero. This can be interpreted as some kind of "rate".
+
+    Parameters
+    ----------
+    column_name : str
+        Name of column for which to compute features. E.g., `hr`.
+    time_col : str
+        Not used.
+    horizons : list[int]
+        Horizons for which to compute the features. E.g., [8, 24].
+    """
+    col_cs = pl.col(column_name).fill_null(0.0).cum_sum()
+
+    expressions = list()
+
+    for horizon in horizons:
+        col_sum = col_cs - col_cs.shift(horizon, fill_value=0)
+        col_mean = col_sum / (pl.col(time_col) + 1).clip(None, horizon)
+        expressions += [col_mean.alias(f"{column_name}_mean_h{horizon}")]
+
     return expressions
 
 
@@ -505,6 +543,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     expressions += [pl.col(var).fill_null("(MISSING)") for var in CATEGORICAL_VARIABLES]
     # Should we include treatment indicators at all?
     expressions += [pl.col(var).fill_null(False) for var in TREATMENT_INDICATORS]
+    expressions += [pl.col(var).fill_null(0.0) for var in TREATMENT_CONTINUOUS]
 
     for f in CONTINUOUS_VARIABLES:
         expressions += continuous_features(f, "time_hours", horizons=[8, 24])
@@ -513,15 +552,18 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         expressions += discrete_features(f, "time_hours", horizons=[8, 24])
 
     for f in TREATMENT_INDICATORS:
-        expressions += treatment_features(f, "time_hours", horizons=[8, 24])
+        expressions += treatment_indicator_features(f, "time_hours", horizons=[8, 24])
+
+    for f in TREATMENT_CONTINUOUS:
+        expressions += treatment_continuous_features(f, "time_hours", horizons=[8, 24])
 
     expressions += outcomes()
 
     q = dyn.group_by("stay_id").agg(expressions).explode(pl.exclude("stay_id"))
 
     q = q.with_columns(
-        (pl.col("stay_id").hash() / 2.0**64).alias("hash")
-    ).with_columns(  # useful for subsetting
+        (pl.col("stay_id").hash() / 2.0**64).alias("hash")  # useful for subsetting
+    ).with_columns(
         pl.when(pl.col("hash") < 0.7)
         .then(pl.lit("train"))
         .when(pl.col("hash") < 0.85)
