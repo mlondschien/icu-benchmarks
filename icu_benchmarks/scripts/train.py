@@ -17,7 +17,7 @@ from sklearn.pipeline import Pipeline
 
 from icu_benchmarks.gin import GeneralizedLinearRegressor
 from icu_benchmarks.load import load
-from icu_benchmarks.mlflow_utils import setup_mlflow
+from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +116,8 @@ def main(config: str):  # noqa D
                 }
             )
             mlflow.set_tags({**tags, "parent_run": parent_run.info.run_id})
+            mlflow.log_text(glm.coef_table().to_markdown(), "coefficients.md")
+            log_df(glm.coef_table(), "coefficients.csv")
 
             runs.append(
                 {
@@ -137,8 +139,6 @@ def main(config: str):  # noqa D
             df = pipeline[:-1].transform(df)
 
             for run in runs:
-                # logger.info(f"Starting run {run['run_id']} for {target}/{split}")
-                # with mlflow.start_run(run_id=run["run_id"], nested=True):
                 pipeline[-1].intercept_ = pipeline[-1].intercept_path_[run["idx"]]
                 pipeline[-1].coef_ = pipeline[-1].coef_path_[run["idx"]]
                 yhat = pipeline[-1].predict(df)

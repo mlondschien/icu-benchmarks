@@ -39,16 +39,16 @@ def log_fig(fig, name):
         mlflow.log_artifact(path, target_dir)
 
 
-def log_df(df, name):
+def log_df(df, name, **args):
     """Log a pandas dataframe to MLflow."""
     target_dir, name = os.path.split(name)
     with tempfile.TemporaryDirectory() as tmpdir:
         path = f"{tmpdir}/{name}"
 
         if name.endswith(".csv"):
-            df.to_csv(path, index=False)
+            df.to_csv(path, **args)
         elif name.endswith(".parquet"):
-            df.to_parquet(path, index=False)
+            df.to_parquet(path, **args)
         else:
             raise ValueError(f"Unknown file extension: {name}")
 
