@@ -57,7 +57,7 @@ def test_polars_nan_or(args, expected):
                     "time_hours": np.arange(0, 36),
                 }
             ),
-            pl.Series("mortality_at_24h", [None] * 23 + [True] + [None] * 12),
+            pl.Series("mortality_at_24h", [None] * 24 + [True] + [None] * 11),
         ),
         (
             "mortality_at_24h",
@@ -67,7 +67,7 @@ def test_polars_nan_or(args, expected):
                     "time_hours": np.arange(0, 36),
                 }
             ),
-            pl.Series([None] * 23 + [False] + [None] * 12),
+            pl.Series([None] * 24 + [False] + [None] * 11),
         ),
         (
             "decompensation_at_24h",
