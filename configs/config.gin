@@ -1,0 +1,23 @@
+import icu_benchmarks.gin
+
+OUTCOME = "respiratory_failure_at_24h"
+
+SOURCES = ["hirid"]
+TARGETS = ["aumc", "ehrshot", "eicu", "hirid", "miiv", "picdb",  "sic", "zigong"]
+
+icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "file:/Users/mlondschien/code/mlflow_results"
+icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "test4"
+
+sources.sources = %SOURCES
+targets.targets = %TARGETS
+outcome.outcome = %OUTCOME
+
+glum.GeneralizedLinearRegressor.family = "binomial"
+glum.GeneralizedLinearRegressor.max_iter = 100
+glum.GeneralizedLinearRegressor.l1_ratio = 1
+glum.GeneralizedLinearRegressor.alpha_search = True
+glum.GeneralizedLinearRegressor.n_alphas = 10
+glum.GeneralizedLinearRegressor.verbose = 1
+
+model.model = @GeneralizedLinearRegressor
+
