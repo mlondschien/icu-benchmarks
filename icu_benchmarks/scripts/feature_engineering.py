@@ -16,35 +16,11 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-
-variable_reference = pl.read_csv(
-    VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"]
-).filter(pl.col("DatasetVersion").is_not_null())
-
-variable_reference = variable_reference.with_columns(
-    pl.col("PossibleValues").str.json_decode()
+variable_reference = (
+    pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"])
+    .filter(pl.col("DatasetVersion").is_not_null())
+    .with_columns(pl.col("PossibleValues").str.json_decode())
 )
-
-CONTINUOUS_VARIABLES = variable_reference.filter(pl.col("DataType").eq("continuous"))
-CONTINUOUS_VARIABLES = CONTINUOUS_VARIABLES.select(
-    pl.when("LogTransform")
-    .then(pl.concat_str(pl.lit("log_"), "VariableTag"))
-    .otherwise(pl.col("VariableTag"))
-)
-CONTINUOUS_VARIABLES = CONTINUOUS_VARIABLES.to_series().to_list()
-
-CATEGORICAL_VARIABLES = variable_reference.filter(pl.col("DataType").eq("categorical"))
-CATEGORICAL_VARIABLES = (
-    CATEGORICAL_VARIABLES.select("VariableTag").to_series().to_list()
-)
-
-TREATMENT_INDICATORS = variable_reference.filter(pl.col("DataType").eq("treatment_ind"))
-TREATMENT_INDICATORS = TREATMENT_INDICATORS.select("VariableTag").to_series().to_list()
-
-TREATMENT_CONTINUOUS = variable_reference.filter(
-    pl.col("DataType").eq("treatment_cont")
-)
-TREATMENT_CONTINUOUS = TREATMENT_CONTINUOUS.select("VariableTag").to_series().to_list()
 
 
 def continuous_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
@@ -52,6 +28,7 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
     Compute continuous features for a column.
 
     These are:
+    - ffilled: The column with missing values filled forward.
     - mean: The mean of the column within the last `horizon` hours. This is nan if there
       are only missing values within the last `horizon` hours.
     - std: The standard deviation of the column within the last `horizon` hours. This is
@@ -86,7 +63,7 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
     col_sq_cs = (col * col).cum_sum()
     timexcol_cs = (time * col).cum_sum()
 
-    expressions = list()
+    expressions = [pl.col(column_name).forward_fill().alias(f"{column_name}_ffill")]
 
     for horizon in horizons:
         window_size = (pl.col(time_col) + 1).clip(None, horizon)
@@ -216,14 +193,14 @@ def treatment_indicator_features(
 
 
 def treatment_continuous_features(
-    column_name: str, time_col: str, horizons: list[int] = [8, 24]
+    column_name: str, time_col: str, horizons: list[int] = [8, 24], log_eps: float = 0.0
 ):
     """
     Compute features for a variable with continuous treatment values.
 
     These are:
-    - mean: The mean of the column within the last `horizon` hours after imputing with
-      zero. This can be interpreted as some kind of "rate".
+    - rate: The log of the mean of the column within the last `horizon` hours after
+      imputing with zero.
 
     Parameters
     ----------
@@ -233,6 +210,8 @@ def treatment_continuous_features(
         Not used.
     horizons : list[int]
         Horizons for which to compute the features. E.g., [8, 24].
+    log_eps : float
+        Epsilon to add before taking the log. This is to avoid taking the log of 0.
     """
     col_cs = pl.col(column_name).fill_null(0.0).cum_sum()
 
@@ -241,7 +220,11 @@ def treatment_continuous_features(
     for horizon in horizons:
         col_sum = col_cs - col_cs.shift(horizon, fill_value=0)
         col_mean = col_sum / (pl.col(time_col) + 1).clip(None, horizon)
-        expressions += [col_mean.alias(f"{column_name}_mean_h{horizon}")]
+        # This ensures that zeros get mapped to zeros.
+        log_col_mean = (col_mean + log_eps).log() - pl.lit(log_eps).log()
+        expressions += [
+            log_col_mean.alias(f"log_{column_name}_rate_h{horizon}"),
+        ]
 
     return expressions
 
@@ -473,9 +456,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
     dyn = pl.scan_parquet(data_dir / dataset / "dyn.parquet")
     sta = pl.scan_parquet(data_dir / dataset / "sta.parquet")
-    logger.info(
-        f"len(dyn): {dyn.select(pl.len()).collect().item()}, len(sta): {sta.select(pl.len()).collect().item()}"
-    )
+
     dyn = dyn.join(sta, on="stay_id", how="full", coalesce=True, validate="m:1")
     dyn = dyn.with_columns(
         (pl.col("time").dt.total_hours()).cast(pl.Int32).alias("time_hours")
@@ -487,25 +468,6 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     nan_columns = [col.name for col in nan_columns if col.any()]
     if nan_columns:
         raise ValueError(f"The following columns contain nans: {nan_columns}")
-
-    # Clip continuous variables according to the bounds in the variable reference
-    for row in variable_reference.select(
-        "VariableTag", "LowerBound", "UpperBound"
-    ).rows():
-        dyn = dyn.with_columns(pl.col(row[0]).clip(row[1], row[2]))
-
-    # Log transform some of the continuous variables. For variables with a lower bound
-    # equal to 0, we add a small epsilon to avoid taking the log of 0. The epsilon
-    # should be in the order of the measurement precision.
-    log_variables = variable_reference.filter(pl.col("LogTransform"))
-    for row in log_variables.select("VariableTag", "LogTransformEps").rows():
-        if row[1] is not None:
-            col = (pl.col(row[0]) + row[1]).log()
-        else:
-            col = pl.col(row[0]).log()
-
-        alias = f"log_{row[0]}"
-        dyn = dyn.with_columns(col.replace([np.nan, -np.inf], None).alias(alias))
 
     # Lazy polars.DataFrame.upsample for time_column with dtype int.
     # The result is a DataFrame with a row for each hour between 0 and the maximum
@@ -530,32 +492,48 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     dyn = dyn.join(time_ranges, on=["stay_id", "time_hours"], how="full", coalesce=True)
     dyn = dyn.sort(["stay_id", "time_hours"])
 
-    # Cast categorical variables to Enum. `samp` is binary. For simplicity, we cast it
-    # to string first.
-    enum_variables = variable_reference.filter(pl.col("DataType").eq("categorical"))
-    for col, values in enum_variables.select("VariableTag", "PossibleValues").rows():
-        enum = pl.Enum(values + ["(MISSING)"])
-        dyn = dyn.with_columns(pl.col(col).cast(pl.String).cast(enum))
-
     expressions = ["time_hours"]
-    expressions += [pl.col(var).forward_fill() for var in CONTINUOUS_VARIABLES]
-    # We treat "missing" as a separate category.
-    expressions += [pl.col(var).fill_null("(MISSING)") for var in CATEGORICAL_VARIABLES]
-    # Should we include treatment indicators at all?
-    expressions += [pl.col(var).fill_null(False) for var in TREATMENT_INDICATORS]
-    expressions += [pl.col(var).fill_null(0.0) for var in TREATMENT_CONTINUOUS]
 
-    for f in CONTINUOUS_VARIABLES:
-        expressions += continuous_features(f, "time_hours", horizons=[8, 24])
+    for row in variable_reference.rows(named=True):
+        col = pl.col(row["variableTag"]).clip(row["LowerBound"], row["UpperBound"])
 
-    for f in CATEGORICAL_VARIABLES:
-        expressions += discrete_features(f, "time_hours", horizons=[8, 24])
+        # Log transform some of the continuous variables. We add a small epsilon to
+        # avoid taking the log of 0.
+        if row["LogTransform"]:
+            eps = row["LogTransformEps"] or 0.0
+            col = (col + eps).log().alias(f"log_{row['VariableTag']}")
+            col = col.replace([np.nan, -np.inf], None)
 
-    for f in TREATMENT_INDICATORS:
-        expressions += treatment_indicator_features(f, "time_hours", horizons=[8, 24])
+        # Cast categorical variables to Enum. `samp` is binary. For simplicity, we cast
+        # it to string first.
+        if row["DataType"] == "categorical":
+            enum = pl.enum(row["PossibleValues"] + ["(MISSING)"])
+            col = col.cast(pl.String).fill_null("(MISSING").cast(enum)
 
-    for f in TREATMENT_CONTINUOUS:
-        expressions += treatment_continuous_features(f, "time_hours", horizons=[8, 24])
+        dyn = dyn.with_columns(col)
+
+    for row in variable_reference.rows(named=True):
+        tag = row["VariableTag"]
+
+        if row["DataType"].eq("continuous") and row["LogTransform"]:
+            expressions += continuous_features(
+                f"log_{tag}", "time_hours", horizons=[8, 24]
+            )
+        elif row["DataType"].eq("continuous"):
+            expressions += continuous_features(tag, "time_hours", horizons=[8, 24])
+
+        elif row["DataType"].eq("categorical"):
+            expressions += discrete_features(tag, "time_hours", horizons=[8, 24])
+
+        elif row["dataType"].eq("treatment_ind"):
+            expressions += treatment_indicator_features(
+                tag, "time_hours", horizons=[8, 24]
+            )
+
+        elif row["dataType"].eq("treatment_cont"):
+            expressions += treatment_continuous_features(
+                tag, "time_hours", horizons=[8, 24], log_eps=row["LogTransformEps"]
+            )
 
     expressions += outcomes()
 
