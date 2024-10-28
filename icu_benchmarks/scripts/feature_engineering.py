@@ -495,7 +495,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     expressions = ["time_hours"]
 
     for row in variable_reference.rows(named=True):
-        col = pl.col(row["variableTag"]).clip(row["LowerBound"], row["UpperBound"])
+        col = pl.col(row["VariableTag"]).clip(row["LowerBound"], row["UpperBound"])
 
         # Log transform some of the continuous variables. We add a small epsilon to
         # avoid taking the log of 0.
@@ -507,30 +507,30 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         # Cast categorical variables to Enum. `samp` is binary. For simplicity, we cast
         # it to string first.
         if row["DataType"] == "categorical":
-            enum = pl.enum(row["PossibleValues"] + ["(MISSING)"])
-            col = col.cast(pl.String).fill_null("(MISSING").cast(enum)
+            enum = pl.Enum(row["PossibleValues"] + ["(MISSING)"])
+            col = col.cast(pl.String).fill_null("(MISSING)").cast(enum)
 
         dyn = dyn.with_columns(col)
 
     for row in variable_reference.rows(named=True):
         tag = row["VariableTag"]
 
-        if row["DataType"].eq("continuous") and row["LogTransform"]:
+        if row["DataType"] == "continuous" and row["LogTransform"]:
             expressions += continuous_features(
                 f"log_{tag}", "time_hours", horizons=[8, 24]
             )
-        elif row["DataType"].eq("continuous"):
+        elif row["DataType"] == "continuous":
             expressions += continuous_features(tag, "time_hours", horizons=[8, 24])
 
-        elif row["DataType"].eq("categorical"):
+        elif row["DataType"] == "categorical":
             expressions += discrete_features(tag, "time_hours", horizons=[8, 24])
 
-        elif row["dataType"].eq("treatment_ind"):
+        elif row["DataType"] == "treatment_ind":
             expressions += treatment_indicator_features(
                 tag, "time_hours", horizons=[8, 24]
             )
 
-        elif row["dataType"].eq("treatment_cont"):
+        elif row["DataType"] == "treatment_cont":
             expressions += treatment_continuous_features(
                 tag, "time_hours", horizons=[8, 24], log_eps=row["LogTransformEps"]
             )
