@@ -63,7 +63,7 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
     col_sq_cs = (col * col).cum_sum()
     timexcol_cs = (time * col).cum_sum()
 
-    expressions = [pl.col(column_name).forward_fill().alias(f"{column_name}_ffill")]
+    expressions = [pl.col(column_name).forward_fill().alias(f"{column_name}_ffilled")]
 
     for horizon in horizons:
         window_size = (pl.col(time_col) + 1).clip(None, horizon)
@@ -221,7 +221,7 @@ def treatment_continuous_features(
         col_sum = col_cs - col_cs.shift(horizon, fill_value=0)
         col_mean = col_sum / (pl.col(time_col) + 1).clip(None, horizon)
         # This ensures that zeros get mapped to zeros.
-        log_col_mean = (col_mean + log_eps).log() - pl.lit(log_eps).log()
+        log_col_mean = (col_mean + log_eps).log()
         expressions += [
             log_col_mean.alias(f"log_{column_name}_rate_h{horizon}"),
         ]

@@ -15,6 +15,11 @@ from icu_benchmarks.scripts.feature_engineering import (
     "feature, input, expected",
     [
         (
+            "ffilled",
+            [None, None, 1.0, 2.0, 3.0, None, None, None, None, None, None, 0.0, None],
+            [None, None, 1.0, 2.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0],
+        ),
+        (
             "mean_h8",
             [None, None, 1.0, 2.0, 3.0, None, None, None, None, None, None, 0.0, 0.0],
             [None, None, 1.0, 1.5, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.5, 1.5, 0.0],
@@ -200,18 +205,25 @@ def test_treatment_indicator_features(feature, input, expected):
 
 
 @pytest.mark.parametrize(
-    "feature, input, expected",
+    "feature, input, log_eps, expected",
     [
         (
-            "mean_h8",
+            "rate_h8",
             [1.0, 1.0, None, None, None, None, 1.0, 1.0],
-            [1.0, 1.0, 2 / 3, 0.5, 2 / 5, 2 / 6, 3 / 7, 0.5],
+            0.0,
+            np.log([1.0, 1.0, 2 / 3, 0.5, 2 / 5, 2 / 6, 3 / 7, 0.5]),
+        ),
+        (
+            "rate_h8",
+            [1.0, 1.0, None, None, None, None, 1.0, 1.0],
+            1.0,
+            np.log([2.0, 2.0, 5 / 3, 1.5, 7 / 5, 8 / 6, 10 / 7, 1.5]),
         ),
     ],
 )
-def test_treatment_comtinuous_features(feature, input, expected):
-    features = treatment_continuous_features("feature", "time")
-    name = f"feature_{feature}"
+def test_treatment_continuous_features(feature, input, log_eps, expected):
+    features = treatment_continuous_features("feature", "time", log_eps=log_eps)
+    name = f"log_feature_{feature}"
     expr = [e for e in features if e.meta.output_name() == name][0]
 
     df = pl.DataFrame({"feature": input, "time": range(len(input))})
