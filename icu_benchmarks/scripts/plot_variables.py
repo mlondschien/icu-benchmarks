@@ -44,6 +44,9 @@ def main(ncols):  # noqa D
                     .to_series()
                 )
 
+                if variable["DataType"] == "treatment_cont":
+                    df = df.replace(0, None)
+
                 if variable["LogTransform"] and variable["LogTransformEps"] is not None:
                     df = (
                         (df + variable["LogTransformEps"])
