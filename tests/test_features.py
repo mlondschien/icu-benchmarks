@@ -6,13 +6,19 @@ from polars.testing import assert_series_equal
 from icu_benchmarks.scripts.feature_engineering import (
     continuous_features,
     discrete_features,
-    treatment_features,
+    treatment_continuous_features,
+    treatment_indicator_features,
 )
 
 
 @pytest.mark.parametrize(
     "feature, input, expected",
     [
+        (
+            "ffilled",
+            [None, None, 1.0, 2.0, 3.0, None, None, None, None, None, None, 0.0, None],
+            [None, None, 1.0, 2.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0],
+        ),
         (
             "mean_h8",
             [None, None, 1.0, 2.0, 3.0, None, None, None, None, None, None, 0.0, 0.0],
@@ -184,9 +190,40 @@ def test_discrete_features(feature, input, expected):
         ),
     ],
 )
-def test_treatment_features(feature, input, expected):
-    features = treatment_features("feature", "time")
+def test_treatment_indicator_features(feature, input, expected):
+    features = treatment_indicator_features("feature", "time")
     name = f"feature_{feature}"
+    expr = [e for e in features if e.meta.output_name() == name][0]
+
+    df = pl.DataFrame({"feature": input, "time": range(len(input))})
+
+    result = df.select(expr).to_series()
+
+    assert_series_equal(
+        result, pl.Series(expected), check_names=False, check_dtypes=False
+    )
+
+
+@pytest.mark.parametrize(
+    "feature, input, log_eps, expected",
+    [
+        (
+            "rate_h8",
+            [1.0, 1.0, None, None, None, None, 1.0, 1.0],
+            0.0,
+            np.log([1.0, 1.0, 2 / 3, 0.5, 2 / 5, 2 / 6, 3 / 7, 0.5]),
+        ),
+        (
+            "rate_h8",
+            [1.0, 1.0, None, None, None, None, 1.0, 1.0],
+            1.0,
+            np.log([2.0, 2.0, 5 / 3, 1.5, 7 / 5, 8 / 6, 10 / 7, 1.5]),
+        ),
+    ],
+)
+def test_treatment_continuous_features(feature, input, log_eps, expected):
+    features = treatment_continuous_features("feature", "time", log_eps=log_eps)
+    name = f"log_feature_{feature}"
     expr = [e for e in features if e.meta.output_name() == name][0]
 
     df = pl.DataFrame({"feature": input, "time": range(len(input))})

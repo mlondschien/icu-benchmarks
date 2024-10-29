@@ -6,9 +6,21 @@ import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 
-DATA_DIR = Path(__file__).parents[1] / "data"
-DATASETS = ["mimic", "miiv", "eicu", "hirid", "aumc", "sic", "zigong", "picdb"]
-OUTPUT_PATH = Path(__file__).parents[1] / "figures" / "density_plots"
+from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
+
+DATASETS = [
+    "mimic",
+    "ehrshot",
+    "miived",
+    "miiv",
+    "eicu",
+    "hirid",
+    "aumc",
+    "sic",
+    "zigong",
+    "picdb",
+]
+OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
 
 SOURCE_COLORS = {
     "eicu": "black",
@@ -19,15 +31,12 @@ SOURCE_COLORS = {
     "sic": "purple",
     "zigong": "brown",
     "picdb": "pink",
+    "ehrshot": "gray",
+    "miived": "cyan",
 }
 
-VARIABLE_REFERENCE_PATH = (
-    Path(__file__).parents[1] / "resources" / "variable_reference.tsv"
-)
-variable_reference = pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t")
-variable_reference = variable_reference.with_columns(
-    pl.col("LowerBound").replace("None", None).cast(pl.Float64),
-    pl.col("UpperBound").replace("None", None).cast(pl.Float64),
+variable_reference = pl.read_csv(
+    VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"]
 )
 variable_reference = variable_reference.filter(
     pl.col("DataType").is_in(["continuous", "treatment_cont"])
@@ -46,58 +55,73 @@ def main(ncols):  # noqa D
     for variable, ax in zip(
         variable_reference.rows(named=True), axes.flat[: len(variable_reference)]
     ):
+        data = {}
+        null_fractions = {}
         for dataset in DATASETS:
             if variable["VariableType"] == "static":
-                data = pl.scan_parquet(DATA_DIR / dataset / "sta.parquet")
+                file = DATA_DIR / dataset / "sta.parquet"
             else:
-                data = pl.scan_parquet(DATA_DIR / dataset / "dyn.parquet")
+                file = DATA_DIR / dataset / "dyn.parquet"
 
-            data = data.select(variable["VariableTag"]).collect().to_series()
-            data = data.clip(
-                lower_bound=variable["LowerBound"], upper_bound=variable["UpperBound"]
+            df = (
+                pl.scan_parquet(file)
+                .select(
+                    pl.col(variable["VariableTag"]).clip(
+                        lower_bound=variable["LowerBound"],
+                        upper_bound=variable["UpperBound"],
+                    )
+                )
+                .collect()
+                .to_series()
             )
 
-            if variable["LogTransform"] == "true":
-                # We want to avoid mapping zeros to missings. A simple solution is to
-                # use log1p (log(1 + x)) instead of log(x). The offshift `1` is
-                # arbitrary. Ideally, one would use something "in the order of
-                # measurement error".
-                # If the variable has a lower bound > 0, we can simply log it.
-                if variable["LowerBound"] is not None and variable["LowerBound"] > 0:
-                    data = data.log()
-                # If the variable has no bounds, we don't know which constant to choose.
-                # One could alternatively use log1p here.
-                elif variable["LowerBound"] is None or variable["UpperBound"] is None:
-                    # log(0) = -np.inf, log(-1) = np.nan
-                    data = data.log().replace([np.nan, -np.inf], None)
-                # If the variable has a lower bound of 0 and an upper bound, we can
-                # just use 1e-3 * upper bound as the offshift.
-                elif variable["LowerBound"] == 0 and variable["UpperBound"] is not None:
-                    data = (data + 0.001 * variable["UpperBound"]).log()
+            if variable["LogTransform"] and variable["LogTransformEps"] is not None:
+                df = (
+                    (df + variable["LogTransformEps"])
+                    .log()
+                    .replace([np.nan, -np.inf], None)
+                )
+            elif variable["LogTransform"]:
+                df = df.log().replace([np.nan, -np.inf], None)
 
-            null_fraction = data.is_null().mean()
-            data = data.drop_nulls()
+            null_fractions[dataset] = df.is_null().mean()
+            df = df.drop_nulls()
+            data[dataset] = df.to_numpy()
 
-            if len(data) <= 1:
-                ax.plot([], [], label=f"{dataset} (100%)", color=SOURCE_COLORS[dataset])
+        max_ = np.max([np.max(x) for x in data.values() if len(x) > 0])
+        min_ = np.min([np.min(x) for x in data.values() if len(x) > 0])
+
+        for dataset in DATASETS:
+            df = data[dataset]
+            if len(df) <= 1:
+                ax.plot(
+                    [], [], label=f"{dataset} ({100 * null_fractions[dataset]:.1f}%)"
+                )
+            elif len(np.unique(df)) == 1:
+                ax.plot(df[0], [0], label=f"{dataset} (100%)", marker="x")
             else:
-                density = gaussian_kde(data.to_numpy())
-                linspace = np.linspace(data.min(), data.max(), num=100)
+                # https://stackoverflow.com/a/35874531/10586763
+                # `gaussian_kde` uses bw = std * bw_method(). To ensure equal bandwidths,
+                # divide by the std of the dataset.
+                bandwidth = (max_ - min_) / 100 / df.std()
+                density = gaussian_kde(df, bw_method=lambda x: bandwidth)
+
+                linspace = np.linspace(df.min(), df.max(), num=100)
 
                 ax.plot(
                     linspace,
                     density(linspace),
-                    label=f"{dataset} ({100 * null_fraction:.1f}%)",
+                    label=f"{dataset} ({100 * null_fractions[dataset]:.1f}%)",
                     color=SOURCE_COLORS[dataset],
                 )
 
-            if variable["LogTransform"] == "true":
-                title = f'log({variable["VariableTag"]}): {variable["VariableName"]}'
-            else:
-                title = f'{variable["VariableTag"]}: {variable["VariableName"]}'
+        if variable["LogTransform"]:
+            title = f'log({variable["VariableTag"]}): {variable["VariableName"]}'
+        else:
+            title = f'{variable["VariableTag"]}: {variable["VariableName"]}'
 
-            ax.set_title(title)
-            ax.legend()
+        ax.set_title(title)
+        ax.legend()
 
     fig.savefig(OUTPUT_PATH / "densities.png")
     plt.close(fig)
