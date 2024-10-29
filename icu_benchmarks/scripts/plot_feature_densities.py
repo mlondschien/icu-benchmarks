@@ -4,42 +4,14 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from scipy.stats import gaussian_kde
 
-from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
+from icu_benchmarks.constants import DATA_DIR, DATASETS, VARIABLE_REFERENCE_PATH
+from icu_benchmarks.plotting import plot_continuous, plot_discrete
 
-DATASETS = [
-    "mimic",
-    "ehrshot",
-    "miived",
-    "miiv",
-    "eicu",
-    "hirid",
-    "aumc",
-    "sic",
-    "zigong",
-    "picdb",
-]
 OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
-
-SOURCE_COLORS = {
-    "eicu": "black",
-    "mimic": "red",
-    "hirid": "blue",
-    "miiv": "orange",
-    "aumc": "green",
-    "sic": "purple",
-    "zigong": "brown",
-    "picdb": "pink",
-    "ehrshot": "gray",
-    "miived": "cyan",
-}
 
 variable_reference = pl.read_csv(
     VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"]
-)
-variable_reference = variable_reference.filter(
-    pl.col("DataType").is_in(["continuous", "treatment_cont"])
 )
 
 
@@ -48,7 +20,7 @@ variable_reference = variable_reference.filter(
 def main(ncols):  # noqa D
     OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 
-    nrows = len(variable_reference) // ncols + 1
+    nrows = (len(variable_reference) - 1) // ncols + 1
 
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows))
 
@@ -56,72 +28,55 @@ def main(ncols):  # noqa D
         variable_reference.rows(named=True), axes.flat[: len(variable_reference)]
     ):
         data = {}
-        null_fractions = {}
-        for dataset in DATASETS:
-            if variable["VariableType"] == "static":
-                file = DATA_DIR / dataset / "sta.parquet"
-            else:
-                file = DATA_DIR / dataset / "dyn.parquet"
+        file = "sta.parquet" if variable["VariableType"] == "static" else "dyn.parquet"
 
-            df = (
-                pl.scan_parquet(file)
-                .select(
-                    pl.col(variable["VariableTag"]).clip(
-                        lower_bound=variable["LowerBound"],
-                        upper_bound=variable["UpperBound"],
-                    )
-                )
-                .collect()
-                .to_series()
-            )
-
-            if variable["LogTransform"] and variable["LogTransformEps"] is not None:
+        if variable["DataType"] in ["continuous", "treatment_cont"]:
+            for dataset in DATASETS:
                 df = (
-                    (df + variable["LogTransformEps"])
-                    .log()
-                    .replace([np.nan, -np.inf], None)
+                    pl.scan_parquet(DATA_DIR / dataset / file)
+                    .select(
+                        pl.col(variable["VariableTag"]).clip(
+                            lower_bound=variable["LowerBound"],
+                            upper_bound=variable["UpperBound"],
+                        )
+                    )
+                    .collect()
+                    .to_series()
                 )
-            elif variable["LogTransform"]:
-                df = df.log().replace([np.nan, -np.inf], None)
 
-            null_fractions[dataset] = df.is_null().mean()
-            df = df.drop_nulls()
-            data[dataset] = df.to_numpy()
+                if variable["LogTransform"] and variable["LogTransformEps"] is not None:
+                    df = (
+                        (df + variable["LogTransformEps"])
+                        .log()
+                        .replace([np.nan, -np.inf], None)
+                    )
+                elif variable["LogTransform"]:
+                    df = df.log().replace([np.nan, -np.inf], None)
 
-        max_ = np.max([np.max(x) for x in data.values() if len(x) > 0])
-        min_ = np.min([np.min(x) for x in data.values() if len(x) > 0])
+                data[dataset] = df
 
-        for dataset in DATASETS:
-            df = data[dataset]
-            if len(df) <= 1:
-                ax.plot(
-                    [], [], label=f"{dataset} ({100 * null_fractions[dataset]:.1f}%)"
-                )
-            elif len(np.unique(df)) == 1:
-                ax.plot(df[0], [0], label=f"{dataset} (100%)", marker="x")
+            if variable["LogTransform"]:
+                title = f'log({variable["VariableTag"]})'
             else:
-                # https://stackoverflow.com/a/35874531/10586763
-                # `gaussian_kde` uses bw = std * bw_method(). To ensure equal bandwidths,
-                # divide by the std of the dataset.
-                bandwidth = (max_ - min_) / 100 / df.std()
-                density = gaussian_kde(df, bw_method=lambda x: bandwidth)
+                title = f'{variable["VariableTag"]}'
 
-                linspace = np.linspace(df.min(), df.max(), num=100)
+            _ = plot_continuous(ax, data, title)
 
-                ax.plot(
-                    linspace,
-                    density(linspace),
-                    label=f"{dataset} ({100 * null_fractions[dataset]:.1f}%)",
-                    color=SOURCE_COLORS[dataset],
+        elif variable["DataType"] in ["categorical", "treatment_ind"]:
+            for dataset in DATASETS:
+                data[dataset] = pl.read_parquet(
+                    DATA_DIR / dataset / file, columns=[variable["VariableTag"]]
+                ).to_series()
+
+            if variable["DataType"] == "treatment_ind":
+                _ = plot_discrete(
+                    ax,
+                    {k: v.fill_null(False) for k, v in data.items()},
+                    variable["VariableTag"],
+                    False,
                 )
-
-        if variable["LogTransform"]:
-            title = f'log({variable["VariableTag"]}): {variable["VariableName"]}'
-        else:
-            title = f'{variable["VariableTag"]}: {variable["VariableName"]}'
-
-        ax.set_title(title)
-        ax.legend()
+            else:
+                _ = plot_discrete(ax, data, variable["VariableTag"], True)
 
     fig.savefig(OUTPUT_PATH / "densities.png")
     plt.close(fig)
