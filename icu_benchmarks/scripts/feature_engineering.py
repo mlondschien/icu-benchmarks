@@ -6,7 +6,8 @@ import click
 import numpy as np
 import polars as pl
 
-from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
+from icu_benchmarks.constants import DATA_DIR, OUTCOMES, VARIABLE_REFERENCE_PATH
+from icu_benchmarks.load import features
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +174,7 @@ def treatment_indicator_features(
     Parameters
     ----------
     column_name : str
-        Name of column for which to compute features. E.g., `hr`.
+        Name of column for which to compute features. E.g., `hep_ind`.
     time_col : str
         Not used.
     horizons : list[int]
@@ -193,7 +194,11 @@ def treatment_indicator_features(
 
 
 def treatment_continuous_features(
-    column_name: str, time_col: str, horizons: list[int] = [8, 24], log_eps: float = 0.0
+    column_name: str,
+    time_col: str,
+    horizons: list[int] = [8, 24],
+    log_transform: bool = True,
+    log_eps: float = 0.0,
 ):
     """
     Compute features for a variable with continuous treatment values.
@@ -210,21 +215,24 @@ def treatment_continuous_features(
         Not used.
     horizons : list[int]
         Horizons for which to compute the features. E.g., [8, 24].
-    log_eps : float
+    log_transform : bool, optional, default = True
+        Whether to log transform the mean (rate).
+    log_eps : float, optional, default = 0.0
         Epsilon to add before taking the log. This is to avoid taking the log of 0.
     """
     col_cs = pl.col(column_name).fill_null(0.0).cum_sum()
-
     expressions = list()
 
     for horizon in horizons:
         col_sum = col_cs - col_cs.shift(horizon, fill_value=0)
         col_mean = col_sum / (pl.col(time_col) + 1).clip(None, horizon)
         # This ensures that zeros get mapped to zeros.
-        log_col_mean = (col_mean + log_eps).log()
-        expressions += [
-            log_col_mean.alias(f"log_{column_name}_rate_h{horizon}"),
-        ]
+        if log_transform:
+            expressions += [
+                (col_mean + log_eps).log().alias(f"log_{column_name}_rate_h{horizon}"),
+            ]
+        else:
+            expressions += [col_mean.alias(f"{column_name}_rate_h{horizon}")]
 
     return expressions
 
@@ -500,8 +508,6 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     dyn = dyn.join(time_ranges, on=["stay_id", "time_hours"], how="full", coalesce=True)
     dyn = dyn.sort(["stay_id", "time_hours"])
 
-    expressions = ["time_hours"]
-
     for row in variable_reference.rows(named=True):
         col = pl.col(row["VariableTag"]).clip(row["LowerBound"], row["UpperBound"])
 
@@ -520,10 +526,17 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
         dyn = dyn.with_columns(col)
 
+    expressions = ["time_hours"]
+
     for row in variable_reference.rows(named=True):
         tag = row["VariableTag"]
 
-        if row["DataType"] == "continuous" and row["LogTransform"]:
+        if row["VariableType"] == "static" and row["LogTransform"]:
+            expressions += [pl.col(f"log_{tag}")]
+        elif row["VariableType"] == "static":
+            expressions += [pl.col(tag)]
+
+        elif row["DataType"] == "continuous" and row["LogTransform"]:
             expressions += continuous_features(
                 f"log_{tag}", "time_hours", horizons=[8, 24]
             )
@@ -540,8 +553,14 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
         elif row["DataType"] == "treatment_cont":
             expressions += treatment_continuous_features(
-                tag, "time_hours", horizons=[8, 24], log_eps=row["LogTransformEps"]
+                tag,
+                "time_hours",
+                horizons=[8, 24],
+                log_eps=row["LogTransformEps"],
+                log_transform=row["LogTransform"],
             )
+        else:
+            raise ValueError(f"Unknown DataType: {row['DataType']}")
 
     expressions += outcomes()
 
@@ -558,6 +577,18 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         .alias("split"),
         pl.lit(dataset).alias("dataset"),
     )
+
+    feature_names = set(features())
+    schema_names = set(q.collect_schema().keys())
+    missing_features = feature_names - schema_names
+
+    if missing_features:
+        raise ValueError(f"Missing features: {missing_features}")
+
+    other_variables = {"stay_id", "hash", "split", "dataset", "time_hours"}
+    extra_features = schema_names - feature_names - other_variables - set(OUTCOMES)
+    if extra_features:
+        logger.warning(f"Extra features: {extra_features}")
 
     tic = perf_counter()
     out = q.collect()

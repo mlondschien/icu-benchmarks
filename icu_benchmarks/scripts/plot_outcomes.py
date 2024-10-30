@@ -4,20 +4,10 @@ import click
 import matplotlib.pyplot as plt
 import polars as pl
 
-from icu_benchmarks.constants import DATA_DIR, DATASETS
+from icu_benchmarks.constants import DATA_DIR, DATASETS, OUTCOMES
 from icu_benchmarks.plotting import plot_continuous, plot_discrete
 
 OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
-
-OUTCOMES = [
-    "remaining_los",
-    "mortality_at_24h",
-    "los_at_24h",
-    "decompensation_at_24h",
-    "respiratory_failure_at_24h",
-    "circulatory_failure_at_8h",
-    "kidney_failure_at_48h",
-]
 
 
 @click.command()
