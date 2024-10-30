@@ -12,6 +12,7 @@ OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
 OUTCOMES = [
     "remaining_los",
     "mortality_at_24h",
+    "los_at_24h",
     "decompensation_at_24h",
     "respiratory_failure_at_24h",
     "circulatory_failure_at_8h",
@@ -23,7 +24,7 @@ OUTCOMES = [
 def main():  # noqa D
     OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 
-    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(20, 15))
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(25, 15))
 
     for ax, outcome in zip(axes.flat[: len(OUTCOMES)], OUTCOMES):
         data = {
@@ -32,16 +33,17 @@ def main():  # noqa D
             ).to_series()
             for dataset in DATASETS
         }
-        if outcome != "remaining_los":
+        if outcome not in ["remaining_los", "los_at_24h"]:
             plot_discrete(ax, data, outcome, missings=True)
         else:
             data = {
                 # Values < e^-10 ~ 0.00004 don't make sense.
-                k: v.log().clip(-10, None).rename("log(remaining_los)")
+                k: v.log().clip(-10, None).rename(f"log({outcome})")
                 for k, v in data.items()
                 if v.count() > 0
             }
-            plot_continuous(ax, data, "log(remaining_los)")
+            plot_continuous(ax, data, f"log({outcome})")
+
     fig.savefig(OUTPUT_PATH / "outcomes.png")
     plt.close(fig)
 
