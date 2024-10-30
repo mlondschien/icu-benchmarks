@@ -99,6 +99,16 @@ def test_polars_nan_or(args, expected):
             ),
             pl.Series(np.arange(4 * 24, 0, -1) / 24),
         ),
+        (
+            "los_at_24h",
+            pl.DataFrame(
+                {
+                    "los_icu": 4.0,
+                    "time_hours": np.arange(0, 4 * 24),
+                }
+            ),
+            pl.Series(24 * [None] + [4.0] + 71 * [None]),
+        ),
     ],
 )
 def test_outcomes(outcome_name, input, expected):
