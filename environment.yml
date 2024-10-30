@@ -9,3 +9,5 @@ dependencies:
   - pandas
   - polars
   - pytest
+  - gin-config
+  - pyarrow
