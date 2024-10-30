@@ -21,9 +21,10 @@ TASKS = {
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
+@click.option("--hours", type=int, default=24)
 @click.option("--args", type=str, default="")
 @click.option("--dry", is_flag=True)
-def main(config: str, args: str, dry: bool):  # noqa D
+def main(config: str, hours: int, args: str, dry: bool):  # noqa D
     for dataset in DATASETS:
         for task, size in TASKS.items():
             tmpdir = Path(tempfile.mkdtemp()) / "config.gin"
@@ -37,11 +38,14 @@ def main(config: str, args: str, dry: bool):  # noqa D
             n_tasks = max(4, size // 4)
 
             process = (
-                ["sbatch", f"--ntasks={n_tasks}", "--mem_per_cpu=8G"]
-                + shlex.split(args)
-                + [
-                    f"--wrap='python icu_experiments/scripts/train.py --config {tmpdir}'"
+                [
+                    "sbatch",
+                    f"--ntasks={n_tasks}",
+                    "--mem-per-cpu=8G",
+                    f"--time={hours}:00:00",
                 ]
+                + shlex.split(args)
+                + [f"--wrap='python icu_benchmarks/scripts/train.py --config {tmpdir}'"]
             )
 
             print(" ".join(process))
