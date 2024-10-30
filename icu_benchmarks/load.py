@@ -8,6 +8,7 @@ from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
 CONTINUOUS_FEATURES = ["mean", "std", "slope", "fraction_nonnull", "all_missing"]
 CATEGORICAL_FEATURES = ["mode", "num_nonmissing"]
 TREATMENT_INDICATOR_FEATURES = ["num_nonmissing", "any_nonmissing"]
+TREATMENT_CONTINUOUS_FEATURES = ["rate"]
 
 
 @gin.configurable
@@ -101,6 +102,7 @@ def features(
     categorical_features=None,
     continuous_features=None,
     treatment_indicator_features=None,
+    treatment_continuous_features=None,
     horizons=[8, 24],
 ):
     """
@@ -112,14 +114,17 @@ def features(
         For which variables (e.g., `hr`) to return feature names. If `None`, all
         variables from the variable reference with `DatasetVersion` not `None` are used.
     categorical_features : list of str, optional, default = None
-        For which categorical features to return feature names. E.g., `"mode"`. If
+        For which categorical features to return feature names. E.g., `["mode"]`. If
         `None`, all categorical features are used.
     continuous_features : list of str, optional, default = None
-        For which continuous features to return feature names. E.g., `"mean"`. If
+        For which continuous features to return feature names. E.g., `["mean"]`. If
         `None`, all continuous features are used.
     treatment_indicator_features : list of str, optional, default = None
         For which treatment indicator features to return feature names. E.g.,
-        `"num_nonmissing"`. If `None`, all treatment indicator features are used.
+        `["num_nonmissing"]`. If `None`, all treatment indicator features are used.
+    treatment_continuous_features : list of str, optional, default = None
+        For which treatment continuous features to return feature names. E.g.,
+        `["rate"]`. If `None`, all treatment continuous features are used.
 
     Returns
     -------
@@ -132,6 +137,8 @@ def features(
         categorical_features = CATEGORICAL_FEATURES
     if treatment_indicator_features is None:
         treatment_indicator_features = TREATMENT_INDICATOR_FEATURES
+    if treatment_continuous_features is None:
+        treatment_continuous_features = TREATMENT_CONTINUOUS_FEATURES
 
     variable_reference = pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t")
 
@@ -152,29 +159,35 @@ def features(
         if row["LogTransform"] is True:
             variable = f"log_{variable}"
 
-        if row["VariableType"] in ["observation", "static"]:
+        if row["VariableType"] == "static":
             features += [variable]
-
-        if row["VariableType"] == "observation" and row["DataType"] == "continuous":
+        elif row["DataType"] == "continuous":
+            features += [f"{variable}_ffilled"]
             features += [
                 f"{variable}_{feature}_h{horizon}"
                 for feature in continuous_features
                 for horizon in horizons
             ]
-        elif row["VariableType"] == "observation" and row["DataType"] == "categorical":
+        elif row["DataType"] == "categorical":
             features += [
                 f"{variable}_{feature}_h{horizon}"
                 for feature in categorical_features
                 for horizon in horizons
             ]
-        elif (
-            row["VariableType"] == "observation" and row["DataType"] == "treatment_ind"
-        ):
+        elif row["DataType"] == "treatment_ind":
             features += [
                 f"{variable}_{feature}_h{horizon}"
                 for feature in treatment_indicator_features
                 for horizon in horizons
             ]
+        elif row["DataType"] == "treatment_cont":
+            features += [
+                f"{variable}_{feature}_h{horizon}"
+                for feature in treatment_continuous_features
+                for horizon in horizons
+            ]
+        else:
+            raise ValueError(f"Unknown DataType: {row['DataType']}")
 
     if variables is not None and len(variables) > 0:
         raise ValueError(f"Unknown variables: {variables}")

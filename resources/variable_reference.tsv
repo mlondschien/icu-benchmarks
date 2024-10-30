@@ -117,15 +117,15 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 1026	anti_coag	other anticoagulants	treatment	v1.1	circulatory	anticoagulant	None	treatment_ind	None	None	Other anticoagulants	False	None	None
 1027	vasod	antihypertensive and vasodilators	treatment	v1.1	circulatory	antihypertensive_vasolidators	None	treatment_ind	None	None	Antihypertensive and Vasodilators	False	None	None
 1028	anti_arrhythm	antiarrhythmic	treatment	v1.1	circulatory	antiarrhythmic	None	treatment_ind	None	None	Anti-arrhythmica agents	False	None	None
-1029	dobu_ind	Dobutamine indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Dobutamine as an indicator	False	None	None
-1030	levo_ind	Levosimendan indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Levosimendan as an indicator	False	None	None
-1031	norepi_ind	Norepinephrine indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Norepinephrine as an indicator	False	None	None
-1032	epi_ind	Epinephrine	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Epinephrine as an indicator	False	None	None
-1033	milrin_ind	Milrinone indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Milrinone as an indicator	False	None	None
-1034	teophyllin_ind	theophylline indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Theophylline as an indicator	False	None	None
-1035	dopa_ind	Dopamine indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Dopamine as an indicator	False	None	None
-1036	adh_ind	Vasopressin indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Vasopressin as an indicator	False	None	None
-1037	hep_ind	Heparin indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Heparin as an indicator	False	None	None
-1038	prop_ind	Propofol indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Propofol as an indicator	False	None	None
-1039	benzdia_ind	benzodiacepine indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Benzodiacepine as an indicator	False	None	None
-1040	loop_diur_ind	Loop diuretics indicator	treatment	None	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Loop Diuretics as a rate	False	None	None
+1029	dobu_ind	Dobutamine indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Dobutamine as an indicator	False	None	None
+1030	levo_ind	Levosimendan indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Levosimendan as an indicator	False	None	None
+1031	norepi_ind	Norepinephrine indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Norepinephrine as an indicator	False	None	None
+1032	epi_ind	Epinephrine	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Epinephrine as an indicator	False	None	None
+1033	milrin_ind	Milrinone indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Milrinone as an indicator	False	None	None
+1034	teophyllin_ind	theophylline indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Theophylline as an indicator	False	None	None
+1035	dopa_ind	Dopamine indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Dopamine as an indicator	False	None	None
+1036	adh_ind	Vasopressin indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Vasopressin as an indicator	False	None	None
+1037	hep_ind	Heparin indicator	treatment	v1.1	circulatory	anticoagulant	None	treatment_ind	None	None	Heparin as an indicator	False	None	None
+1038	prop_ind	Propofol indicator	treatment	v1.1	circulatory	sedative_anxiolytic	None	treatment_ind	None	None	Propofol as an indicator	False	None	None
+1039	benzdia_ind	benzodiacepine indicator	treatment	v1.1	circulatory	sedative_anxiolytic	None	treatment_ind	None	None	Benzodiacepine as an indicator	False	None	None
+1040	loop_diur_ind	Loop diuretics indicator	treatment	v1.1	circulatory	diuretic	None	treatment_ind	None	None	Loop Diuretics as a rate	False	None	None

@@ -18,3 +18,14 @@ DATASETS = [
     "zigong",
     "picdb",
 ]
+
+
+OUTCOMES = [
+    "remaining_los",
+    "mortality_at_24h",
+    "los_at_24h",
+    "decompensation_at_24h",
+    "respiratory_failure_at_24h",
+    "circulatory_failure_at_8h",
+    "kidney_failure_at_48h",
+]
