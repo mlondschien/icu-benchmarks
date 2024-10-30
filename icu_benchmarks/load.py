@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import gin
 import polars as pl
 import pyarrow.dataset as ds
@@ -84,7 +86,7 @@ def load(
         horizons=horizons,
     )
 
-    data_dir = DATA_DIR if data_dir is None else data_dir
+    data_dir = DATA_DIR if data_dir is None else Path(data_dir)
     # Use ParquetDataset to read multiple files without a copy as in pd.concat.
     df = (
         ParquetDataset(
