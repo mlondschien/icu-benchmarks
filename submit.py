@@ -1,6 +1,5 @@
 import shlex
 import subprocess
-import tempfile
 from pathlib import Path
 
 import click
@@ -21,16 +20,19 @@ TASKS = {
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
+@click.option("--logs", type=click.Path(exists=True))
 @click.option("--hours", type=int, default=24)
 @click.option("--args", type=str, default="")
 @click.option("--dry", is_flag=True)
-def main(config: str, hours: int, args: str, dry: bool):  # noqa D
+def main(config: str, logs: str, hours: int, args: str, dry: bool):  # noqa D
     for dataset in DATASETS:
         for task, size in TASKS.items():
-            tmpdir = Path(tempfile.mkdtemp()) / "config.gin"
-            tmpdir.touch()
+            dir = Path(logs) / task / dataset
+            dir.mkdir(parents=True, exist_ok=True)
+            file = dir / "config.gin"
+            file.touch(exist_ok=True)
 
-            with tmpdir.open("a") as f:
+            with file.open("a") as f:
                 f.write(f"include '{config}'\n\n")
                 f.write(f"sources.sources = ['{dataset}']\n")
                 f.write(f"outcome.outcome = '{task}'\n")
@@ -43,9 +45,10 @@ def main(config: str, hours: int, args: str, dry: bool):  # noqa D
                     f"--ntasks={n_tasks}",
                     "--mem-per-cpu=8G",
                     f"--time={hours}:00:00",
+                    f"--output={dir}/slurm.out",
                 ]
                 + shlex.split(args)
-                + [f"--wrap='python icu_benchmarks/scripts/train.py --config {tmpdir}'"]
+                + [f"--wrap='python icu_benchmarks/scripts/train.py --config {file}'"]
             )
 
             print(" ".join(process))
