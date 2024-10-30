@@ -312,6 +312,7 @@ def outcomes():
       hours. The patient has a kidney failure if they are in stage 3 according to the
       KDIGO guidelines:
       https://kdigo.org/wp-content/uploads/2016/10/KDIGO-2012-AKI-Guideline-English.pdf
+    - los_at_24h: The length of stay in the ICU at 24 hours after entry.
     """
     # mortality_at_24h
     # This is a "once per patient" prediction task. At time step 24h, a label is
@@ -437,6 +438,9 @@ def outcomes():
     aki_3 = pl.when(pl.col("weight").is_null()).then(None).otherwise(aki_3)
     kidney_failure_at_48h = eep_label(aki_3, 48).alias("kidney_failure_at_48h")
 
+    los_at_24h = pl.when(pl.col("time_hours").eq(24)).then(pl.col("los_icu"))
+    los_at_24h = los_at_24h.clip(0, None).alias("los_at_24h")
+
     return [
         mortality_at_24h,
         decompensation_at_24h,
@@ -444,6 +448,7 @@ def outcomes():
         remaining_los,
         circulatory_failure_at_8h,
         kidney_failure_at_48h,
+        los_at_24h,
     ]
 
 
@@ -464,10 +469,13 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
     # The code below assumes that all missing values are encoded as nulls, not nans.
     # nans behave differently in comparisons (1.0 == nan is False)
+    tic = perf_counter()
     nan_columns = dyn.select(pl.col([pl.Float32, pl.Float64]).is_nan().any()).collect()
     nan_columns = [col.name for col in nan_columns if col.any()]
     if nan_columns:
         raise ValueError(f"The following columns contain nans: {nan_columns}")
+    toc = perf_counter()
+    logger.info(f"Time to check for nans: {toc - tic:.2f}s")
 
     # Lazy polars.DataFrame.upsample for time_column with dtype int.
     # The result is a DataFrame with a row for each hour between 0 and the maximum
@@ -557,7 +565,10 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     logger.info(f"Time to compute features: {toc - tic:.2f}s")
     logger.info(f"out.shape: {out.shape}")
 
+    tic = perf_counter()
     out.write_parquet(data_dir / dataset / "features.parquet")
+    toc = perf_counter()
+    logger.info(f"Time to write features: {toc - tic:.2f}s")
 
 
 if __name__ == "__main__":
