@@ -14,6 +14,8 @@ from sklearn.metrics import (
     log_loss,
     roc_auc_score,
 )
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from icu_benchmarks.gin import GeneralizedLinearRegressor
 from icu_benchmarks.load import load
@@ -85,9 +87,15 @@ def main(config: str):  # noqa D
     other = [col for col in df.columns if df.dtypes[col] in ["category", "bool"]]
 
     imputer = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
+    # Scale ourselves: https://github.com/Quantco/glum/issues/872
+    scaler = StandardScaler(copy=False)
     preprocessor = ColumnTransformer(
         transformers=[
-            ("continuous", imputer, continuous_variables),
+            (
+                "continuous",
+                Pipeline([("impute", imputer), ("scale", scaler)]),
+                continuous_variables,
+            ),
             ("other", "passthrough", other),
         ]
     ).set_output(transform="pandas")
@@ -152,8 +160,9 @@ def main(config: str):  # noqa D
         logger.info(f"Scoring on {target}")
         for split in ["train", "val", "test"]:
             df, y = load(sources=[target], outcome=outcome(), split=split)
+            df = tabmat.from_pandas(preprocessor.transform(df))
 
-            if len(df) == 0:
+            if df.shape[0] == 0:
                 logger.warning(f"No data for {target}/{split}")
                 continue
 

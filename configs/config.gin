@@ -19,4 +19,5 @@ GeneralizedLinearRegressor.alpha_search = True
 GeneralizedLinearRegressor.min_alpha_ratio = 1e-4
 GeneralizedLinearRegressor.n_alphas = 10
 GeneralizedLinearRegressor.verbose = 1
-GeneralizedLinearRegressor.scale_predictors = True
+GeneralizedLinearRegressor.scale_predictors = False  # https://github.com/Quantco/glum/issues/872
+GeneralizedLinearRegressor.solver = "irls-cd"
