@@ -10,3 +10,4 @@ dependencies:
   - polars
   - pytest
   - gin-config
+  - pyarrow
