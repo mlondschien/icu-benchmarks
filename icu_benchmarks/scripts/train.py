@@ -5,6 +5,7 @@ import click
 import gin
 import mlflow
 import numpy as np
+import tabmat
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import (
@@ -13,7 +14,6 @@ from sklearn.metrics import (
     log_loss,
     roc_auc_score,
 )
-from sklearn.pipeline import Pipeline
 
 from icu_benchmarks.gin import GeneralizedLinearRegressor
 from icu_benchmarks.load import load
@@ -29,31 +29,35 @@ logging.basicConfig(
 
 
 @gin.configurable
-def sources(sources=None):  # noqa D
+def sources(sources=gin.REQUIRED):  # noqa D
     return sources
 
 
 @gin.configurable
-def outcome(outcome=None):  # noqa D
+def outcome(outcome=gin.REQUIRED):  # noqa D
     return outcome
 
 
 @gin.configurable
-def targets(targets=None):  # noqa D
+def targets(targets=gin.REQUIRED):  # noqa D
     return targets
 
 
 @gin.configurable
-def model(model=None):  # noqa D
-    return model
+def l1_ratios(l1_ratios=gin.REQUIRED):  # noqa D
+    return l1_ratios
 
 
 def metrics(y, yhat, prefix):  # noqa D
     return {
-        f"{prefix}/roc": roc_auc_score(y, yhat),
-        f"{prefix}/accuracy": accuracy_score(y, yhat >= 0.5),
-        f"{prefix}/log_loss": log_loss(y, yhat),
-        f"{prefix}/prc": average_precision_score(y, yhat),
+        f"{prefix}/roc": roc_auc_score(y, yhat) if np.unique(y).size > 1 else 0,
+        f"{prefix}/accuracy": accuracy_score(y, yhat >= 0.5)
+        if np.unique(y).size > 1
+        else 0,
+        f"{prefix}/log_loss": log_loss(y, yhat) if np.unique(y).size > 1 else 0,
+        f"{prefix}/prc": average_precision_score(y, yhat)
+        if np.unique(y).size > 1
+        else 0,
     }
 
 
@@ -66,6 +70,7 @@ def main(config: str):  # noqa D
         "outcome": outcome(),
         "sources": sources(),
         "targets": targets(),
+        "l1_ratios": l1_ratios(),
         "parent_run": None,
     }
 
@@ -74,7 +79,7 @@ def main(config: str):  # noqa D
     tic = perf_counter()
     df, y = load(sources=sources(), outcome=outcome(), split="train")
     toc = perf_counter()
-    logger.info(f"Loading data took {toc - tic:.1f} seconds")
+    logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
     continuous_variables = [col for col in df.columns if df.dtypes[col] == "float64"]
     other = [col for col in df.columns if df.dtypes[col] in ["category", "bool"]]
@@ -87,17 +92,24 @@ def main(config: str):  # noqa D
         ]
     ).set_output(transform="pandas")
 
-    glm = GeneralizedLinearRegressor()
-    pipeline = Pipeline([("preprocessing", preprocessor), ("glm", glm)])
-
     tic = perf_counter()
-    pipeline.fit(df, y)
+    df = tabmat.from_pandas(preprocessor.fit_transform(df))
     toc = perf_counter()
-    logger.info(f"Fitting the pipeline took {toc - tic:.1f} seconds")
-    mlflow.log_metric("fit_time", toc - tic)
+    logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
+
+    glms = []
+    for l1_ratio in l1_ratios():
+        logger.info(f"Fitting the glm with l1_ratio={l1_ratio:.1f}")
+        glm = GeneralizedLinearRegressor(l1_ratio=l1_ratio)
+        tic = perf_counter()
+        glm.fit(df, y)
+        toc = perf_counter()
+        logger.info(
+            f"Fitting the glm with l1_ratio={l1_ratio:.1f} took {toc - tic:.1f} seconds"
+        )
+        glms.append(glm)
 
     params = {
-        "l1_ratio": glm.l1_ratio,
         "gradient_tol": glm.gradient_tol,
         "max_iter": glm.max_iter,
         "sources": ",".join(sources()),
@@ -105,43 +117,51 @@ def main(config: str):  # noqa D
     mlflow.log_params(params)
 
     runs = []
-    for alpha_idx, alpha in enumerate(glm._alphas):
-        with mlflow.start_run(nested=True) as run:
-            mlflow.log_params(
-                {
-                    **params,
-                    "alpha": alpha,
-                    "log_alpha": np.log(alpha),
-                    "alpha_idx": alpha_idx,
-                }
-            )
-            mlflow.set_tags({**tags, "parent_run": parent_run.info.run_id})
-            mlflow.log_text(glm.coef_table().to_markdown(), "coefficients.md")
-            log_df(glm.coef_table(), "coefficients.csv")
+    for l1_ratio_idx, l1_ratio in enumerate(l1_ratios()):
+        glm = glms[l1_ratio_idx]
+        for alpha_idx, alpha in enumerate(glm._alphas):
+            with mlflow.start_run(nested=True) as run:
+                mlflow.log_params(
+                    {
+                        **params,
+                        "alpha": alpha,
+                        "log_alpha": np.log(alpha),
+                        "alpha_idx": alpha_idx,
+                        "sparsity": np.mean(glm.coef_path_[alpha_idx] == 0),
+                        "l1_ratio": l1_ratio,
+                        "l1_ratio_idx": l1_ratio_idx,
+                        "l1_alpha": alpha * l1_ratio,
+                        "l2_alpha": alpha * (1 - l1_ratio),
+                    }
+                )
+                mlflow.set_tags({**tags, "parent_run": parent_run.info.run_id})
+                mlflow.log_text(glm.coef_table().to_markdown(), "coefficients.md")
+                log_df(glm.coef_table(), "coefficients.csv")
 
-            runs.append(
-                {
-                    "run_id": run.info.run_id,
-                    "alpha": alpha,
-                    "idx": alpha_idx,
-                }
-            )
+                runs.append(
+                    {
+                        "run_id": run.info.run_id,
+                        "alpha": alpha,
+                        "alpha_idx": alpha_idx,
+                        "l1_ratio": l1_ratio,
+                        "l1_ratio_idx": l1_ratio_idx,
+                    }
+                )
 
     for target in targets():
-        splits = ["train", "val", "test"] if target in sources() else ["val", "test"]
-        for split in splits:
+        logger.info(f"Scoring on {target}")
+        for split in ["train", "val", "test"]:
             df, y = load(sources=[target], outcome=outcome(), split=split)
 
             if len(df) == 0:
                 logger.warning(f"No data for {target}/{split}")
                 continue
 
-            df = pipeline[:-1].transform(df)
-
             for run in runs:
-                pipeline[-1].intercept_ = pipeline[-1].intercept_path_[run["idx"]]
-                pipeline[-1].coef_ = pipeline[-1].coef_path_[run["idx"]]
-                yhat = pipeline[-1].predict(df)
+                glm = glms[run["l1_ratio_idx"]]
+                glm.intercept_ = glm.intercept_path_[run["alpha_idx"]]
+                glm.coef_ = glm.coef_path_[run["alpha_idx"]]
+                yhat = glm.predict(df)
 
                 mlflow.log_metrics(
                     metrics(y, yhat, f"{target}/{split}"), run_id=run["run_id"]
