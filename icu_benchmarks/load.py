@@ -4,7 +4,7 @@ import gin
 import polars as pl
 import pyarrow.dataset as ds
 from pyarrow.parquet import ParquetDataset
-
+from pathlib import Path
 from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
 
 CONTINUOUS_FEATURES = ["mean", "std", "slope", "fraction_nonnull", "all_missing"]
@@ -94,7 +94,7 @@ def load(
             filters=filters,
         )
         .read(columns=columns + [outcome])
-        .to_pandas()
+        .to_pandas(strings_to_categorical=True, self_destruct=True)
     )
 
     y = df[outcome]

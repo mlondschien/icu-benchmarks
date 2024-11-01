@@ -13,6 +13,8 @@ from sklearn.metrics import (
     average_precision_score,
     log_loss,
     roc_auc_score,
+    auc,
+    precision_recall_curve,
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -57,11 +59,11 @@ def metrics(y, yhat, prefix):  # noqa D
         if np.unique(y).size > 1
         else 0,
         f"{prefix}/log_loss": log_loss(y, yhat) if np.unique(y).size > 1 else 0,
-        f"{prefix}/prc": average_precision_score(y, yhat)
+        f"{prefix}/average_prc": average_precision_score(y, yhat)
         if np.unique(y).size > 1
         else 0,
+        f"{prefix}/auprc": auc(*precision_recall_curve(y, yhat)[1::-1]) if np.unique(y).size > 1 else 0,
     }
-
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -87,17 +89,17 @@ def main(config: str):  # noqa D
     other = [col for col in df.columns if df.dtypes[col] in ["category", "bool"]]
 
     imputer = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
-    # Scale ourselves: https://github.com/Quantco/glum/issues/872
-    scaler = StandardScaler(copy=False)
     preprocessor = ColumnTransformer(
         transformers=[
             (
                 "continuous",
-                Pipeline([("impute", imputer), ("scale", scaler)]),
+                imputer,
                 continuous_variables,
             ),
             ("other", "passthrough", other),
-        ]
+        ],
+        sparse_threshold=0,
+        verbose=1,
     ).set_output(transform="pandas")
 
     tic = perf_counter()
@@ -140,7 +142,8 @@ def main(config: str):  # noqa D
                         "l1_ratio_idx": l1_ratio_idx,
                         "l1_alpha": alpha * l1_ratio,
                         "l2_alpha": alpha * (1 - l1_ratio),
-                    }
+                    },
+                    synchronous=False,
                 )
                 mlflow.set_tags({**tags, "parent_run": parent_run.info.run_id})
                 mlflow.log_text(glm.coef_table().to_markdown(), "coefficients.md")
@@ -157,10 +160,21 @@ def main(config: str):  # noqa D
                 )
 
     for target in targets():
-        logger.info(f"Scoring on {target}")
         for split in ["train", "val", "test"]:
+            logger.info(f"Scoring on {target}/{split}")
+            tic = perf_counter()
             df, y = load(sources=[target], outcome=outcome(), split=split)
+            toc = perf_counter()
+            logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
+
+            if df.shape[0] == 0:
+                logger.warning(f"No data for {target}/{split}")
+                continue
+
+            tic = perf_counter()
             df = tabmat.from_pandas(preprocessor.transform(df))
+            toc = perf_counter()
+            logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
 
             if df.shape[0] == 0:
                 logger.warning(f"No data for {target}/{split}")
@@ -173,7 +187,7 @@ def main(config: str):  # noqa D
                 yhat = glm.predict(df)
 
                 mlflow.log_metrics(
-                    metrics(y, yhat, f"{target}/{split}"), run_id=run["run_id"]
+                    metrics(y, yhat, f"{target}/{split}"), run_id=run["run_id"], synchronous=False
                 )
 
     # This needs to be at the end of the script to log all relevant information
