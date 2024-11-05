@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import gin
 import polars as pl
 import pyarrow.dataset as ds
@@ -16,6 +18,7 @@ def load(
     sources: list[str],
     outcome: str,
     split: str | None = None,
+    data_dir=None,
     min_hours: int = 4,
     variables: list[str] | None = None,
     categorical_features: list[str] | None = None,
@@ -37,6 +40,8 @@ def load(
         The outcome variable. E.g., `"mortality_at_24h"`.
     split : str, optional, default = None
         Either `"train"`, `"val"`, or `"test"`. If `None`, all data is loaded.
+    data_dir : str, optional, default = None
+        The directory containing the data.
     min_hours : int, optional, default = 4
         Only load observations with "`time_hours` >= min_hours - 1". That is, historical
         features were computed on at least `min_hours` time steps.
@@ -81,14 +86,15 @@ def load(
         horizons=horizons,
     )
 
+    data_dir = Path(DATA_DIR if data_dir is None else data_dir)
     # Use ParquetDataset to read multiple files without a copy as in pd.concat.
     df = (
         ParquetDataset(
-            [DATA_DIR / source / "features.parquet" for source in sources],
+            [data_dir / source / "features.parquet" for source in sources],
             filters=filters,
         )
         .read(columns=columns + [outcome])
-        .to_pandas()
+        .to_pandas(strings_to_categorical=True, self_destruct=True)
     )
 
     y = df[outcome]
