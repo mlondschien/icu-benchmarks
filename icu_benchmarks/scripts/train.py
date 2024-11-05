@@ -1,7 +1,7 @@
 import logging
 from time import perf_counter
-
-import click
+import pandas as pd
+import cliqck
 import gin
 import mlflow
 import numpy as np
@@ -10,11 +10,11 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import (
     accuracy_score,
+    auc,
     average_precision_score,
     log_loss,
-    roc_auc_score,
-    auc,
     precision_recall_curve,
+    roc_auc_score,
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -22,9 +22,9 @@ from sklearn.preprocessing import StandardScaler
 from icu_benchmarks.gin import GeneralizedLinearRegressor
 from icu_benchmarks.load import load
 from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
-
+import warnings
 logger = logging.getLogger(__name__)
-
+warnings.filterwarnings("error")
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
     level=logging.INFO,
@@ -62,8 +62,11 @@ def metrics(y, yhat, prefix):  # noqa D
         f"{prefix}/average_prc": average_precision_score(y, yhat)
         if np.unique(y).size > 1
         else 0,
-        f"{prefix}/auprc": auc(*precision_recall_curve(y, yhat)[1::-1]) if np.unique(y).size > 1 else 0,
+        f"{prefix}/auprc": auc(*precision_recall_curve(y, yhat)[1::-1])
+        if np.unique(y).size > 1
+        else 0,
     }
+
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -83,6 +86,7 @@ def main(config: str):  # noqa D
     tic = perf_counter()
     df, y = load(sources=sources(), outcome=outcome(), split="train")
     toc = perf_counter()
+
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
     continuous_variables = [col for col in df.columns if df.dtypes[col] == "float64"]
@@ -125,6 +129,8 @@ def main(config: str):  # noqa D
         "sources": ",".join(sources()),
     }
     mlflow.log_params(params)
+    
+    log_df(pd.DataFrame({"stds": glm.col_stds_, "means": glm.col_means_}, index=glm.feature_names_, ), "col_stats.csv")
 
     runs = []
     for l1_ratio_idx, l1_ratio in enumerate(l1_ratios()):
@@ -187,7 +193,9 @@ def main(config: str):  # noqa D
                 yhat = glm.predict(df)
 
                 mlflow.log_metrics(
-                    metrics(y, yhat, f"{target}/{split}"), run_id=run["run_id"], synchronous=False
+                    metrics(y, yhat, f"{target}/{split}"),
+                    run_id=run["run_id"],
+                    synchronous=False,
                 )
 
     # This needs to be at the end of the script to log all relevant information
