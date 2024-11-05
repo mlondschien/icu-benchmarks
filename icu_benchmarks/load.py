@@ -4,7 +4,7 @@ import gin
 import polars as pl
 import pyarrow.dataset as ds
 from pyarrow.parquet import ParquetDataset
-from pathlib import Path
+
 from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
 
 CONTINUOUS_FEATURES = ["mean", "std", "slope", "fraction_nonnull", "all_missing"]

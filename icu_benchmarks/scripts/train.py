@@ -55,16 +55,16 @@ def l1_ratios(l1_ratios=gin.REQUIRED):  # noqa D
 def metrics(y, yhat, prefix):  # noqa D
     return {
         f"{prefix}/roc": roc_auc_score(y, yhat) if np.unique(y).size > 1 else 0,
-        f"{prefix}/accuracy": accuracy_score(y, yhat >= 0.5)
-        if np.unique(y).size > 1
-        else 0,
+        f"{prefix}/accuracy": (
+            accuracy_score(y, yhat >= 0.5) if np.unique(y).size > 1 else 0
+        ),
         f"{prefix}/log_loss": log_loss(y, yhat) if np.unique(y).size > 1 else 0,
-        f"{prefix}/average_prc": average_precision_score(y, yhat)
-        if np.unique(y).size > 1
-        else 0,
-        f"{prefix}/auprc": auc(*precision_recall_curve(y, yhat)[1::-1])
-        if np.unique(y).size > 1
-        else 0,
+        f"{prefix}/average_prc": (
+            average_precision_score(y, yhat) if np.unique(y).size > 1 else 0
+        ),
+        f"{prefix}/auprc": (
+            auc(*precision_recall_curve(y, yhat)[1::-1]) if np.unique(y).size > 1 else 0
+        ),
     }
 
 
