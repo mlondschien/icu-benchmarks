@@ -140,6 +140,7 @@ def main(config: str, logs: str, hours: int, args: str, experiment_name: str):  
     #   will try to create the same experiment.
     # - write the ip address to a file so that we can use it to set up port forwarding
     # - start the mlflow server
+    # flake8: noqa E702
     with cmd_file.open("w") as f:
         f.write(
             f"""#!/bin/sh
