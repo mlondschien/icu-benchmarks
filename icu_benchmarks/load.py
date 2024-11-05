@@ -86,7 +86,7 @@ def load(
         horizons=horizons,
     )
 
-    data_dir = DATA_DIR if data_dir is None else Path(data_dir)
+    data_dir = Path(DATA_DIR if data_dir is None else data_dir)
     # Use ParquetDataset to read multiple files without a copy as in pd.concat.
     df = (
         ParquetDataset(
