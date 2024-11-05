@@ -114,6 +114,7 @@ SIZES = {
 
 
 def free_port():
+    """Return free port."""
     # https://stackoverflow.com/a/1365284/10586763
     sock = socket.socket()
     sock.bind(("", 0))
@@ -172,7 +173,6 @@ mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --
     print(f"ssh euler -L {port}:{ip}:{port} -N &")
     print(f"http://localhost:{port}/")
 
-    breakpoint()
     for dataset in DATASETS:
         for outcome in OUTCOMES:
             if dataset == "zigong" and outcome in [
@@ -210,7 +210,7 @@ python icu_benchmarks/scripts/train.py --config {config_file.resolve()}"""
             process = (
                 [
                     "sbatch",
-                    f"--ntasks=1",
+                    "--ntasks=1",
                     f"--cpus-per-task={int(n_cpus)}",
                     "--mem-per-cpu=8G",
                     f"--time={hours}:00:00",
@@ -222,6 +222,7 @@ python icu_benchmarks/scripts/train.py --config {config_file.resolve()}"""
             )
 
             subprocess.run(process)
+
 
 if __name__ == "__main__":
     main()

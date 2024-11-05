@@ -1,10 +1,12 @@
 import logging
+import warnings
 from time import perf_counter
-import pandas as pd
-import cliqck
+
+import click
 import gin
 import mlflow
 import numpy as np
+import pandas as pd
 import tabmat
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -16,13 +18,11 @@ from sklearn.metrics import (
     precision_recall_curve,
     roc_auc_score,
 )
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 
 from icu_benchmarks.gin import GeneralizedLinearRegressor
 from icu_benchmarks.load import load
 from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
-import warnings
+
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("error")
 logging.basicConfig(
@@ -129,8 +129,14 @@ def main(config: str):  # noqa D
         "sources": ",".join(sources()),
     }
     mlflow.log_params(params)
-    
-    log_df(pd.DataFrame({"stds": glm.col_stds_, "means": glm.col_means_}, index=glm.feature_names_, ), "col_stats.csv")
+
+    log_df(
+        pd.DataFrame(
+            {"stds": glm.col_stds_, "means": glm.col_means_},
+            index=glm.feature_names_,
+        ),
+        "col_stats.csv",
+    )
 
     runs = []
     for l1_ratio_idx, l1_ratio in enumerate(l1_ratios()):
