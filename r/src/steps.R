@@ -1,6 +1,3 @@
-
-library(glue)
-
 load_step <- function(x, ...){
   UseMethod("load_step", x)
 }
@@ -31,7 +28,7 @@ load_step.concept <- function(x, merge_data = TRUE, ...){
 }
 
 load_step.cncpt <- function(x, cache = FALSE, ...){
-  assert_that(ricu::is_cncpt(x))
+  assertthat::assert_that(ricu::is_cncpt(x))
   key <- field(x, 'name')
   # TODO: should this be limited to patients left in cohort
   # TODO: make cncpt_env src dependent
@@ -56,7 +53,7 @@ filter_step <- function(x, condition, ...){
 }
 
 filter_step.data.table <- function(x, condition, col = data_col, ...) {
-  assert_that(is_id_tbl(x) | is_ts_tbl(x))
+  assertthat::assert_that(is_id_tbl(x) | is_ts_tbl(x))
   if (is.expression(condition)) {
     x[condition]
   } else if (is_win_tbl(condition)) {
@@ -102,7 +99,7 @@ summary_step <- function(x, f, ...) {
 summary_step.ts_tbl <- function(x, f, drop_index = FALSE, ...) {
   # TODO: think hard about what functions are needed here
 
-  assert_that(is_ts_tbl(x))
+  assertthat::assert_that(is_ts_tbl(x))
   if (is_function(f)) {
     x[, lapply(.SD, f, ...), by = c(id_var(x)), .SDcols = !c(index_var(x))]
   } else if (is_character(f)) {
@@ -119,41 +116,39 @@ summary_step.ts_tbl <- function(x, f, drop_index = FALSE, ...) {
 }
 
 summary_exists <- function(x, ...){
-  assert_that(is_ts_tbl(x))
+  assertthat::assert_that(is_ts_tbl(x))
   agg <- x[, .(var = TRUE), by=c(id_var(x))]
   setnames(agg, "var", data_var(x))
   agg
 }
 
 summary_count <- function(x, ...) {
-  assert_that(is_ts_tbl(x))
+  assertthat::assert_that(is_ts_tbl(x))
   x[, .(n = .N), by = c(id_var(x))]
 }
 
 summary_any <- function(x, ...){
-  assert_that(is_ts_tbl(x))
+  assertthat::assert_that(is_ts_tbl(x))
 
   id <- id_vars(x)
   ind <- index_var(x)
   dat <- data_vars(x)
 
-  assert_that(all(x[, sapply(.SD, is.logical), .SDcols = dat]))
+  assertthat::assert_that(all(x[, sapply(.SD, is.logical), .SDcols = dat]))
 
   agg <- x[, lapply(.SD, function(x) any(x)), .SDcols = dat, by=c(id)]
   agg
 }
 
 summary_first <- function(x, drop_index = FALSE, ...){
-  assert_that(is_ts_tbl(x))
+  assertthat::assert_that(is_ts_tbl(x))
   x[, .SD[1], by=c(id_var(x))]
 }
 
 summary_last <- function(x, drop_index = FALSE, ...){
-  assert_that(is_ts_tbl(x))
+  assertthat::assert_that(is_ts_tbl(x))
   x[, .SD[.N], by=c(id_var(x))]
 }
-
-
 
 function_step <- function(x, f, ...) {
   UseMethod("function_step", x)

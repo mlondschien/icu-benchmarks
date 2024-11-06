@@ -6,37 +6,34 @@
 #
 # On mac, it is advisable to set the R_MAX_VSIZE environment variable before
 # running this. E.g., run `R_MAX_VSIZE=64000000000 Rscript base_cohort.R`
-library(argparser)
-library(assertthat)
 library(rlang)
 library(data.table)
 library(vctrs)
-library(yaml)
 
-source("data_extraction/r/src/misc.R")
-source("data_extraction/r/src/steps.R")
-source("data_extraction/r/src/sequential.R")
-source("data_extraction/r/src/obs_time.R")
+source("src/misc.R")
+source("src/steps.R")
+source("src/sequential.R")
+source("src/obs_time.R")
 
 # Argparser
-p <- arg_parser("Extract patient stays for a given dataset.")
+p <- argparser::arg_parser("Extract patient stays for a given dataset.")
 
-p <- add_argument(p, "--ricu_path", help="path to the ricu data", default="")
-p <- add_argument(p, "--src", help="source database", default="mimic_demo")
-p <- add_argument(p, "--out_path", help="output path", default="")
-p <- add_argument(p, "--var_ref_path", help="path to the variable reference file", default="../resources/variable_reference.tsv")
-p <- add_argument(p, "--max_len", help="maximum length of stay in days, default 2 weeks", default=14)
+p <- argparser::add_argument(p, "--ricu_path", help="path to the ricu data", default="")
+p <- argparser::add_argument(p, "--src", help="source database", default="mimic_demo")
+p <- argparser::add_argument(p, "--out_path", help="output path", default="")
+p <- argparser::add_argument(p, "--var_ref_path", help="path to the variable reference file", default="../resources/variable_reference.tsv")
+p <- argparser::add_argument(p, "--max_len", help="maximum length of stay in days, default 2 weeks", default=14)
 
-argv <- parse_args(p)
+argv <- argparser::parse_args(p)
 
 # Configure environment and script
 Sys.setenv(RICU_DATA_PATH = argv$ricu_path)
-print(glue("Ricu path: {Sys.getenv('RICU_DATA_PATH')}"))
+print(glue::glue("Ricu path: {Sys.getenv('RICU_DATA_PATH')}"))
 library(ricu)
 
 src <- argv$src
 out_path <- paste0(argv$out_path, src)
-print(glue("Output path: {out_path}"))
+print(glue::glue("Output path: {out_path}"))
 
 # Load the variable reference tsv
 var_ref_df <- read.table(file = argv$var_ref_path, sep = "\t", header = TRUE)
@@ -53,29 +50,24 @@ freq <- 1L
 # Maximum length of stay, cast to number of hours
 max_len_days <- as.numeric(argv$max_len)
 max_len_hours <- max_len_days * 24
-print(glue("Max length of stay: {max_len_days} days = {max_len_hours} hours"))
+print(glue::glue("Max length of stay: {max_len_days} days = {max_len_hours} hours"))
 
 var_ref_df <- var_ref_df[var_ref_df$DatasetVersion != "None", ]
-print(glue("Variable reference table has {nrow(var_ref_df)} rows"))
+print(glue::glue("Variable reference table has {nrow(var_ref_df)} rows"))
 
-# ------------------------------------------------
 # Define variables to load
-# ------------------------------------------------
-
-# --------- Static variables ---------
+# Static variables
 var_static_df = var_ref_df[var_ref_df$VariableType == "static", ]
-print(glue("Number of static variables: {nrow(var_static_df)}"))
-base_static_vars <- c("patient_id", "death_icu", "los_hosp", "los_icu", "ed_disposition", "hospital_id", "anchor_year")
+print(glue::glue("Number of static variables: {nrow(var_static_df)}"))
+base_static_vars <- c("patient_id", "death_icu", "los_hosp", "los_icu", "ed_disposition", "hospital_id", "anchoryear")
 static_vars <- c(base_static_vars, var_static_df$VariableTag)
 
-# --------- Dynamic variables ---------
+# Dynamic variables
 var_dynamic_df = var_ref_df[var_ref_df$VariableType != "static", ]
 dynamic_vars <- c(var_dynamic_df$VariableTag)
-print(glue("Number of dynamic variables: {nrow(var_dynamic_df)}"))
+print(glue::glue("Number of dynamic variables: {nrow(var_dynamic_df)}"))
 
-# ------------------------------------------------
 # Define stay identifer (can vary per dataset)
-# ------------------------------------------------
 if (src == "mimic" || src == "mimic_demo" || src == "picdb") {
   stay_id = "icustay_id"
 } else if (src == "miiv") {
@@ -94,7 +86,7 @@ if (src == "mimic" || src == "miiv" || src == "eicu" || src == "eicu_demo" || sr
 patients <- as_win_tbl(patients, index_var = "start", dur_var = "end", interval = time_unit(freq))
 arrow::write_parquet(patients, paste0(out_path, "/patients.parquet"))
 
-# Define observation times ------------------------------------------------
+# Define observation times
 stop_obs_at(patients, offset = ricu:::re_time(hours(max_len_hours), time_unit(freq)), by_ref = TRUE)
 
 # Exclusion criteria

@@ -5,7 +5,7 @@ map_to_grid <- function(x) {
 
 
 pad_rollind <- function(x, n, ...) {
-  assert_that(all(is.na(x)) || !any(x < 0, na.rm = TRUE))
+  assertthat::assert_that(all(is.na(x)) || !any(x < 0, na.rm = TRUE))
   pad_rollsum(x, n, ...) > 0
 }
 
@@ -28,7 +28,7 @@ pad_rollsum <- function(x, n, ...) {
 
 
 outcome_window <- function(x, window = 0L) {
-  assert_that(all(window >= 0), length(window) <= 2, !has_gaps(x))
+  assertthat::assert_that(all(window >= 0), length(window) <= 2, !has_gaps(x))
 
   if (length(window) == 1)
     window <- rep(window, 2L)
@@ -45,7 +45,7 @@ outcome_window <- function(x, window = 0L) {
 
 
 set_window <- function(x, value = NA, window = 0L) {
-  assert_that(all(window >= 0), length(window) <= 2, !has_gaps(x))
+  assertthat::assert_that(all(window >= 0), length(window) <= 2, !has_gaps(x))
 
   if (length(window) == 1)
     window <- rep(window, 2L)
