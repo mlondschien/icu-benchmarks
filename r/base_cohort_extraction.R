@@ -174,10 +174,7 @@ patients <- patients[get(id_var(patients)) %in% dyn_valid_ids, ]
 patient_ids <- patients[, .SD, .SDcols = id_var(patients)]
 nrow_patients_valid <- nrow(patients)
 if (nrow_patients_before != nrow_patients_valid) {
-  print("=====================================")
-  print("WARNING: Found and removed patients without any dynamic data")
-  print(glue("Removed {nrow_patients_before - nrow_patients_valid} patients without any dynamic data"))
-  print("=====================================")
+  print(glue("WARNING: Removed {nrow_patients_before - nrow_patients_valid} patients without any dynamic data"))
 }
 
 # Load static variables
