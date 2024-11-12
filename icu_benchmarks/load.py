@@ -20,7 +20,7 @@ def load(
     outcome: str,
     split: str | None = None,
     data_dir=None,
-    min_hours: int = 4,
+    min_hours: int = 0,
     variables: list[str] | None = None,
     categorical_features: list[str] | None = None,
     continuous_features: list[str] | None = None,
@@ -68,7 +68,7 @@ def load(
 
     Returns
     -------
-    df : pandas.DataFrame
+    df : polars.DataFrame
         The features.
     y : numpy.ndarray
         The outcome.
@@ -136,7 +136,8 @@ def load(
         # weights = df["dataset"].map(lambda x: 1 / sqrt_counts.sum() / sqrt_counts[x])
         # weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
 
-    assert np.allclose(weights.sum(), 1)
+    if len(df) > 0:
+        assert np.allclose(weights.sum(), 1)
 
     y = df[outcome].to_numpy()
     assert np.isnan(y).sum() == 0

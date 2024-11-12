@@ -37,7 +37,7 @@ TASKS = {
         "family": "gamma",
         # alpha such that fit on train split with l1_ratio=1 is zero. This differs a
         # bit by weighting scheme.
-        "alpha_max": 0,
+        "alpha_max": 0.6,
         # Total number of samples in all splits
         "n_samples": {
             "mimic": 5433113,
@@ -97,6 +97,7 @@ TASKS = {
     "los_at_24h": {
         "task": "regression",
         "family": "gamma",
+        "alpha_max": 0.5,
         "n_samples": {
             "mimic": 48868,
             "ehrshot": 0,

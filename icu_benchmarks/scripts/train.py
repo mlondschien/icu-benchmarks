@@ -106,10 +106,10 @@ def main(config: str):  # noqa D
         ],
         sparse_threshold=0,
         verbose=1,
-    ).set_output(transform="pandas")
+    ).set_output(transform="polars")
 
     tic = perf_counter()
-    df = tabmat.from_pandas(preprocessor.fit_transform(df))
+    df = tabmat.from_df(preprocessor.fit_transform(df))
     toc = perf_counter()
     logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
 
@@ -186,7 +186,7 @@ def main(config: str):  # noqa D
                 continue
 
             tic = perf_counter()
-            df = tabmat.from_pandas(preprocessor.transform(df))
+            df = tabmat.from_df(preprocessor.transform(df))
             toc = perf_counter()
             logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
 
