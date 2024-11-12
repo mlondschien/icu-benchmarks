@@ -585,7 +585,14 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     if missing_features:
         raise ValueError(f"Missing features: {missing_features}")
 
-    other_variables = {"stay_id", "hash", "split", "dataset", "time_hours", "anchoryear"}
+    other_variables = {
+        "stay_id",
+        "hash",
+        "split",
+        "dataset",
+        "time_hours",
+        "anchoryear",
+    }
     extra_features = schema_names - feature_names - other_variables - set(OUTCOMES)
     if extra_features:
         logger.warning(f"Extra features: {extra_features}")
