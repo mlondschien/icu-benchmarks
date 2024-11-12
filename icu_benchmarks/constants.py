@@ -49,31 +49,26 @@ TASKS = {
         "task": "classification",
         "family": "binomial",
         "alpha_max": 0.25,
-        "n_train": 3959393
+        "n_train": 3959393,
     },
     "circulatory_failure_at_8h": {
         "task": "classification",
         "family": "binomial",
         "alpha_max": 0.25,
-        "n_train": 2036495
+        "n_train": 2036495,
     },
     "kidney_failure_at_48h": {
         "task": "classification",
         "family": "binomial",
         "alpha_max": 0.15,
-        "n_train": 9991660
+        "n_train": 9991660,
     },
-    "remaining_los": {
-        "task": "regression",
-        "family": "gamma",
-        "n_train": 19495398
-    },
+    "remaining_los": {"task": "regression", "family": "gamma", "n_train": 19495398},
     "los_at_24h": {
         "task": "regression",
         "family": "gamma",
     },
 }
-
 
 
 SIZES = {
@@ -95,15 +90,6 @@ SIZES = {
         "circulatory_failure_at_8h": [11453, 0.1],
         "kidney_failure_at_48h": [60993, 0.4],
     },
-    "miived": {
-        "remaining_los": [1550213, 10.0],
-        "mortality_at_24h": [11733, 0.1],
-        "los_at_24h": [11733, 0.1],
-        "decompensation_at_24h": [1550213, 10.0],
-        "respiratory_failure_at_24h": [0, 0.0],
-        "circulatory_failure_at_8h": [0, 0.0],
-        "kidney_failure_at_48h": [0, 0.0],
-    },
     "miiv": {
         "remaining_los": [2163733, 13.9],
         "mortality_at_24h": [22747, 0.1],
@@ -114,10 +100,10 @@ SIZES = {
         "kidney_failure_at_48h": [1628933, 10.5],
     },
     "miived": {
-        "remaining_los": [1550213,10.0],
-        "mortality_at_24h": [11733,0.1],
-        "los_at_24h": [11733,0.1],
-        "decompensation_at_24h": [1550213,10.0],
+        "remaining_los": [1550213, 10.0],
+        "mortality_at_24h": [11733, 0.1],
+        "los_at_24h": [11733, 0.1],
+        "decompensation_at_24h": [1550213, 10.0],
         "respiratory_failure_at_24h": [0, 0.0],
         "circulatory_failure_at_8h": [0, 0.0],
         "kidney_failure_at_48h": [0, 0.0],
@@ -177,4 +163,3 @@ SIZES = {
         "kidney_failure_at_48h": [40920, 0.3],
     },
 }
-
