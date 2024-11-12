@@ -11,7 +11,10 @@ OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
 
 
 @click.command()
-def main():  # noqa D
+@click.option("--data_dir", type=click.Path(exists=True))
+@click.option("--prevalence", type=click.Choice(["time-step", "patient"]))
+def main(data_dir=None, prevalence="time-step"):  # noqa D
+    data_dir = Path(data_dir) if data_dir is not None else DATA_DIR
     OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 
     fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(25, 15))
@@ -19,10 +22,15 @@ def main():  # noqa D
     for ax, outcome in zip(axes.flat[: len(OUTCOMES)], OUTCOMES):
         data = {
             dataset: pl.read_parquet(
-                DATA_DIR / dataset / "features.parquet", columns=[outcome]
-            ).to_series()
+                data_dir / dataset / "features.parquet", columns=["stay_id", outcome]
+            )
             for dataset in DATASETS
         }
+        if prevalence == "patient" and outcome not in ["remaining_los", "los_at_24h"]:
+            data = {k: v.group_by("stay_id").agg(pl.when(pl.col(outcome).is_not_null().any()).then(pl.col(outcome).any())).select(outcome).to_series() for k, v in data.items()}
+        else:
+            data = {k: v.select(outcome).to_series() for k, v in data.items()}
+
         if outcome not in ["remaining_los", "los_at_24h"]:
             plot_discrete(ax, data, outcome, missings=True)
         else:
@@ -34,7 +42,7 @@ def main():  # noqa D
             }
             plot_continuous(ax, data, f"log({outcome})")
 
-    fig.savefig(OUTPUT_PATH / "outcomes.png")
+    fig.savefig(OUTPUT_PATH / f"outcomes_{prevalence}.png")
     plt.close(fig)
 
 
