@@ -27,7 +27,17 @@ def main(data_dir=None, prevalence="time-step"):  # noqa D
             for dataset in DATASETS
         }
         if prevalence == "patient" and outcome not in ["remaining_los", "los_at_24h"]:
-            data = {k: v.group_by("stay_id").agg(pl.when(pl.col(outcome).is_not_null().any()).then(pl.col(outcome).any())).select(outcome).to_series() for k, v in data.items()}
+            data = {
+                k: v.group_by("stay_id")
+                .agg(
+                    pl.when(pl.col(outcome).is_not_null().any()).then(
+                        pl.col(outcome).any()
+                    )
+                )
+                .select(outcome)
+                .to_series()
+                for k, v in data.items()
+            }
         else:
             data = {k: v.select(outcome).to_series() for k, v in data.items()}
 
