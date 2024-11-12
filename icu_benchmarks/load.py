@@ -108,30 +108,30 @@ def load(
 
     data_dir = Path(DATA_DIR if data_dir is None else data_dir)
 
-    df = (
+    df = pl.from_arrow(
         ParquetDataset(
             [data_dir / source / "features.parquet" for source in sources],
             filters=arrow_filters,
-        )
-        .read(columns=columns + [outcome, "dataset"])
-        .to_pandas(strings_to_categorical=True, self_destruct=True)
+        ).read(columns=columns + [outcome, "dataset"])
     )
 
     if len(sources) == 1 or weighting is None or weighting == "constant":
-        weights = np.ones(len(df)) / len(df)
+        weights = np.ones(df.shape[0]) / df.shape[0]
     elif weighting == "inverse":
         counts = df["dataset"].value_counts()
-        # counts = df["dataset"].map_elements(lambda x: 1 / len(counts) / counts[x])
-        weights = df["dataset"].apply(lambda x: 1 / len(counts) / counts[x])
-        weights = weights.astype("float").to_numpy()
-        # weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
+        counts = counts.map_elements(lambda x: 1 / len(counts) / counts[x])
+        # weights = df["dataset"].map(lambda x: 1 / len(counts) / counts[x])
+        # weights = df["dataset"].apply(lambda x: 1 / len(counts) / counts[x])
+        # weights = weights.astype("float").to_numpy()
+        weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
         # counts = df["dataset"].value_counts()
         # weights = df["dataset"].map(lambda x: 1 / len(counts) / counts[x])
     elif weighting == "sqrt":
-        counts = df["dataset"].value_counts().pow(0.5)
-        # counts = df["dataset"].map_elements(lambda x: 1 / counts.sum().item() / x)
-        weights = df["dataset"].apply(lambda x: 1 / counts.sum() / counts[x])
-        weights = weights.astype("float").to_numpy()
+        counts = df["dataset"].value_counts().select(pl.sqrt())
+        counts = df["dataset"].map_elements(lambda x: 1 / counts.sum().item() / x)
+        weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
+        # weights = df["dataset"].apply(lambda x: 1 / counts.sum() / counts[x])
+        # weights = weights.astype("float").to_numpy()
         # sqrt_counts = df["dataset"].value_counts().sqrt()
         # weights = df["dataset"].map(lambda x: 1 / sqrt_counts.sum() / sqrt_counts[x])
         # weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
