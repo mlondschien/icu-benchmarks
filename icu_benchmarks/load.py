@@ -4,7 +4,7 @@ import gin
 import polars as pl
 import pyarrow.dataset as ds
 from pyarrow.parquet import ParquetDataset
-
+import numpy as np
 from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
 
 CONTINUOUS_FEATURES = ["mean", "std", "slope", "fraction_nonnull", "all_missing"]
@@ -25,6 +25,7 @@ def load(
     continuous_features: list[str] | None = None,
     treatment_indicator_features: list[str] | None = None,
     horizons=[8, 24],
+    weighting: str = None,
 ):
     """
     Load data as a pandas DataFrame and a numpy array.
@@ -59,6 +60,10 @@ def load(
         all treatment indicator features are loaded.
     horizons : list of int, optional, default = [8, 24]
         The horizons for which to load features.
+    weighting : str, optional, default = None
+        The weighting scheme to use. If `None`, all weights are `1`. If `"inverse"`, the
+        weights are the inverse of the dataset size. If `"sqrt"`, the weights are the
+        square root of the inverse of the dataset size.
 
     Returns
     -------
@@ -67,16 +72,24 @@ def load(
     y : numpy.ndarray
         The outcome.
     """
-    filters = (ds.field("time_hours") >= min_hours - 1) & ~ds.field(outcome).is_null()
+    filters = (pl.col("time_hours") >= min_hours - 1) & pl.col(outcome).is_not_null()
+    arrow_filters = (ds.field("time_hours") >= min_hours - 1) & ~ds.field(outcome).is_null()
 
     if split == "train":
-        filters &= ds.field("hash") < 0.7
+        filters &= pl.col("hash") < 0.7
+        arrow_filters &= ds.field("hash") < 0.7
     elif split == "val":
-        filters &= (ds.field("hash") >= 0.7) & (ds.field("hash") < 0.85)
+        filters &= ((pl.col("hash") >= 0.7) & (pl.col("hash") < 0.85))
+        arrow_filters &= (ds.field("hash") >= 0.7) & (ds.field("hash") < 0.85)
     elif split == "test":
-        filters &= ds.field("hash") >= 0.85
+        filters &= pl.col("hash") >= 0.85
+        arrow_filters &= ds.field("hash") >= 0.85
     elif split is not None:
         raise ValueError(f"Invalid split: {split}")
+
+    if "miiv" in sources:
+        filters &= ((pl.col("dataset") != "miiv") | (pl.col("anchoryear") > 2013))
+        arrow_filters &= (ds.field("dataset") != "miiv") | (ds.field("anchoryear") > 2013)
 
     columns = features(
         variables=variables,
@@ -87,20 +100,40 @@ def load(
     )
 
     data_dir = Path(DATA_DIR if data_dir is None else data_dir)
-    # Use ParquetDataset to read multiple files without a copy as in pd.concat.
+
     df = (
         ParquetDataset(
             [data_dir / source / "features.parquet" for source in sources],
-            filters=filters,
+            filters=arrow_filters,
         )
-        .read(columns=columns + [outcome])
-        .to_pandas(strings_to_categorical=True, self_destruct=True)
+        .read(columns=columns + [outcome, "dataset"]).to_pandas(strings_to_categorical=True, self_destruct=True)
     )
 
-    y = df[outcome]
-    assert y.isna().sum() == 0
+    if len(sources) == 1 or weighting is None or weighting == "constant":
+        weights = np.ones(len(df)) / len(df)
+    elif weighting == "inverse":
+        counts = df["dataset"].value_counts()
+        # counts = df["dataset"].map_elements(lambda x: 1 / len(counts) / counts[x])
+        weights = df["dataset"].apply(lambda x: 1 / len(counts) / counts[x])
+        weights = weights.astype("float").to_numpy()
+        # weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
+        # counts = df["dataset"].value_counts()
+        # weights = df["dataset"].map(lambda x: 1 / len(counts) / counts[x])
+    elif weighting == "sqrt":
+        counts = df["dataset"].value_counts().pow(0.5)
+        # counts = df["dataset"].map_elements(lambda x: 1 / counts.sum().item() / x)
+        weights = df["dataset"].apply(lambda x: 1 / counts.sum() / counts[x])
+        weights = weights.astype("float").to_numpy()
+        # sqrt_counts = df["dataset"].value_counts().sqrt()
+        # weights = df["dataset"].map(lambda x: 1 / sqrt_counts.sum() / sqrt_counts[x]) 
+        # weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
 
-    return df.drop(columns=[outcome]), y.to_numpy().astype("bool")
+    assert np.allclose(weights.sum(), 1)
+
+    y = df[outcome].to_numpy()
+    assert np.isnan(y).sum() == 0
+
+    return df.drop(columns=[outcome, "dataset"]), y, weights
 
 
 def features(
