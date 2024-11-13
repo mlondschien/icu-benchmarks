@@ -5,7 +5,8 @@ channels:
 dependencies:
   - python>=3.12
   - click
-  - glum>=3.0
+  - glum>=3.1
+  - tabmat>=4.1
   - numpy>=2.1
   - pandas
   - polars

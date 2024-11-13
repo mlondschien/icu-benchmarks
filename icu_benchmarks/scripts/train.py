@@ -1,5 +1,4 @@
 import logging
-import warnings
 from time import perf_counter
 
 import click
@@ -24,7 +23,6 @@ from icu_benchmarks.load import load
 from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
 
 logger = logging.getLogger(__name__)
-warnings.filterwarnings("error")
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
     level=logging.INFO,
@@ -65,6 +63,7 @@ def metrics(y, yhat, prefix):  # noqa D
         f"{prefix}/auprc": (
             auc(*precision_recall_curve(y, yhat)[1::-1]) if np.unique(y).size > 1 else 0
         ),
+        f"{prefix}/brier": np.mean((y - yhat) ** 2) if np.unique(y).size > 1 else 0,
     }
 
 
@@ -84,13 +83,13 @@ def main(config: str):  # noqa D
     parent_run = setup_mlflow(tags=tags)
 
     tic = perf_counter()
-    df, y = load(sources=sources(), outcome=outcome(), split="train")
+    df, y, weights = load(sources=sources(), outcome=outcome(), split="train")
     toc = perf_counter()
 
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
-    continuous_variables = [col for col in df.columns if df.dtypes[col] == "float64"]
-    other = [col for col in df.columns if df.dtypes[col] in ["category", "bool"]]
+    continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float()]
+    other = [col for col in df.columns if col not in continuous_variables]
 
     imputer = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
     preprocessor = ColumnTransformer(
@@ -104,10 +103,10 @@ def main(config: str):  # noqa D
         ],
         sparse_threshold=0,
         verbose=1,
-    ).set_output(transform="pandas")
+    ).set_output(transform="polars")
 
     tic = perf_counter()
-    df = tabmat.from_pandas(preprocessor.fit_transform(df))
+    df = tabmat.from_df(preprocessor.fit_transform(df))
     toc = perf_counter()
     logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
 
@@ -116,7 +115,7 @@ def main(config: str):  # noqa D
         logger.info(f"Fitting the glm with l1_ratio={l1_ratio:.1f}")
         glm = GeneralizedLinearRegressor(l1_ratio=l1_ratio)
         tic = perf_counter()
-        glm.fit(df, y)
+        glm.fit(df, y, sample_weight=weights)
         toc = perf_counter()
         logger.info(
             f"Fitting the glm with l1_ratio={l1_ratio:.1f} took {toc - tic:.1f} seconds"
@@ -175,7 +174,7 @@ def main(config: str):  # noqa D
         for split in ["train", "val", "test"]:
             logger.info(f"Scoring on {target}/{split}")
             tic = perf_counter()
-            df, y = load(sources=[target], outcome=outcome(), split=split)
+            df, y, _ = load(sources=[target], outcome=outcome(), split=split)
             toc = perf_counter()
             logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
@@ -184,13 +183,9 @@ def main(config: str):  # noqa D
                 continue
 
             tic = perf_counter()
-            df = tabmat.from_pandas(preprocessor.transform(df))
+            df = tabmat.from_df(preprocessor.transform(df))
             toc = perf_counter()
             logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
-
-            if df.shape[0] == 0:
-                logger.warning(f"No data for {target}/{split}")
-                continue
 
             for run in runs:
                 glm = glms[run["l1_ratio_idx"]]

@@ -20,13 +20,13 @@ def load(
     outcome: str,
     split: str | None = None,
     data_dir=None,
-    min_hours: int = 4,
+    min_hours: int = 0,
     variables: list[str] | None = None,
     categorical_features: list[str] | None = None,
     continuous_features: list[str] | None = None,
     treatment_indicator_features: list[str] | None = None,
     horizons=[8, 24],
-    weighting: str = "constant",
+    weighting_exponent: float = 0,
 ):
     """
     Load data as a pandas DataFrame and a numpy array.
@@ -61,42 +61,37 @@ def load(
         all treatment indicator features are loaded.
     horizons : list of int, optional, default = [8, 24]
         The horizons for which to load features.
-    weighting : str, optional, default = None
-        The weighting scheme to use. If `"constant"`, all weights are `1`. If
-        `"inverse"`, the weights are the inverse of the dataset size. If `"sqrt"`, the
-        weights are the square root of the inverse of the dataset size.
+    weighting_exponent : float, optional, default = 0
+        Observations are weighted proportional to `dataset_size ** weighting_exponent`.
+        If `-1`, the weights are the inverse of the dataset size and thus each dataset
+        is "equally weighted". If `-0.5`, the weights are the square root of the inverse
+        of the dataset size and thus each dataset has weight proportional to the square
+        root of the dataset size. If `0`, the weights are all equal and thus each
+        dataset has weight proportional to the dataset size. Should be a float between
+        `-1` and `0`.
 
     Returns
     -------
-    df : pandas.DataFrame
+    df : polars.DataFrame
         The features.
     y : numpy.ndarray
         The outcome.
     weights : numpy.ndarray
         The weights.
     """
-    filters = (pl.col("time_hours") >= min_hours - 1) & pl.col(outcome).is_not_null()
-    arrow_filters = (ds.field("time_hours") >= min_hours - 1) & ~ds.field(
-        outcome
-    ).is_null()
+    filters = (ds.field("time_hours") >= min_hours - 1) & ~ds.field(outcome).is_null()
 
     if split == "train":
-        filters &= pl.col("hash") < 0.7
-        arrow_filters &= ds.field("hash") < 0.7
+        filters &= ds.field("hash") < 0.7
     elif split == "val":
-        filters &= (pl.col("hash") >= 0.7) & (pl.col("hash") < 0.85)
-        arrow_filters &= (ds.field("hash") >= 0.7) & (ds.field("hash") < 0.85)
+        filters &= (ds.field("hash") >= 0.7) & (ds.field("hash") < 0.85)
     elif split == "test":
-        filters &= pl.col("hash") >= 0.85
-        arrow_filters &= ds.field("hash") >= 0.85
+        filters &= ds.field("hash") >= 0.85
     elif split is not None:
         raise ValueError(f"Invalid split: {split}")
 
     if "miiv" in sources:
-        filters &= (pl.col("dataset") != "miiv") | (pl.col("anchoryear") > 2013)
-        arrow_filters &= (ds.field("dataset") != "miiv") | (
-            ds.field("anchoryear") > 2013
-        )
+        filters &= (ds.field("dataset") != "miiv") | (ds.field("anchoryear") > 2013)
 
     columns = features(
         variables=variables,
@@ -108,40 +103,31 @@ def load(
 
     data_dir = Path(DATA_DIR if data_dir is None else data_dir)
 
-    df = (
+    df = pl.from_arrow(
         ParquetDataset(
             [data_dir / source / "features.parquet" for source in sources],
-            filters=arrow_filters,
-        )
-        .read(columns=columns + [outcome, "dataset"])
-        .to_pandas(strings_to_categorical=True, self_destruct=True)
+            filters=filters,
+        ).read(columns=columns + [outcome, "dataset"])
     )
 
-    if len(sources) == 1 or weighting is None or weighting == "constant":
-        weights = np.ones(len(df)) / len(df)
-    elif weighting == "inverse":
-        counts = df["dataset"].value_counts()
-        # counts = df["dataset"].map_elements(lambda x: 1 / len(counts) / counts[x])
-        weights = df["dataset"].apply(lambda x: 1 / len(counts) / counts[x])
-        weights = weights.astype("float").to_numpy()
-        # weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
-        # counts = df["dataset"].value_counts()
-        # weights = df["dataset"].map(lambda x: 1 / len(counts) / counts[x])
-    elif weighting == "sqrt":
-        counts = df["dataset"].value_counts().pow(0.5)
-        # counts = df["dataset"].map_elements(lambda x: 1 / counts.sum().item() / x)
-        weights = df["dataset"].apply(lambda x: 1 / counts.sum() / counts[x])
-        weights = weights.astype("float").to_numpy()
-        # sqrt_counts = df["dataset"].value_counts().sqrt()
-        # weights = df["dataset"].map(lambda x: 1 / sqrt_counts.sum() / sqrt_counts[x])
-        # weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
+    if not -1 <= weighting_exponent <= 0:
+        raise ValueError(f"Invalid weighting exponent: {weighting_exponent}")
 
-    assert np.allclose(weights.sum(), 1)
+    weighting_exponent = float(weighting_exponent)  # error if int
+
+    counts = df["dataset"].value_counts()
+    # quotient ensures that sum_i(weights_i) = sum_e(n_e ** weighting_exp * ne) = 1
+    quotient = counts.select(pl.col("count").pow(1.0 + weighting_exponent).sum())
+    counts = counts.with_columns(pl.col("count").pow(weighting_exponent) / quotient)
+    weights = df.select("dataset").join(counts, on="dataset")["count"].to_numpy()
+
+    if len(df) > 0:
+        assert np.allclose(weights.sum(), 1)
 
     y = df[outcome].to_numpy()
     assert np.isnan(y).sum() == 0
 
-    return df.drop(columns=[outcome, "dataset"]), y, weights
+    return df.drop([outcome, "dataset"]), y, weights
 
 
 def features(
