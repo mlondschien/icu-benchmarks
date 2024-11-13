@@ -585,8 +585,8 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         .when(pl.col("hash") < 0.85)
         .then(pl.lit("val"))
         .otherwise(pl.lit("test"))
-        .alias("split"),
-        pl.lit(dataset).alias("dataset"),
+        .alias("split").cast(pl.Enum(["train", "val", "test"])),
+        pl.lit(dataset).alias("dataset").cast(pl.Enum(DATASETS)),
     )
 
     feature_names = set(features())
