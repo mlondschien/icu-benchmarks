@@ -9,7 +9,7 @@ icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://10.205.179.68:33
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "test"
 
 icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
-icu_benchmarks.load.load.weighting = "constant"
+icu_benchmarks.load.load.weighting_exponent = 0  # constant weighting
 
 sources.sources = %SOURCES
 targets.targets = %TARGETS

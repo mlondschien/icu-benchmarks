@@ -26,7 +26,7 @@ def load(
     continuous_features: list[str] | None = None,
     treatment_indicator_features: list[str] | None = None,
     horizons=[8, 24],
-    weighting: str = "constant",
+    weighting_exponent: float = 0,
 ):
     """
     Load data as a pandas DataFrame and a numpy array.
@@ -61,10 +61,14 @@ def load(
         all treatment indicator features are loaded.
     horizons : list of int, optional, default = [8, 24]
         The horizons for which to load features.
-    weighting : str, optional, default = None
-        The weighting scheme to use. If `"constant"`, all weights are `1`. If
-        `"inverse"`, the weights are the inverse of the dataset size. If `"sqrt"`, the
-        weights are the square root of the inverse of the dataset size.
+    weighting_exponent : float, optional, default = 0
+        Observations are weighted proportional to `dataset_size ** weighting_exponent`.
+        If `-1`, the weights are the inverse of the dataset size and thus each dataset
+        is "equally weighted". If `-0.5`, the weights are the square root of the inverse
+        of the dataset size and thus each dataset has weight proportional to the square
+        root of the dataset size. If `0`, the weights are all equal and thus each
+        dataset has weight proportional to the dataset size. Should be a float between
+        `-1` and `0`.
 
     Returns
     -------
@@ -106,18 +110,14 @@ def load(
         ).read(columns=columns + [outcome, "dataset"])
     )
 
-    if len(sources) == 1 or weighting is None or weighting == "constant":
-        weights = np.ones(df.shape[0]) / df.shape[0]
-    else:
-        if weighting == "inverse":
-            counts = df["dataset"].value_counts()
-        elif weighting == "sqrt":
-            counts = df["dataset"].value_counts().pow(0.5)
-        else:
-            raise ValueError(f"Unknown weighting: {weighting}")
+    if not -1 <= weighting_exponent <= 0:
+        raise ValueError(f"Invalid weighting exponent: {weighting_exponent}")
 
-        counts = counts.with_columns(pl.col("count").pow(-1.0) / len(counts))
-        weights = df.select("dataset").join(counts, on="dataset")["count"].to_numpy()
+    counts = df["dataset"].value_counts()
+    # quotient ensures that sum_i(weights_i) = sum_e(n_e ** weighting_exp * ne) = 1
+    quotient = counts.select(pl.col("count").pow(1 + weighting_exponent).sum())
+    counts = counts.with_columns(pl.col("count").pow(weighting_exponent) / quotient)
+    weights = df.select("dataset").join(counts, on="dataset")["count"].to_numpy()
 
     if len(df) > 0:
         assert np.allclose(weights.sum(), 1)
