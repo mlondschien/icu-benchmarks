@@ -24,6 +24,7 @@ variable_reference = (
 )
 CAT_MISSING_NAME = "(MISSING)"
 
+
 def continuous_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
     """
     Compute continuous features for a column.
