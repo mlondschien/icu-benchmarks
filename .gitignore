@@ -6,3 +6,5 @@ data/
 slurm-*.out
 *.png
 logs/
+mlruns/
+logs_*/
