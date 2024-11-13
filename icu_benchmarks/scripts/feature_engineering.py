@@ -6,7 +6,12 @@ import click
 import numpy as np
 import polars as pl
 
-from icu_benchmarks.constants import DATA_DIR, OUTCOMES, VARIABLE_REFERENCE_PATH
+from icu_benchmarks.constants import (
+    DATA_DIR,
+    DATASETS,
+    OUTCOMES,
+    VARIABLE_REFERENCE_PATH,
+)
 from icu_benchmarks.load import features
 
 logger = logging.getLogger(__name__)
@@ -585,7 +590,8 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         .when(pl.col("hash") < 0.85)
         .then(pl.lit("val"))
         .otherwise(pl.lit("test"))
-        .alias("split").cast(pl.Enum(["train", "val", "test"])),
+        .alias("split")
+        .cast(pl.Enum(["train", "val", "test"])),
         pl.lit(dataset).alias("dataset").cast(pl.Enum(DATASETS)),
     )
 

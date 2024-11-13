@@ -4,7 +4,7 @@ import click
 import matplotlib.pyplot as plt
 import polars as pl
 
-from icu_benchmarks.constants import DATA_DIR, DATASETS, TASKS, OUTCOMES
+from icu_benchmarks.constants import DATA_DIR, DATASETS, TASKS
 from icu_benchmarks.plotting import plot_continuous, plot_discrete
 
 OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
