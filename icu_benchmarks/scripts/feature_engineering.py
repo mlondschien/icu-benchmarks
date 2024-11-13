@@ -310,7 +310,8 @@ def outcomes():
     - respiratory_failure_at_24h: Whether the patient has a respiratory failure within
       the next 24 hours. If the PaO2/FiO2 ratio is below 200, the patient is considered
       to have a respiratory failure (event).
-    - remaining_los: The remaining length of stay in the ICU.
+    - remaining_los: The remaining length of stay in the ICU. Missing for the last time-
+      step (instead of zero).
     - circulatory_failure_at_8h: Whether the patient has a circulatory failure within
       the next 8 hours. Circulatory failure is defined via blood pressure and lactate.
       Blood pressure is considered low if the mean arterial pressure is below 65 mmHg or if
@@ -322,6 +323,8 @@ def outcomes():
       KDIGO guidelines:
       https://kdigo.org/wp-content/uploads/2016/10/KDIGO-2012-AKI-Guideline-English.pdf
     - los_at_24h: The length of stay in the ICU at 24 hours after entry.
+    - log_creatine_in_1h: The log of the creatinine value in 1 hour.
+    - log_lactate_in_1h: The log of the lactate value in 1 hour.
     """
     # mortality_at_24h
     # This is a "once per patient" prediction task. At time step 24h, a label is
@@ -354,11 +357,9 @@ def outcomes():
     resp_failure_at_24h = eep_label(events, 24).alias("respiratory_failure_at_24h")
 
     # remaining_los
-    remaining_los = (
-        (pl.col("los_icu") - pl.col("time_hours") / 24.0)
-        .clip(0, None)
-        .alias("remaining_los")
-    )
+    remaining_los = pl.col("los_icu") - pl.col("time_hours") / 24.0
+    remaining_los = pl.when(remaining_los > 0).then(remaining_los).otherwise(None)
+    remaining_los = remaining_los.alias("remaining_los")
 
     # circulatory_failure_at_8h
     # A patient is considered to have a circulatory failure if the mean arterial
