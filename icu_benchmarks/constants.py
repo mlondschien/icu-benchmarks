@@ -32,6 +32,10 @@ OUTCOMES = [
     "log_lactate_in_1h",
 ]
 
+# Approx. number of rows per GB of memory. If all ~1000 columns were float64, this would
+# be ~125_000. We get a bit less due to boolean and categorical columns.
+OBSERVATIONS_PER_GB = 160_000
+
 TASKS = {
     "remaining_los": {
         "task": "regression",
@@ -53,19 +57,6 @@ TASKS = {
             "zigong": 392612,
             "picdb": 1651313,
         },
-        # Approximate size of the dataset in GB (features + outcome)
-        "size": {
-            "mimic": 33.3,
-            "ehrshot": 0.0,
-            "miived": 10.0,
-            "miiv": 13.9,
-            "eicu": 74.7,
-            "hirid": 11.0,
-            "aumc": 11.5,
-            "sic": 11.0,
-            "zigong": 2.4,
-            "picdb": 10.4,
-        },
     },
     "mortality_at_24h": {
         "task": "classification",
@@ -82,18 +73,6 @@ TASKS = {
             "sic": 19543,
             "zigong": 2460,
             "picdb": 9225,
-        },
-        "size": {
-            "mimic": 0.3,
-            "ehrshot": 0.2,
-            "miived": 0.1,
-            "miiv": 0.1,
-            "eicu": 0.9,
-            "hirid": 0.1,
-            "aumc": 0.1,
-            "sic": 0.1,
-            "zigong": 0.0,
-            "picdb": 0.1,
         },
     },
     "los_at_24h": {
@@ -112,18 +91,6 @@ TASKS = {
             "zigong": 2460,
             "picdb": 9225,
         },
-        "size": {
-            "mimic": 0.3,
-            "ehrshot": 0.0,
-            "miived": 0.1,
-            "miiv": 0.1,
-            "eicu": 0.9,
-            "hirid": 0.1,
-            "aumc": 0.1,
-            "sic": 0.1,
-            "zigong": 0.0,
-            "picdb": 0.1,
-        },
     },
     "decompensation_at_24h": {
         "task": "classification",
@@ -140,18 +107,6 @@ TASKS = {
             "sic": 1386615,
             "zigong": 387322,
             "picdb": 1651313,
-        },
-        "size": {
-            "mimic": 25.8,
-            "ehrshot": 18.6,
-            "miived": 10.0,
-            "miiv": 10.3,
-            "eicu": 74.7,
-            "hirid": 6.9,
-            "aumc": 11.5,
-            "sic": 8.1,
-            "zigong": 2.3,
-            "picdb": 10.4,
         },
     },
     "respiratory_failure_at_24h": {
@@ -170,18 +125,6 @@ TASKS = {
             "zigong": 0,
             "picdb": 230158,
         },
-        "size": {
-            "mimic": 6.4,
-            "ehrshot": 0.4,
-            "miived": 0.0,
-            "miiv": 2.4,
-            "eicu": 13.5,
-            "hirid": 3.9,
-            "aumc": 5.5,
-            "sic": 2.7,
-            "zigong": 0.0,
-            "picdb": 1.4,
-        },
     },
     "circulatory_failure_at_8h": {
         "task": "classification",
@@ -199,18 +142,6 @@ TASKS = {
             "zigong": 2762,
             "picdb": 12573,
         },
-        "size": {
-            "mimic": 2.0,
-            "ehrshot": 0.1,
-            "miived": 0.0,
-            "miiv": 1.4,
-            "eicu": 2.1,
-            "hirid": 4.2,
-            "aumc": 1.8,
-            "sic": 6.9,
-            "zigong": 0.0,
-            "picdb": 0.1,
-        },
     },
     "kidney_failure_at_48h": {
         "task": "classification",
@@ -227,18 +158,6 @@ TASKS = {
             "sic": 1399874,
             "zigong": 0,
             "picdb": 44773,
-        },
-        "size": {
-            "mimic": 18.9,
-            "ehrshot": 0.4,
-            "miived": 0.0,
-            "miiv": 10.5,
-            "eicu": 37.6,
-            "hirid": 6.3,
-            "aumc": 9.5,
-            "sic": 8.2,
-            "zigong": 0.0,
-            "picdb": 0.3,
         },
     },
     "log_creatine_in_1h": {
