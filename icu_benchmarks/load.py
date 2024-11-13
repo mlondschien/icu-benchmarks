@@ -75,28 +75,19 @@ def load(
     weights : numpy.ndarray
         The weights.
     """
-    filters = (pl.col("time_hours") >= min_hours - 1) & pl.col(outcome).is_not_null()
-    arrow_filters = (ds.field("time_hours") >= min_hours - 1) & ~ds.field(
-        outcome
-    ).is_null()
+    filters = (ds.field("time_hours") >= min_hours - 1) & ~ds.field(outcome).is_null()
 
     if split == "train":
-        filters &= pl.col("hash") < 0.7
-        arrow_filters &= ds.field("hash") < 0.7
+        filters &= ds.field("hash") < 0.7
     elif split == "val":
-        filters &= (pl.col("hash") >= 0.7) & (pl.col("hash") < 0.85)
-        arrow_filters &= (ds.field("hash") >= 0.7) & (ds.field("hash") < 0.85)
+        filters &= (ds.field("hash") >= 0.7) & (ds.field("hash") < 0.85)
     elif split == "test":
-        filters &= pl.col("hash") >= 0.85
-        arrow_filters &= ds.field("hash") >= 0.85
+        filters &= ds.field("hash") >= 0.85
     elif split is not None:
         raise ValueError(f"Invalid split: {split}")
 
     if "miiv" in sources:
-        filters &= (pl.col("dataset") != "miiv") | (pl.col("anchoryear") > 2013)
-        arrow_filters &= (ds.field("dataset") != "miiv") | (
-            ds.field("anchoryear") > 2013
-        )
+        filters &= (ds.field("dataset") != "miiv") | (ds.field("anchoryear") > 2013)
 
     columns = features(
         variables=variables,
@@ -111,20 +102,22 @@ def load(
     df = pl.from_arrow(
         ParquetDataset(
             [data_dir / source / "features.parquet" for source in sources],
-            filters=arrow_filters,
+            filters=filters,
         ).read(columns=columns + [outcome, "dataset"])
     )
 
     if len(sources) == 1 or weighting is None or weighting == "constant":
         weights = np.ones(df.shape[0]) / df.shape[0]
-    elif weighting == "inverse":
-        counts = df["dataset"].value_counts()
-        counts = counts.map_elements(lambda x: 1 / len(counts) / counts[x])
-        weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
-    elif weighting == "sqrt":
-        counts = df["dataset"].value_counts().select(pl.sqrt())
-        counts = df["dataset"].map_elements(lambda x: 1 / counts.sum().item() / x)
-        weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
+    else:
+        if weighting == "inverse"
+            counts = df["dataset"].value_counts()
+        elif weighting == "sqrt":
+            counts = df["dataset"].value_counts().pow(0.5)
+        else:
+            raise ValueError(f"Unknown weighting: {weighting}")
+    
+        counts = counts.with_columns(pl.col("count").pow(-1.0) / len(counts))
+        weights = df.select("dataset").join(counts, on="dataset")["count"].to_numpy()
 
     if len(df) > 0:
         assert np.allclose(weights.sum(), 1)
