@@ -120,21 +120,11 @@ def load(
     elif weighting == "inverse":
         counts = df["dataset"].value_counts()
         counts = counts.map_elements(lambda x: 1 / len(counts) / counts[x])
-        # weights = df["dataset"].map(lambda x: 1 / len(counts) / counts[x])
-        # weights = df["dataset"].apply(lambda x: 1 / len(counts) / counts[x])
-        # weights = weights.astype("float").to_numpy()
         weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
-        # counts = df["dataset"].value_counts()
-        # weights = df["dataset"].map(lambda x: 1 / len(counts) / counts[x])
     elif weighting == "sqrt":
         counts = df["dataset"].value_counts().select(pl.sqrt())
         counts = df["dataset"].map_elements(lambda x: 1 / counts.sum().item() / x)
         weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
-        # weights = df["dataset"].apply(lambda x: 1 / counts.sum() / counts[x])
-        # weights = weights.astype("float").to_numpy()
-        # sqrt_counts = df["dataset"].value_counts().sqrt()
-        # weights = df["dataset"].map(lambda x: 1 / sqrt_counts.sum() / sqrt_counts[x])
-        # weights = df.select("dataset").join(counts, on="dataset")["counts"].to_numpy()
 
     if len(df) > 0:
         assert np.allclose(weights.sum(), 1)
@@ -142,7 +132,7 @@ def load(
     y = df[outcome].to_numpy()
     assert np.isnan(y).sum() == 0
 
-    return df.drop(columns=[outcome, "dataset"]), y, weights
+    return df.drop([outcome, "dataset"]), y, weights
 
 
 def features(
