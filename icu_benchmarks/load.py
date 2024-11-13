@@ -109,13 +109,13 @@ def load(
     if len(sources) == 1 or weighting is None or weighting == "constant":
         weights = np.ones(df.shape[0]) / df.shape[0]
     else:
-        if weighting == "inverse"
+        if weighting == "inverse":
             counts = df["dataset"].value_counts()
         elif weighting == "sqrt":
             counts = df["dataset"].value_counts().pow(0.5)
         else:
             raise ValueError(f"Unknown weighting: {weighting}")
-    
+
         counts = counts.with_columns(pl.col("count").pow(-1.0) / len(counts))
         weights = df.select("dataset").join(counts, on="dataset")["count"].to_numpy()
 
