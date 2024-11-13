@@ -22,7 +22,7 @@ variable_reference = (
     .filter(pl.col("DatasetVersion").is_not_null())
     .with_columns(pl.col("PossibleValues").str.json_decode())
 )
-
+CAT_MISSING_NAME = "(MISSING)"
 
 def continuous_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
     """
@@ -135,12 +135,12 @@ def discrete_features(column_name: str, time_col: str, horizons: list[int] = [8,
             .select(
                 pl.when(pl.col("col").list.len() >= 1)
                 .then(pl.col("col").list.sort().list.first())
-                .fill_null("(MISSING)")
+                .fill_null(CAT_MISSING_NAME)
             )
             .to_series()
         )
 
-    nonnulls = (pl.col(column_name).is_not_null()).cum_sum()
+    nonnulls = (pl.col(column_name).ne(CAT_MISSING_NAME)).cum_sum()
 
     expressions = list()
 
@@ -185,7 +185,7 @@ def treatment_indicator_features(
     expressions = list()
 
     for horizon in horizons:
-        col_sum = col_cs - col_cs.shift(horizon, fill_value=0)
+        col_sum = (col_cs - col_cs.shift(horizon, fill_value=0)).cast(pl.Float64)
         expressions += [
             col_sum.alias(f"{column_name}_num_nonmissing_h{horizon}"),
             (col_sum > 0).alias(f"{column_name}_any_nonmissing_h{horizon}"),
@@ -521,8 +521,8 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         # Cast categorical variables to Enum. `samp` is binary. For simplicity, we cast
         # it to string first.
         if row["DataType"] == "categorical":
-            enum = pl.Enum(row["PossibleValues"] + ["(MISSING)"])
-            col = col.cast(pl.String).fill_null("(MISSING)").cast(enum)
+            enum = pl.Enum(row["PossibleValues"] + [CAT_MISSING_NAME])
+            col = col.cast(pl.String).fill_null(CAT_MISSING_NAME).cast(enum)
 
         dyn = dyn.with_columns(col)
 
