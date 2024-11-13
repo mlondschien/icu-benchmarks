@@ -90,7 +90,7 @@ def main(config: str):  # noqa D
 
     continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float()]
     other = [col for col in df.columns if col not in continuous_variables]
-    
+
     imputer = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
     preprocessor = ColumnTransformer(
         transformers=[
