@@ -28,6 +28,8 @@ OUTCOMES = [
     "respiratory_failure_at_24h",
     "circulatory_failure_at_8h",
     "kidney_failure_at_48h",
+    "log_creatine_in_1h",
+    "log_lactate_in_1h",
 ]
 
 TASKS = {
@@ -238,5 +240,13 @@ TASKS = {
             "zigong": 0.0,
             "picdb": 0.3,
         },
+    },
+    "log_creatine_in_1h": {
+        "task": "regression",
+        "family": "gaussian",
+    },
+    "log_lactage_in_1h": {
+        "task": "regression",
+        "family": "gaussian",
     },
 }

@@ -447,8 +447,15 @@ def outcomes():
     aki_3 = pl.when(pl.col("weight").is_null()).then(None).otherwise(aki_3)
     kidney_failure_at_48h = eep_label(aki_3, 48).alias("kidney_failure_at_48h")
 
+    # total length of stay, predicted at 24h after entry to the ICU.
     los_at_24h = pl.when(pl.col("time_hours").eq(24)).then(pl.col("los_icu"))
     los_at_24h = los_at_24h.clip(0, None).alias("los_at_24h")
+
+    # log(lactate) in the next hour. This can be seen as an imputation task.
+    log_lactate_in_1h = pl.col("log_lact").shift(-1).alias("log_lactate_in_1h")
+
+    # log(creatine) in the next hour. This can be seen as an imputation task.
+    log_creatine_in_1h = pl.col("log_crea").shift(-1).alias("log_creatine_in_1h")
 
     return [
         mortality_at_24h,
@@ -458,6 +465,8 @@ def outcomes():
         circulatory_failure_at_8h,
         kidney_failure_at_48h,
         los_at_24h,
+        log_lactate_in_1h,
+        log_creatine_in_1h,
     ]
 
 
