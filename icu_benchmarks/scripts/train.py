@@ -88,12 +88,9 @@ def main(config: str):  # noqa D
 
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
-    continuous_variables = [col for col in df.columns if df.dtypes[col] == "float64"]
-    other = [col for col in df.columns if df.dtypes[col] in ["category", "bool"]]
-    print(
-        f"extra columns: {[col for col in df.columns if col not in continuous_variables + other]}"
-    )
-
+    continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float()]
+    other = [col for col in df.columns if col not in continuous_variables]
+    
     imputer = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
     preprocessor = ColumnTransformer(
         transformers=[
