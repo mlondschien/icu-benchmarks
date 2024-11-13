@@ -113,9 +113,11 @@ def load(
     if not -1 <= weighting_exponent <= 0:
         raise ValueError(f"Invalid weighting exponent: {weighting_exponent}")
 
+    weighting_exponent = float(weighting_exponent)  # error if int
+
     counts = df["dataset"].value_counts()
     # quotient ensures that sum_i(weights_i) = sum_e(n_e ** weighting_exp * ne) = 1
-    quotient = counts.select(pl.col("count").pow(1 + weighting_exponent).sum())
+    quotient = counts.select(pl.col("count").pow(1.0 + weighting_exponent).sum())
     counts = counts.with_columns(pl.col("count").pow(weighting_exponent) / quotient)
     weights = df.select("dataset").join(counts, on="dataset")["count"].to_numpy()
 
