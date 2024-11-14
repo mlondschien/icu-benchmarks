@@ -1,6 +1,6 @@
 VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	TreatmentGroups	Unit	DataType	LowerBound	UpperBound	Description	LogTransform	LogTransformEps	PossibleValues
 1	map	Mean Arterial Blood Pressure	observation	v0.0	circulatory	None	mmHg	continuous	0.0	250.0	Arterial blood pressure measurement	False	None	None
-2	lact	Lactate	observation	v0.0	circulatory	None	mmol/L	continuous	0.0	50.0	Lactate in blood by test	True	0.01	None
+2	lact	Lactate	observation	v0.0	circulatory	None	mmol/L	continuous	0.0	50.0	Lactate in blood by test	True	0.1	None
 3	age	Age	static	v0.0	demographic	None	years	continuous	0.0	120.0	Age of a person in years	False	None	None
 4	weight	Weight	static	v0.0	demographic	None	kg	continuous	1.0	500.0	Body weight of a person	False	None	None
 5	sex	Sex	static	v0.0	demographic	None	None	categorical	None	None	Gender of a person, male, female, not-observed	False	None	["Female", "Male"]
@@ -129,3 +129,9 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 1038	prop_ind	Propofol indicator	treatment	v1.1	circulatory	sedative_anxiolytic	None	treatment_ind	None	None	Propofol as an indicator	False	None	None
 1039	benzdia_ind	benzodiacepine indicator	treatment	v1.1	circulatory	sedative_anxiolytic	None	treatment_ind	None	None	Benzodiacepine as an indicator	False	None	None
 1040	loop_diur_ind	Loop diuretics indicator	treatment	v1.1	circulatory	diuretic	None	treatment_ind	None	None	Loop Diuretics as a rate	False	None	None
+1041	vaso_ind	Any vasopressor inotrope treatment indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Any vasopressor inotrope as an indicator	False	None	None
+1042	anticoag_ind	Any anticoagulant treatment indicator	treatment	v1.1	circulatory	anticoagulant	None	treatment_ind	None	None	Any anticoagulant as an indicator	False	None	None
+1043	sed_ind	Any sedative anxiolytic treatment indicator	treatment	v1.1	circulatory	sedative_anxiolytic	None	treatment_ind	None	None	Any sedative anxiolytic as an indicator	False	None	None
+1043	painkiller_ind	Any painkiller treatment indicator	treatment	v1.1	circulatory	pain_killer	None	treatment_ind	None	None	Any painkiller as an indicator	False	None	None
+1044	diur_ind	Any diuretic treatment indicator	treatment	v1.1	circulatory	diuretic	None	treatment_ind	None	None	Any diuretic as an indicator	False	None	None
+1045	blood_prod_ind	Any blood products infusion treatment indicator	treatment	v1.1	circulatory	blood_products_infusion	None	treatment_ind	None	None	Any products infusion treatment as an indicator	False	None	None
