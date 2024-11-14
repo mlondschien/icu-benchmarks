@@ -5,7 +5,7 @@
 # and https://github.com/prockenschaub/icuDG-preprocessing/
 #
 # On mac, it is advisable to set the R_MAX_VSIZE environment variable before
-# running this. E.g., run `R_MAX_VSIZE=64000000000 Rscript base_cohort.R`
+# running this. E.g., run `R_MAX_VSIZE=64000000000 Rscript base_cohort_extraction.R`
 library(rlang)
 library(data.table)
 library(vctrs)
@@ -135,7 +135,6 @@ longest_rle <- function(x, val) {
   x <- x[values != val, lengths := 0]
   x[, .(lengths = max(lengths)), , by = c(id_vars(x))]
 }
-
 x <- load_step(dynamic_vars, interval=time_unit(freq), cache = TRUE)
 x <- function_step(x, map_to_grid)
 x <- function_step(x, n_obs_per_row)
@@ -166,7 +165,7 @@ patients <- patients[get(id_var(patients)) %in% dyn_valid_ids, ]
 patient_ids <- patients[, .SD, .SDcols = id_var(patients)]
 nrow_patients_valid <- nrow(patients)
 if (nrow_patients_before != nrow_patients_valid) {
-  print(glue("WARNING: Removed {nrow_patients_before - nrow_patients_valid} patients without any dynamic data"))
+  print(glue::glue("WARNING: Removed {nrow_patients_before - nrow_patients_valid} patients without any dynamic data"))
 }
 
 # Load static variables
