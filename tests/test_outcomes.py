@@ -109,6 +109,26 @@ def test_polars_nan_or(args, expected):
             ),
             pl.Series(24 * [None] + [4.0] + 71 * [None]),
         ),
+        (
+            "log_lactate_in_1h",
+            pl.DataFrame(
+                {
+                    "log_lact": [None, -1.0, 2.1, None, None, 1.2, 0.0, None],
+                    "time_hours": np.arange(0, 8),
+                }
+            ),
+            pl.Series([-1.0, 2.1, None, None, 1.2, 0.0, None, None]),
+        ),
+        (
+            "log_creatine_in_1h",
+            pl.DataFrame(
+                {
+                    "log_crea": [None, -1.0, 2.1, None, None, 1.2, 0.0, None],
+                    "time_hours": np.arange(0, 8),
+                }
+            ),
+            pl.Series([-1.0, 2.1, None, None, 1.2, 0.0, None, None]),
+        ),
     ],
 )
 def test_outcomes(outcome_name, input, expected):

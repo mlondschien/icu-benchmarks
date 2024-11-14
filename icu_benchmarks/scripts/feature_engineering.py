@@ -6,7 +6,12 @@ import click
 import numpy as np
 import polars as pl
 
-from icu_benchmarks.constants import DATA_DIR, OUTCOMES, VARIABLE_REFERENCE_PATH
+from icu_benchmarks.constants import (
+    DATA_DIR,
+    DATASETS,
+    OUTCOMES,
+    VARIABLE_REFERENCE_PATH,
+)
 from icu_benchmarks.load import features
 
 logger = logging.getLogger(__name__)
@@ -310,7 +315,8 @@ def outcomes():
     - respiratory_failure_at_24h: Whether the patient has a respiratory failure within
       the next 24 hours. If the PaO2/FiO2 ratio is below 200, the patient is considered
       to have a respiratory failure (event).
-    - remaining_los: The remaining length of stay in the ICU.
+    - remaining_los: The remaining length of stay in the ICU. Missing for the last time-
+      step (instead of zero).
     - circulatory_failure_at_8h: Whether the patient has a circulatory failure within
       the next 8 hours. Circulatory failure is defined via blood pressure and lactate.
       Blood pressure is considered low if the mean arterial pressure is below 65 mmHg or if
@@ -322,6 +328,8 @@ def outcomes():
       KDIGO guidelines:
       https://kdigo.org/wp-content/uploads/2016/10/KDIGO-2012-AKI-Guideline-English.pdf
     - los_at_24h: The length of stay in the ICU at 24 hours after entry.
+    - log_creatine_in_1h: The log of the creatinine value in 1 hour.
+    - log_lactate_in_1h: The log of the lactate value in 1 hour.
     """
     # mortality_at_24h
     # This is a "once per patient" prediction task. At time step 24h, a label is
@@ -354,11 +362,9 @@ def outcomes():
     resp_failure_at_24h = eep_label(events, 24).alias("respiratory_failure_at_24h")
 
     # remaining_los
-    remaining_los = (
-        (pl.col("los_icu") - pl.col("time_hours") / 24.0)
-        .clip(0, None)
-        .alias("remaining_los")
-    )
+    remaining_los = pl.col("los_icu") - pl.col("time_hours") / 24.0
+    remaining_los = pl.when(remaining_los > 0).then(remaining_los).otherwise(None)
+    remaining_los = remaining_los.alias("remaining_los")
 
     # circulatory_failure_at_8h
     # A patient is considered to have a circulatory failure if the mean arterial
@@ -447,8 +453,15 @@ def outcomes():
     aki_3 = pl.when(pl.col("weight").is_null()).then(None).otherwise(aki_3)
     kidney_failure_at_48h = eep_label(aki_3, 48).alias("kidney_failure_at_48h")
 
+    # total length of stay, predicted at 24h after entry to the ICU.
     los_at_24h = pl.when(pl.col("time_hours").eq(24)).then(pl.col("los_icu"))
     los_at_24h = los_at_24h.clip(0, None).alias("los_at_24h")
+
+    # log(lactate) in the next hour. This can be seen as an imputation task.
+    log_lactate_in_1h = pl.col("log_lact").shift(-1).alias("log_lactate_in_1h")
+
+    # log(creatine) in the next hour. This can be seen as an imputation task.
+    log_creatine_in_1h = pl.col("log_crea").shift(-1).alias("log_creatine_in_1h")
 
     return [
         mortality_at_24h,
@@ -458,6 +471,8 @@ def outcomes():
         circulatory_failure_at_8h,
         kidney_failure_at_48h,
         los_at_24h,
+        log_lactate_in_1h,
+        log_creatine_in_1h,
     ]
 
 
@@ -575,8 +590,9 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         .when(pl.col("hash") < 0.85)
         .then(pl.lit("val"))
         .otherwise(pl.lit("test"))
-        .alias("split"),
-        pl.lit(dataset).alias("dataset"),
+        .alias("split")
+        .cast(pl.Enum(["train", "val", "test"])),
+        pl.lit(dataset).alias("dataset").cast(pl.Enum(DATASETS)),
     )
 
     feature_names = set(features())
