@@ -100,23 +100,23 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 1009	hep	heparin	treatment	v1.0	circulatory	anticoagulant	U/h	treatment_cont	0.0	10000.0	Heparin  as a rate	True	100	None
 1010	prop	propofol	treatment	v1.0	neuro	sedative_anxiolytic	mcg/min	treatment_cont	0.0	50000.0	Propofol  as a rate	True	10	None
 1011	benzdia	benzodiacepine	treatment	v1.0	neuro	sedative_anxiolytic	mg/h	treatment_cont	0.0	1500.0	Benzodiacepine as a rate	True	0.1	None
-1012	sed	other sedatives	treatment	v1.0	neuro	sedative_anxiolytic	None	treatment_ind	None	None	Any other sedative as indicator	False	None	None
-1013	op_pain	opiate painkiller	treatment	v1.0	neuro	pain_killer	None	treatment_ind	None	None	Opioid Painkiller	False	None	None
-1014	nonop_pain	non-opioid analgesic	treatment	v1.0	neuro	pain_killer	None	treatment_ind	None	None	Painkiller	False	None	None
-1015	paral	paralytic	treatment	v1.0	neuro	paralytic	None	treatment_ind	None	None	Paralytics such as Rocuronium	False	None	None
-1016	abx	antibotics	treatment	v1.0	infection	diuretic	None	treatment_ind	None	None	Antibiotics aggregated	False	None	None
-1017	loop_diur	loop diuretic	treatment	v1.0	metabolic_renal	diuretic	mg/h	treatment_cont	0.0	500.0	Loop Diuretics as a rate	True	0.1	None
+1012	sed_ind	other sedatives	treatment	v1.0	neuro	sedative_anxiolytic	None	treatment_ind	None	None	Any other sedative as indicator	False	None	None
+1013	op_pain_ind	opiate painkiller	treatment	v1.0	neuro	pain_killer	None	treatment_ind	None	None	Opioid Painkiller	False	None	None
+1014	nonop_pain_ind	non-opioid analgesic	treatment	v1.0	neuro	pain_killer	None	treatment_ind	None	None	Painkiller	False	None	None
+1015	paral_ind	paralytic	treatment	v1.0	neuro	paralytic	None	treatment_ind	None	None	Paralytics such as Rocuronium	False	None	None
+1016	abx_ind	antibotics	treatment	v1.0	infection	antibiotics	None	treatment_ind	None	None	Antibiotics aggregated	False	None	None
+1017	loop_diur_ind	loop diuretic	treatment	v1.0	metabolic_renal	diuretic	mg/h	treatment_cont	0.0	500.0	Loop Diuretics as a rate	True	0.1	None
 1018	ins_ind	insulin	treatment	v1.0	None	insulin	None	treatment_ind	None	None	Insulin	False	None	None
-1019	fluid	fluid administration	treatment	v1.1	None	electrolyte	None	treatment_ind	None	None	Fluid and electrolyte administration	False	None	None
-1020	inf_rbc	packed red blood cells	treatment	v1.1	None	blood_products_infusion	None	treatment_ind	None	None	Packed red blood cells	False	None	None
-1021	ffp	Fresh Frozen Plasma	treatment	v1.1	None	blood_products_infusion	None	treatment_ind	None	None	Fresh frozen plasma	False	None	None
-1022	plat	platelets	treatment	v1.1	None	blood_products_infusion	None	treatment_ind	None	None	Platelets	False	None	None
-1023	inf_alb	albumin infusion	treatment	v1.1	None	blood_products_infusion	None	treatment_ind	None	None	Albumin Infusion	False	None	None
-1024	anti_delir	anti deliriant	treatment	v1.1	neuro	anti_delirant	None	treatment_ind	None	None	Anti-Deliriant	False	None	None
-1025	oth_diur	other diuretics	treatment	v1.1	metabolic_renal	diuretic	None	treatment_ind	None	None	Other diuretics	False	None	None
-1026	anti_coag	other anticoagulants	treatment	v1.1	circulatory	anticoagulant	None	treatment_ind	None	None	Other anticoagulants	False	None	None
-1027	vasod	antihypertensive and vasodilators	treatment	v1.1	circulatory	antihypertensive_vasolidators	None	treatment_ind	None	None	Antihypertensive and Vasodilators	False	None	None
-1028	anti_arrhythm	antiarrhythmic	treatment	v1.1	circulatory	antiarrhythmic	None	treatment_ind	None	None	Anti-arrhythmica agents	False	None	None
+1019	fluid_ind	fluid administration	treatment	v1.1	None	electrolyte	None	treatment_ind	None	None	Fluid and electrolyte administration	False	None	None
+1020	inf_rbc_ind	packed red blood cells	treatment	v1.1	None	blood_products_infusion	None	treatment_ind	None	None	Packed red blood cells	False	None	None
+1021	ffp_ind	Fresh Frozen Plasma	treatment	v1.1	None	blood_products_infusion	None	treatment_ind	None	None	Fresh frozen plasma	False	None	None
+1022	plat_ind	platelets	treatment	v1.1	None	blood_products_infusion	None	treatment_ind	None	None	Platelets	False	None	None
+1023	inf_alb_ind	albumin infusion	treatment	v1.1	None	blood_products_infusion	None	treatment_ind	None	None	Albumin Infusion	False	None	None
+1024	anti_delir_ind	anti deliriant	treatment	v1.1	neuro	anti_delirant	None	treatment_ind	None	None	Anti-Deliriant	False	None	None
+1025	oth_diur_ind	other diuretics	treatment	v1.1	metabolic_renal	diuretic	None	treatment_ind	None	None	Other diuretics	False	None	None
+1026	oth_anti_coag_ind	other anticoagulants	treatment	v1.1	circulatory	anticoagulant	None	treatment_ind	None	None	Other anticoagulants	False	None	None
+1027	vasod_ind	antihypertensive and vasodilators	treatment	v1.1	circulatory	antihypertensive_vasolidators	None	treatment_ind	None	None	Antihypertensive and Vasodilators	False	None	None
+1028	anti_arrhythm_ind	antiarrhythmic	treatment	v1.1	circulatory	antiarrhythmic	None	treatment_ind	None	None	Anti-arrhythmica agents	False	None	None
 1029	dobu_ind	Dobutamine indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Dobutamine as an indicator	False	None	None
 1030	levo_ind	Levosimendan indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Levosimendan as an indicator	False	None	None
 1031	norepi_ind	Norepinephrine indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Norepinephrine as an indicator	False	None	None
@@ -129,9 +129,9 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 1038	prop_ind	Propofol indicator	treatment	v1.1	circulatory	sedative_anxiolytic	None	treatment_ind	None	None	Propofol as an indicator	False	None	None
 1039	benzdia_ind	benzodiacepine indicator	treatment	v1.1	circulatory	sedative_anxiolytic	None	treatment_ind	None	None	Benzodiacepine as an indicator	False	None	None
 1040	loop_diur_ind	Loop diuretics indicator	treatment	v1.1	circulatory	diuretic	None	treatment_ind	None	None	Loop Diuretics as a rate	False	None	None
-1041	vaso_ind	Any vasopressor inotrope treatment indicator	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Any vasopressor inotrope as an indicator	False	None	None
-1042	anticoag_ind	Any anticoagulant treatment indicator	treatment	v1.1	circulatory	anticoagulant	None	treatment_ind	None	None	Any anticoagulant as an indicator	False	None	None
+1041	cf_treat_ind	Vasopressors and inotropes as treatments for circulatory failure	treatment	v1.1	circulatory	vasopressor_inotrope	None	treatment_ind	None	None	Any vasopressor inotrope as an indicator	False	None	None
+1042	anti_coag_ind	Any anticoagulant treatment indicator	treatment	v1.1	circulatory	anticoagulant	None	treatment_ind	None	None	Any anticoagulant as an indicator	False	None	None
 1043	sed_ind	Any sedative anxiolytic treatment indicator	treatment	v1.1	circulatory	sedative_anxiolytic	None	treatment_ind	None	None	Any sedative anxiolytic as an indicator	False	None	None
-1043	painkiller_ind	Any painkiller treatment indicator	treatment	v1.1	circulatory	pain_killer	None	treatment_ind	None	None	Any painkiller as an indicator	False	None	None
+1043	pain_killer_ind	Any painkiller treatment indicator	treatment	v1.1	circulatory	pain_killer	None	treatment_ind	None	None	Any painkiller as an indicator	False	None	None
 1044	diur_ind	Any diuretic treatment indicator	treatment	v1.1	circulatory	diuretic	None	treatment_ind	None	None	Any diuretic as an indicator	False	None	None
 1045	blood_prod_ind	Any blood products infusion treatment indicator	treatment	v1.1	circulatory	blood_products_infusion	None	treatment_ind	None	None	Any products infusion treatment as an indicator	False	None	None
