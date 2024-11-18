@@ -542,7 +542,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
         dyn = dyn.with_columns(col)
 
-    expressions = ["time_hours", "anchoryear"]
+    expressions = ["time_hours", "anchoryear", "carevue", "metavision"]
 
     for row in variable_reference.rows(named=True):
         tag = row["VariableTag"]
@@ -583,7 +583,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     q = dyn.group_by("stay_id").agg(expressions).explode(pl.exclude("stay_id"))
 
     q = q.with_columns(
-        (pl.col("stay_id").hash() / 2.0**64).alias("hash")  # useful for subsetting
+        (pl.col("stay_id").hash() / 2.0**64).alias("hash"),  # useful for subsetting
     ).with_columns(
         pl.when(pl.col("hash") < 0.7)
         .then(pl.lit("train"))
@@ -609,6 +609,8 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         "dataset",
         "time_hours",
         "anchoryear",
+        "carevue",
+        "metavision",
     }
     extra_features = schema_names - feature_names - other_variables - set(OUTCOMES)
     if extra_features:

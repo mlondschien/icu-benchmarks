@@ -59,6 +59,12 @@ def load(
     treatment_indicator_features : list of str, optional, default = None
         Which treatment indicator features to load. E.g., `"num_nonmissing"`. If `None`,
         all treatment indicator features are loaded.
+    treatment_detail_level : int, optional, default = 4
+        Which 'detail' level of treatment variables to load. If 4, all treatment
+        variables are loaded. If 3, only the treatment indicator variables are loaded
+        (no continuous treatment variables). If 2, only the aggregated treatment
+        indicators are loaded. If 1, no treatment variables are loaded.
+        Ignored if `variables` is not `None`.
     horizons : list of int, optional, default = [8, 24]
         The horizons for which to load features.
     weighting_exponent : float, optional, default = 0
@@ -90,14 +96,15 @@ def load(
     elif split is not None:
         raise ValueError(f"Invalid split: {split}")
 
-    if "miiv" in sources:
-        filters &= (ds.field("dataset") != "miiv") | (ds.field("anchoryear") > 2013)
+    if "mimic" in sources:
+        filters &= ((ds.field("dataset") != "mimic") | (ds.field("carevue") == True))
 
     columns = features(
         variables=variables,
         categorical_features=categorical_features,
         continuous_features=continuous_features,
         treatment_indicator_features=treatment_indicator_features,
+        treatment_detail_level=treatment_detail_level,
         horizons=horizons,
     )
 
@@ -107,7 +114,7 @@ def load(
         ParquetDataset(
             [data_dir / source / "features.parquet" for source in sources],
             filters=filters,
-        ).read(columns=columns + [outcome, "dataset"])
+        ).read(columns=columns + [outcome, "dataset", "split"])
     )
 
     if not -1 <= weighting_exponent <= 0:
@@ -127,15 +134,18 @@ def load(
     y = df[outcome].to_numpy()
     assert np.isnan(y).sum() == 0
 
-    return df.drop([outcome, "dataset"]), y, weights
+    return df, y, weights
+    # return df.drop([outcome, "dataset"]), y, weights
 
 
 def features(
     variables=None,
+    variable_versions=None,
     categorical_features=None,
     continuous_features=None,
     treatment_indicator_features=None,
     treatment_continuous_features=None,
+    treatment_detail_level=4,
     horizons=[8, 24],
 ):
     """
@@ -158,7 +168,13 @@ def features(
     treatment_continuous_features : list of str, optional, default = None
         For which treatment continuous features to return feature names. E.g.,
         `["rate"]`. If `None`, all treatment continuous features are used.
-
+    treatment_detail_level : int, optional, default = 4
+        For which 'detail' level of treatment variables to return feature names. If 4,
+        all treatment  variables are used. If 3, only the treatment indicator variables
+        are used (no continuous treatment variables). If 2, only the aggregated
+        treatment indicators are used. If 1, no treatment variables are used. Ignored if
+        `variables` is not `None`.
+    
     Returns
     -------
     features : list of str
@@ -175,6 +191,11 @@ def features(
 
     variable_reference = pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t")
 
+    if variable_versions is not None:
+        variable_reference = variable_reference.filter(
+            variable_reference["DatasetVersion"].isin(variable_versions)
+        )
+
     features = []
 
     for row in variable_reference.rows(named=True):
@@ -185,6 +206,9 @@ def features(
 
         if variables is not None and variable not in variables:
             continue
+        elif row["TreatmentDetail"] is not None:
+            if row["TreatmentDetail"] > treatment_detail_level:
+                continue
 
         if variables is not None:
             variables.remove(row["VariableTag"])
