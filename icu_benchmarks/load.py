@@ -103,7 +103,11 @@ def load(
         raise ValueError(f"Invalid split: {split}")
 
     if "mimic" in sources:
-        filters &= (ds.field("dataset") != "mimic") | (ds.field("carevue") == True)
+        # Remove mimic metavision data.
+        filters &= (ds.field("dataset") != "mimic") | (
+            (ds.field("carevue") == True)  # noqa: E712
+            & ds.field("metavision").is_null()
+        )
 
     columns = features(
         variables=variables,
