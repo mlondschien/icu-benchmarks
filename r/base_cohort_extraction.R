@@ -59,7 +59,7 @@ print(glue::glue("Variable reference table has {nrow(var_ref_df)} rows"))
 # Static variables
 var_static_df = var_ref_df[var_ref_df$VariableType == "static", ]
 print(glue::glue("Number of static variables: {nrow(var_static_df)}"))
-base_static_vars <- c("patient_id", "death_icu", "los_hosp", "los_icu", "ed_disposition", "hospital_id", "anchoryear")
+base_static_vars <- c("patient_id", "death_icu", "los_hosp", "los_icu", "ed_disposition", "hospital_id", "anchoryear", "carevue", "metavision")
 static_vars <- c(base_static_vars, var_static_df$VariableTag)
 
 # Dynamic variables
