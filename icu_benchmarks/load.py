@@ -22,9 +22,12 @@ def load(
     data_dir=None,
     min_hours: int = 0,
     variables: list[str] | None = None,
+    variable_versions=None,
     categorical_features: list[str] | None = None,
     continuous_features: list[str] | None = None,
     treatment_indicator_features: list[str] | None = None,
+    treatment_continuous_features: list[str] | None = None,
+    treatment_detail_level=4,
     horizons=[8, 24],
     weighting_exponent: float = 0,
 ):
@@ -59,6 +62,9 @@ def load(
     treatment_indicator_features : list of str, optional, default = None
         Which treatment indicator features to load. E.g., `"num_nonmissing"`. If `None`,
         all treatment indicator features are loaded.
+    treatment_continuous_features : list of str, optional, default = None
+        Which features of continuous treatments to load. E.g., `"rate"`. If `None`, all
+        continuous treatment features are loaded.
     treatment_detail_level : int, optional, default = 4
         Which 'detail' level of treatment variables to load. If 4, all treatment
         variables are loaded. If 3, only the treatment indicator variables are loaded
@@ -97,13 +103,15 @@ def load(
         raise ValueError(f"Invalid split: {split}")
 
     if "mimic" in sources:
-        filters &= ((ds.field("dataset") != "mimic") | (ds.field("carevue") == True))
+        filters &= (ds.field("dataset") != "mimic") | (ds.field("carevue") == True)
 
     columns = features(
         variables=variables,
+        variable_versions=variable_versions,
         categorical_features=categorical_features,
         continuous_features=continuous_features,
         treatment_indicator_features=treatment_indicator_features,
+        treatment_continuous_features=treatment_continuous_features,
         treatment_detail_level=treatment_detail_level,
         horizons=horizons,
     )
@@ -174,7 +182,7 @@ def features(
         are used (no continuous treatment variables). If 2, only the aggregated
         treatment indicators are used. If 1, no treatment variables are used. Ignored if
         `variables` is not `None`.
-    
+
     Returns
     -------
     features : list of str
@@ -189,11 +197,15 @@ def features(
     if treatment_continuous_features is None:
         treatment_continuous_features = TREATMENT_CONTINUOUS_FEATURES
 
-    variable_reference = pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t")
+    variable_reference = (
+        pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"])
+        .filter(pl.col("DatasetVersion").is_not_null())
+        .with_columns(pl.col("PossibleValues").str.json_decode())
+    )
 
     if variable_versions is not None:
         variable_reference = variable_reference.filter(
-            variable_reference["DatasetVersion"].isin(variable_versions)
+            pl.col("DatasetVersion").is_in(variable_versions)
         )
 
     features = []
@@ -206,8 +218,8 @@ def features(
 
         if variables is not None and variable not in variables:
             continue
-        elif row["TreatmentDetail"] is not None:
-            if row["TreatmentDetail"] > treatment_detail_level:
+        elif row["TreatmentDetailLevel"] is not None:
+            if row["TreatmentDetailLevel"] > treatment_detail_level:
                 continue
 
         if variables is not None:
