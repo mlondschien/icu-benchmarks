@@ -467,12 +467,12 @@ def outcomes():
     log_creatine_in_1h = pl.col("log_crea").shift(-1).alias("log_creatine_in_1h")
 
     # log(rel_urine_rate) in the next hour. This can be seen as an imputation task.
-    log_rel_urine_rate_in_1h = pl.col("log_rel_urine_rate").shift(-1).alias(
-        "log_rel_urine_rate_in_1h"
+    log_rel_urine_rate_in_1h = (
+        pl.col("log_rel_urine_rate").shift(-1).alias("log_rel_urine_rate_in_1h")
     )
     # log(rel_urine_rate) in 8 hours.
-    log_rel_urine_rate_in_8h = pl.col("log_rel_urine_rate").shift(-8).alias(
-        "log_rel_urine_rate_in_8h"
+    log_rel_urine_rate_in_8h = (
+        pl.col("log_rel_urine_rate").shift(-8).alias("log_rel_urine_rate_in_8h")
     )
 
     return [
@@ -643,38 +643,23 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     logger.info(f"Time to write features: {toc - tic:.2f}s")
 
     if dataset == "mimic":
-        out.filter(
-            pl.col("carevue") & pl.col("metavision").is_null()
-        ).with_columns(
+        out.filter(pl.col("carevue") & pl.col("metavision").is_null()).with_columns(
             pl.lit("mimic-carevue").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(
-            data_dir / "mimic-carevue" / "features.parquet"
-        )
-        out.filter(
-            pl.col("metavision") & pl.col("carevue").is_null()
-        ).with_columns(
+        ).write_parquet(data_dir / "mimic-carevue" / "features.parquet")
+        out.filter(pl.col("metavision") & pl.col("carevue").is_null()).with_columns(
             pl.lit("mimic-metavision").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(
-            data_dir / "mimic-metavision" / "features.parquet"
-        )
+        ).write_parquet(data_dir / "mimic-metavision" / "features.parquet")
     elif dataset == "miiv":
         out.filter(pl.col("anchoryear") > 2012).with_columns(
             pl.lit("miiv-late").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(
-            data_dir / "miiv-late" / "features.parquet"
-        )
+        ).write_parquet(data_dir / "miiv-late" / "features.parquet")
     elif dataset == "aumc":
-        out.filter(pl.col("anchoryear").eq(2006)
-        ).with_columns(
+        out.filter(pl.col("anchoryear").eq(2006)).with_columns(
             pl.lit("aumc-early").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(
-            data_dir / "aumc-early" / "features.parquet"
-        )
+        ).write_parquet(data_dir / "aumc-early" / "features.parquet")
         out.filter(pl.col("anchoryear").eq(2013)).with_columns(
             pl.lit("aumc-late").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(
-            data_dir / "aumc-late" / "features.parquet"
-        )
+        ).write_parquet(data_dir / "aumc-late" / "features.parquet")
 
 
 if __name__ == "__main__":
