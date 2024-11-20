@@ -8,12 +8,17 @@ VARIABLE_REFERENCE_PATH = (
 
 DATASETS = [
     "mimic",
+    "mimic-metavision",
+    "mimic-carevue",
     "ehrshot",
     "miived",
     "miiv",
+    "miiv-late",
     "eicu",
     "hirid",
     "aumc",
+    "aumc-early",
+    "aumc-late",
     "sic",
     "zigong",
     "picdb",
@@ -30,6 +35,9 @@ OUTCOMES = [
     "kidney_failure_at_48h",
     "log_creatine_in_1h",
     "log_lactate_in_1h",
+    "log_lactate_in_8h",
+    "log_rel_urine_rate_in_1h",
+    "log_rel_urine_rate_in_8h",
 ]
 
 # Approx. number of rows per GB of memory. If all ~1000 columns were float64, this would

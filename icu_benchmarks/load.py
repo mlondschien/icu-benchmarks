@@ -102,13 +102,6 @@ def load(
     elif split is not None:
         raise ValueError(f"Invalid split: {split}")
 
-    if "mimic" in sources:
-        # Remove mimic metavision data.
-        filters &= (ds.field("dataset") != "mimic") | (
-            (ds.field("carevue") == True)  # noqa: E712
-            & ds.field("metavision").is_null()
-        )
-
     columns = features(
         variables=variables,
         variable_versions=variable_versions,
@@ -126,8 +119,9 @@ def load(
         ParquetDataset(
             [data_dir / source / "features.parquet" for source in sources],
             filters=filters,
-        ).read(columns=columns + [outcome, "dataset", "split"])
+        ).read(columns=columns + [outcome, "dataset"])
     )
+    df = df.filter(pl.col("age") >= 18)
 
     if not -1 <= weighting_exponent <= 0:
         raise ValueError(f"Invalid weighting exponent: {weighting_exponent}")
@@ -146,8 +140,8 @@ def load(
     y = df[outcome].to_numpy()
     assert np.isnan(y).sum() == 0
 
-    return df, y, weights
-    # return df.drop([outcome, "dataset"]), y, weights
+    # return df, y, weights
+    return df.drop([outcome, "dataset"]), y, weights
 
 
 def features(
