@@ -186,7 +186,7 @@ def treatment_indicator_features(
     horizons : list[int]
         Horizons for which to compute the features. E.g., [8, 24].
     """
-    col_cs = pl.col(column_name).cast(pl.Int32).fill_null(0).cum_sum()
+    col_cs = pl.col(column_name).fill_null(False).cast(pl.Int32).cum_sum()
 
     expressions = list()
 
@@ -460,8 +460,20 @@ def outcomes():
     # log(lactate) in the next hour. This can be seen as an imputation task.
     log_lactate_in_1h = pl.col("log_lact").shift(-1).alias("log_lactate_in_1h")
 
+    # log(lactate) in 8 hours.
+    log_lactate_in_8h = pl.col("log_lact").shift(-8).alias("log_lactate_in_8h")
+
     # log(creatine) in the next hour. This can be seen as an imputation task.
     log_creatine_in_1h = pl.col("log_crea").shift(-1).alias("log_creatine_in_1h")
+
+    # log(rel_urine_rate) in the next hour. This can be seen as an imputation task.
+    log_rel_urine_rate_in_1h = pl.col("log_rel_urine_rate").shift(-1).alias(
+        "log_rel_urine_rate_in_1h"
+    )
+    # log(rel_urine_rate) in 8 hours.
+    log_rel_urine_rate_in_8h = pl.col("log_rel_urine_rate").shift(-8).alias(
+        "log_rel_urine_rate_in_8h"
+    )
 
     return [
         mortality_at_24h,
@@ -472,7 +484,10 @@ def outcomes():
         kidney_failure_at_48h,
         los_at_24h,
         log_lactate_in_1h,
+        log_lactate_in_8h,
         log_creatine_in_1h,
+        log_rel_urine_rate_in_1h,
+        log_rel_urine_rate_in_8h,
     ]
 
 
@@ -626,6 +641,40 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     out.write_parquet(data_dir / dataset / "features.parquet")
     toc = perf_counter()
     logger.info(f"Time to write features: {toc - tic:.2f}s")
+
+    if dataset == "mimic":
+        out.filter(
+            pl.col("carevue") & pl.col("metavision").is_null()
+        ).with_columns(
+            pl.lit("mimic-carevue").alias("dataset").cast(pl.Enum(DATASETS))
+        ).write_parquet(
+            data_dir / "mimic-carevue" / "features.parquet"
+        )
+        out.filter(
+            pl.col("metavision") & pl.col("carevue").is_null()
+        ).with_columns(
+            pl.lit("mimic-metavision").alias("dataset").cast(pl.Enum(DATASETS))
+        ).write_parquet(
+            data_dir / "mimic-metavision" / "features.parquet"
+        )
+    elif dataset == "miiv":
+        out.filter(pl.col("anchoryear") > 2012).with_columns(
+            pl.lit("miiv-late").alias("dataset").cast(pl.Enum(DATASETS))
+        ).write_parquet(
+            data_dir / "miiv-late" / "features.parquet"
+        )
+    elif dataset == "aumc":
+        out.filter(pl.col("anchoryear").eq(2006)
+        ).with_columns(
+            pl.lit("aumc-early").alias("dataset").cast(pl.Enum(DATASETS))
+        ).write_parquet(
+            data_dir / "aumc-early" / "features.parquet"
+        )
+        out.filter(pl.col("anchoryear").eq(2013)).with_columns(
+            pl.lit("aumc-late").alias("dataset").cast(pl.Enum(DATASETS))
+        ).write_parquet(
+            data_dir / "aumc-late" / "features.parquet"
+        )
 
 
 if __name__ == "__main__":
