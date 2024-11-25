@@ -24,6 +24,7 @@ OUTCOMES = [
     # "log_rel_urine_rate_in_8h",
 ]
 
+
 @click.command()
 @click.option("--data_dir", type=click.Path(exists=True))
 @click.option("--prevalence", type=click.Choice(["time-step", "patient"]))
@@ -71,9 +72,21 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
                 for k, v in data.items()
                 if v.count() > 0
             }
-            plot_continuous(ax, data, f"log({outcome})", legend=outcome=="log_rel_urine_rate_in_1h", missing_rate=False)
+            plot_continuous(
+                ax,
+                data,
+                f"log({outcome})",
+                legend=outcome == "log_rel_urine_rate_in_1h",
+                missing_rate=False,
+            )
         elif task["task"] == "regression":
-            plot_continuous(ax, data, outcome, legend=outcome=="log_rel_urine_rate_in_1h", missing_rate=False)
+            plot_continuous(
+                ax,
+                data,
+                outcome,
+                legend=outcome == "log_rel_urine_rate_in_1h",
+                missing_rate=False,
+            )
 
     fig.tight_layout()
     fig.savefig(OUTPUT_PATH / f"outcomes_{prevalence}_{extra_datasets}.png")

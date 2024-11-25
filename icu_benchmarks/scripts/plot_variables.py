@@ -15,7 +15,6 @@ variable_reference = pl.read_csv(
 ).filter(pl.col("DatasetVersion").is_not_null())
 
 
-
 @click.command()
 @click.option("--ncols", default=6, help="Number of columns in the plot grid.")
 @click.option("--data_dir", type=click.Path(exists=True))

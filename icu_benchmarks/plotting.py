@@ -28,6 +28,7 @@ LINESTYLES = {
     "mimic-carevue": "dashed",
 }
 
+
 def plot_discrete(ax, data, name, missings=True):
     """
     Visualize the distribution of discrete variables with stacked horizontal bars.
@@ -101,7 +102,11 @@ def plot_continuous(ax, data, name, legend=True, missing_rate=True):
         Dictionary mapping dataset names to series. The series can contain missings and
         should have name `name`.
     name : str
-        Name of the variable.
+        Title.
+    legend : bool
+        Whether to show a legend.
+    missing_rate : bool
+        Whether to include the missing rate in the legend.
     """
     null_fractions = {k: v.is_null().mean() for k, v in data.items()}
     data = {k: v.drop_nulls().to_numpy() for k, v in data.items()}
@@ -110,7 +115,11 @@ def plot_continuous(ax, data, name, legend=True, missing_rate=True):
     min_ = np.min([np.min(x) for x in data.values() if len(x) > 0])
 
     for dataset, df in data.items():
-        label = f"{dataset} ({100 * null_fractions[dataset]:.1f}%)" if missing_rate else dataset
+        label = (
+            f"{dataset} ({100 * null_fractions[dataset]:.1f}%)"
+            if missing_rate
+            else dataset
+        )
         if len(df) <= 1:
             ax.plot([], [], label=label)
         elif len(np.unique(df)) == 1:
