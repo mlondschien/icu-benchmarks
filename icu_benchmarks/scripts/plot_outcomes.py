@@ -9,22 +9,43 @@ from icu_benchmarks.plotting import plot_continuous, plot_discrete
 
 OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
 
+OUTCOMES = [
+    # "mortality_at_24h",
+    "decompensation_at_24h",
+    "respiratory_failure_at_24h",
+    "circulatory_failure_at_8h",
+    "kidney_failure_at_48h",
+    "remaining_los",
+    # "los_at_24h",
+    "log_creatine_in_1h",
+    "log_lactate_in_1h",
+    # "log_lactate_in_8h",
+    "log_rel_urine_rate_in_1h",
+    # "log_rel_urine_rate_in_8h",
+]
 
 @click.command()
 @click.option("--data_dir", type=click.Path(exists=True))
 @click.option("--prevalence", type=click.Choice(["time-step", "patient"]))
-def main(data_dir=None, prevalence="time-step"):  # noqa D
+@click.option("--extra_datasets", is_flag=True)
+def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
     data_dir = Path(data_dir) if data_dir is not None else DATA_DIR
     OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 
-    fig, axes = plt.subplots(nrows=2, ncols=5, figsize=(25, 15))
+    if not extra_datasets:
+        datasets = [d for d in DATASETS if "-" not in d]
+    else:
+        datasets = DATASETS
 
-    for ax, outcome, task in zip(axes.flat[: len(TASKS)], TASKS.keys(), TASKS.values()):
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(22, 13))
+
+    for ax, outcome in zip(axes.flat[: len(OUTCOMES)], OUTCOMES):
+        task = TASKS[outcome]
         data = {
             dataset: pl.read_parquet(
                 data_dir / dataset / "features.parquet", columns=["stay_id", outcome]
             )
-            for dataset in DATASETS
+            for dataset in datasets
         }
         if (prevalence == "patient") and (task["task"] == "classification"):
             data = {
@@ -50,11 +71,12 @@ def main(data_dir=None, prevalence="time-step"):  # noqa D
                 for k, v in data.items()
                 if v.count() > 0
             }
-            plot_continuous(ax, data, f"log({outcome})")
+            plot_continuous(ax, data, f"log({outcome})", legend=outcome=="log_rel_urine_rate_in_1h", missing_rate=False)
         elif task["task"] == "regression":
-            plot_continuous(ax, data, outcome)
+            plot_continuous(ax, data, outcome, legend=outcome=="log_rel_urine_rate_in_1h", missing_rate=False)
 
-    fig.savefig(OUTPUT_PATH / f"outcomes_{prevalence}.png")
+    fig.tight_layout()
+    fig.savefig(OUTPUT_PATH / f"outcomes_{prevalence}_{extra_datasets}.png")
     plt.close(fig)
 
 

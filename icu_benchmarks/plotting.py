@@ -5,9 +5,14 @@ from scipy.stats import gaussian_kde
 SOURCE_COLORS = {
     "eicu": "black",
     "mimic": "red",
+    "mimic-carevue": "red",
+    "mimic-metavision": "red",
     "hirid": "blue",
     "miiv": "orange",
+    "miiv-late": "orange",
     "aumc": "green",
+    "aumc-early": "green",
+    "aumc-late": "green",
     "sic": "purple",
     "zigong": "brown",
     "picdb": "pink",
@@ -15,6 +20,13 @@ SOURCE_COLORS = {
     "miived": "cyan",
 }
 
+LINESTYLES = {
+    "miiv-late": "dashed",
+    "aumc-early": "dotted",
+    "aumc-late": "dashed",
+    "mimic-metavision": "dotted",
+    "mimic-carevue": "dashed",
+}
 
 def plot_discrete(ax, data, name, missings=True):
     """
@@ -69,15 +81,15 @@ def plot_discrete(ax, data, name, missings=True):
             color="gray",
         )
 
-    ax.legend(ncols=min(3, len(df)), bbox_to_anchor=(0.5, -0.1), loc="lower center")
+    ax.legend(ncols=min(3, len(df)), bbox_to_anchor=(0.5, -0.05), loc="lower center")
     ax.set_yticks(y_pos)
-    ax.set_yticklabels(data.keys())
+    ax.set_yticklabels([d.replace("-", "-\n") for d in data.keys()])
 
     ax.set_title(name)
     return ax
 
 
-def plot_continuous(ax, data, name):
+def plot_continuous(ax, data, name, legend=True, missing_rate=True):
     """
     Visualize the distribution of continuous variables with kernel density estimates.
 
@@ -98,10 +110,11 @@ def plot_continuous(ax, data, name):
     min_ = np.min([np.min(x) for x in data.values() if len(x) > 0])
 
     for dataset, df in data.items():
+        label = f"{dataset} ({100 * null_fractions[dataset]:.1f}%)" if missing_rate else dataset
         if len(df) <= 1:
-            ax.plot([], [], label=f"{dataset} ({100 * null_fractions[dataset]:.1f}%)")
+            ax.plot([], [], label=label)
         elif len(np.unique(df)) == 1:
-            ax.plot(df[0], [0], label=f"{dataset} (100%)", marker="x")
+            ax.plot(df[0], [0], label=label, marker="x")
         else:
             # https://stackoverflow.com/a/35874531/10586763
             # `gaussian_kde` uses bw = std * bw_method(). To ensure equal bandwidths,
@@ -114,9 +127,11 @@ def plot_continuous(ax, data, name):
             ax.plot(
                 linspace,
                 density(linspace),
-                label=f"{dataset} ({100 * null_fractions[dataset]:.1f}%)",
+                label=label,
                 color=SOURCE_COLORS[dataset],
+                linestyle=LINESTYLES.get(dataset, "solid"),
             )
 
     ax.set_title(name)
-    ax.legend()
+    if legend:
+        ax.legend()
