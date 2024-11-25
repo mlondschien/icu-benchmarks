@@ -6,12 +6,7 @@ import click
 import numpy as np
 import polars as pl
 
-from icu_benchmarks.constants import (
-    DATA_DIR,
-    DATASETS,
-    OUTCOMES,
-    VARIABLE_REFERENCE_PATH,
-)
+from icu_benchmarks.constants import DATA_DIR, OUTCOMES, VARIABLE_REFERENCE_PATH
 from icu_benchmarks.load import features
 
 logger = logging.getLogger(__name__)
