@@ -6,12 +6,7 @@ import click
 import numpy as np
 import polars as pl
 
-from icu_benchmarks.constants import (
-    DATA_DIR,
-    DATASETS,
-    OUTCOMES,
-    VARIABLE_REFERENCE_PATH,
-)
+from icu_benchmarks.constants import DATA_DIR, OUTCOMES, VARIABLE_REFERENCE_PATH
 from icu_benchmarks.load import features
 
 logger = logging.getLogger(__name__)
@@ -607,7 +602,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         .otherwise(pl.lit("test"))
         .alias("split")
         .cast(pl.Enum(["train", "val", "test"])),
-        pl.lit(dataset).alias("dataset").cast(pl.Enum(DATASETS)),
+        pl.lit(dataset).alias("dataset"),
     )
 
     feature_names = set(features())
@@ -641,25 +636,6 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     out.write_parquet(data_dir / dataset / "features.parquet")
     toc = perf_counter()
     logger.info(f"Time to write features: {toc - tic:.2f}s")
-
-    if dataset == "mimic":
-        out.filter(pl.col("carevue") & pl.col("metavision").is_null()).with_columns(
-            pl.lit("mimic-carevue").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(data_dir / "mimic-carevue" / "features.parquet")
-        out.filter(pl.col("metavision") & pl.col("carevue").is_null()).with_columns(
-            pl.lit("mimic-metavision").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(data_dir / "mimic-metavision" / "features.parquet")
-    elif dataset == "miiv":
-        out.filter(pl.col("anchoryear") > 2012).with_columns(
-            pl.lit("miiv-late").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(data_dir / "miiv-late" / "features.parquet")
-    elif dataset == "aumc":
-        out.filter(pl.col("anchoryear").eq(2006)).with_columns(
-            pl.lit("aumc-early").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(data_dir / "aumc-early" / "features.parquet")
-        out.filter(pl.col("anchoryear").eq(2013)).with_columns(
-            pl.lit("aumc-late").alias("dataset").cast(pl.Enum(DATASETS))
-        ).write_parquet(data_dir / "aumc-late" / "features.parquet")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ repos:
     -   id: codespell
         types_or: [python, rst, markdown]
         additional_dependencies: [tomli]
-        args: ['-L missings']  # missings is a word
+        args: ['-L missings', '-L EHR']  # missings is a word
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

@@ -10,7 +10,6 @@ DATASETS = [
     "mimic",
     "mimic-metavision",
     "mimic-carevue",
-    "ehrshot",
     "miived",
     "miiv",
     "miiv-late",
