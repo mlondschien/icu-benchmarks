@@ -5,6 +5,7 @@ VARIABLE_REFERENCE_PATH = (
     Path(__file__).parents[1] / "resources" / "variable_reference.tsv"
 )
 
+HORIZONS = [8, 24, 72]
 
 DATASETS = [
     "mimic",

@@ -6,7 +6,12 @@ import click
 import numpy as np
 import polars as pl
 
-from icu_benchmarks.constants import DATA_DIR, OUTCOMES, VARIABLE_REFERENCE_PATH
+from icu_benchmarks.constants import (
+    DATA_DIR,
+    HORIZONS,
+    OUTCOMES,
+    VARIABLE_REFERENCE_PATH,
+)
 from icu_benchmarks.load import features
 
 logger = logging.getLogger(__name__)
@@ -25,7 +30,9 @@ variable_reference = (
 CAT_MISSING_NAME = "(MISSING)"
 
 
-def continuous_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
+def continuous_features(
+    column_name: str, time_col: str, horizons: list[int] | None = None
+):
     """
     Compute continuous features for a column.
 
@@ -50,8 +57,10 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
     time_col : str
         Name of the time column. E.g., `time_hours`.
     horizons : list[int]
-        Horizons for which to compute the features. E.g., [8, 24].
+        Horizons for which to compute the features. E.g., None.
     """
+    if horizons is None:
+        horizons = HORIZONS
     # Most features can be computed using cumulative sums. To "ignore" missing values,
     # we fill them with 0.
     col = pl.col(column_name)
@@ -115,7 +124,9 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
     return expressions
 
 
-def discrete_features(column_name: str, time_col: str, horizons: list[int] = [8, 24]):
+def discrete_features(
+    column_name: str, time_col: str, horizons: list[int] | None = None
+):
     """
     Compute discrete features for a column.
 
@@ -131,8 +142,10 @@ def discrete_features(column_name: str, time_col: str, horizons: list[int] = [8,
     time_col : str
         Name of the time column. E.g., `time_hours`.
     horizons : list[int]
-        Horizons for which to compute the features. E.g., [8, 24].
+        Horizons for which to compute the features. E.g., None.
     """
+    if horizons is None:
+        horizons = HORIZONS
 
     def get_rolling_mode(series, horizon):
         """Compute rolling mode for a series of (value, time) tuples."""
@@ -174,7 +187,7 @@ def discrete_features(column_name: str, time_col: str, horizons: list[int] = [8,
 
 
 def treatment_indicator_features(
-    column_name: str, time_col: str, horizons: list[int] = [8, 24]
+    column_name: str, time_col: str, horizons: list[int] | None = None
 ):
     """
     Compute features for a treatment indicator column.
@@ -191,8 +204,11 @@ def treatment_indicator_features(
     time_col : str
         Not used.
     horizons : list[int]
-        Horizons for which to compute the features. E.g., [8, 24].
+        Horizons for which to compute the features.
     """
+    if horizons is None:
+        horizons = HORIZONS
+
     col_cs = pl.col(column_name).fill_null(False).cast(pl.Int32).cum_sum()
 
     expressions = list()
@@ -209,7 +225,7 @@ def treatment_indicator_features(
 def treatment_continuous_features(
     column_name: str,
     time_col: str,
-    horizons: list[int] = [8, 24],
+    horizons: list[int] | None = None,
     log_transform: bool = True,
     log_eps: float = 0.0,
 ):
@@ -227,12 +243,15 @@ def treatment_continuous_features(
     time_col : str
         Not used.
     horizons : list[int]
-        Horizons for which to compute the features. E.g., [8, 24].
+        Horizons for which to compute the features.
     log_transform : bool, optional, default = True
         Whether to log transform the mean (rate).
     log_eps : float, optional, default = 0.0
         Epsilon to add before taking the log. This is to avoid taking the log of 0.
     """
+    if horizons is None:
+        horizons = HORIZONS
+
     col_cs = pl.col(column_name).fill_null(0.0).cum_sum()
     expressions = list()
 
@@ -576,24 +595,24 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
         elif row["DataType"] == "continuous" and row["LogTransform"]:
             expressions += continuous_features(
-                f"log_{tag}", "time_hours", horizons=[8, 24]
+                f"log_{tag}", "time_hours", horizons=None
             )
         elif row["DataType"] == "continuous":
-            expressions += continuous_features(tag, "time_hours", horizons=[8, 24])
+            expressions += continuous_features(tag, "time_hours", horizons=None)
 
         elif row["DataType"] == "categorical":
-            expressions += discrete_features(tag, "time_hours", horizons=[8, 24])
+            expressions += discrete_features(tag, "time_hours", horizons=None)
 
         elif row["DataType"] == "treatment_ind":
             expressions += treatment_indicator_features(
-                tag, "time_hours", horizons=[8, 24]
+                tag, "time_hours", horizons=None
             )
 
         elif row["DataType"] == "treatment_cont":
             expressions += treatment_continuous_features(
                 tag,
                 "time_hours",
-                horizons=[8, 24],
+                horizons=None,
                 log_eps=row["LogTransformEps"],
                 log_transform=row["LogTransform"],
             )
