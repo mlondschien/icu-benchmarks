@@ -40,6 +40,8 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
       `horizon` hours.
     - fraction_nonnull: The fraction of non-missing values within the last `horizon`.
     - all_missing: True if all values within the last `horizon` are missing.
+    - min: The minimum of the column within the last `horizon` hours.
+    - max: The maximum of the column within the last `horizon` hours.
 
     Parameters
     ----------
@@ -50,9 +52,10 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
     horizons : list[int]
         Horizons for which to compute the features. E.g., [8, 24].
     """
-    # All features can be computed using cumulative sums. To "ignore" missing values,
+    # Most features can be computed using cumulative sums. To "ignore" missing values,
     # we fill them with 0.
-    col = pl.col(column_name).fill_null(0)
+    col = pl.col(column_name)
+    col_filled = col.fill_null(0)
     # time is never null. But we want to ignore entries corresponding to missing values
     # in `column_name`.
     time = pl.when(pl.col(column_name).is_null()).then(0).otherwise(pl.col(time_col))
@@ -61,9 +64,9 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
     time_cs = time.cum_sum()
     time_sq_cs = (time * time).cum_sum()
 
-    col_cs = col.cum_sum()
-    col_sq_cs = (col * col).cum_sum()
-    timexcol_cs = (time * col).cum_sum()
+    col_cs = col_filled.cum_sum()
+    col_sq_cs = (col_filled * col_filled).cum_sum()
+    timexcol_cs = (time * col_filled).cum_sum()
 
     expressions = [pl.col(column_name).forward_fill().alias(f"{column_name}_ffilled")]
 
@@ -92,12 +95,21 @@ def continuous_features(column_name: str, time_col: str, horizons: list[int] = [
 
         all_missing = nonnulls_sum == 0
 
+        rolling_min = pl.col(column_name).rolling_min(
+            window_size=horizon, min_periods=1
+        )
+        rolling_max = pl.col(column_name).rolling_max(
+            window_size=horizon, min_periods=1
+        )
+
         expressions += [
             col_mean.alias(f"{column_name}_mean_h{horizon}"),
             col_std.alias(f"{column_name}_std_h{horizon}"),
             slope.alias(f"{column_name}_slope_h{horizon}"),
             fraction_nonnull.alias(f"{column_name}_fraction_nonnull_h{horizon}"),
             all_missing.alias(f"{column_name}_all_missing_h{horizon}"),
+            rolling_min.alias(f"{column_name}_min_h{horizon}"),
+            rolling_max.alias(f"{column_name}_max_h{horizon}"),
         ]
 
     return expressions
