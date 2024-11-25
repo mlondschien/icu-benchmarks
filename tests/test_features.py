@@ -58,6 +58,16 @@ from icu_benchmarks.scripts.feature_engineering import (
             [None, None, 1.0, 2.0, None, None, None, None, None, None, None, None, 0.0],
             [True, True] + [False] * 9 + [True, False],
         ),
+        (
+            "min_h8",
+            [None, 1.0, 0.5, 2.0, 1.0, None, None, None, None, None, 3.0, 3.0, 0.0],
+            [None, 1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0, 1.0, 0.0],
+        ),
+        (
+            "max_h8",
+            [None, 1.0, 0.5, 2.0, 1.0, None, None, None, None, None, 3.0, 3.0, 0.0],
+            [None, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0],
+        ),
     ],
 )
 def test_continuous_features(feature, input, expected):

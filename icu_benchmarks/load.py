@@ -6,9 +6,18 @@ import polars as pl
 import pyarrow.dataset as ds
 from pyarrow.parquet import ParquetDataset
 
-from icu_benchmarks.constants import DATA_DIR, VARIABLE_REFERENCE_PATH
+from icu_benchmarks.constants import DATA_DIR, HORIZONS, VARIABLE_REFERENCE_PATH
 
-CONTINUOUS_FEATURES = ["mean", "std", "slope", "fraction_nonnull", "all_missing"]
+CONTINUOUS_FEATURES = [
+    "mean",
+    "std",
+    "slope",
+    "fraction_nonnull",
+    "all_missing",
+    "ffilled",
+    "min",
+    "max",
+]
 CATEGORICAL_FEATURES = ["mode", "num_nonmissing"]
 TREATMENT_INDICATOR_FEATURES = ["num_nonmissing", "any_nonmissing"]
 TREATMENT_CONTINUOUS_FEATURES = ["rate"]
@@ -28,7 +37,7 @@ def load(
     treatment_indicator_features: list[str] | None = None,
     treatment_continuous_features: list[str] | None = None,
     treatment_detail_level=4,
-    horizons=[8, 24],
+    horizons=None,
     weighting_exponent: float = 0,
 ):
     """
@@ -71,7 +80,7 @@ def load(
         (no continuous treatment variables). If 2, only the aggregated treatment
         indicators are loaded. If 1, no treatment variables are loaded.
         Ignored if `variables` is not `None`.
-    horizons : list of int, optional, default = [8, 24]
+    horizons : list of int, optional, default = icu_benchmarks.constants.HORIZONS
         The horizons for which to load features.
     weighting_exponent : float, optional, default = 0
         Observations are weighted proportional to `dataset_size ** weighting_exponent`.
@@ -91,6 +100,9 @@ def load(
     weights : numpy.ndarray
         The weights.
     """
+    if horizons is None:
+        horizons = HORIZONS
+
     filters = (ds.field("time_hours") >= min_hours - 1) & ~ds.field(outcome).is_null()
 
     if split == "train":
