@@ -274,6 +274,12 @@ def eep_label(events: pl.Expr, horizon: int):
     From an event series, create a label for the early event prediction (eep) task.
 
      - If there is a positive event at the current time step, the label is missing.
+     - If the last event in the history was positive, and there is a positive event
+       within the next `horizon` hours, the label is missing.
+     - If there was no event in the history or the last event in the history was
+       negative, and there is a positive event within the next `horizon` hours, the
+       label is true. This holds even if there is a negative event at the current time
+       step.
      - Else, if there is a positive event within the next `horizon` hours, the label is
        true. This holds even if there is a negative event at the current time step.
      - Else, if there is a negative event within the next `horizon` hours (and no
@@ -284,11 +290,17 @@ def eep_label(events: pl.Expr, horizon: int):
 
     E.g., if `-` are missings, for a 4 hour horizon:
 
-    event: - 0 0 - - - - - 0 0 0 - - 1 1 1 - 0 0
-    label: 0 0 - - 0 0 0 0 0 1 1 1 1 - - - 0 0 -
+    events:           - 1 - - 0 0 - - - - - 0 0 0 - - 1 - 1 - 0 0 0 - 1 0 1
+    events_ffilled:   0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 0 0 1 0 1
+    positive_labels:  1 1 - - - - - - - - - - 1 1 1 1 1 1 1 - 1 1 1 1 1 1 1
+    negative_labels:  - 0 0 0 0 0 - 0 0 0 0 0 0 0 - - 0 0 0 0 0 0 0 0 0 0 -
+    coalesced_labels: 1 1 0 0 0 0 - 0 0 0 0 0 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1
+    label:            1 - 0 0 0 - - 0 0 0 0 0 1 1 1 1 - - - 0 1 1 1 1 - 1 -
 
     Note that at the time step of a positive event, the label is always missing. At the
     time step of a negative event, the label could be true, false, or missing.
+
+    This definition ensures that only "switches" from stable to unstable are predicted.
 
     Parameters
     ----------
@@ -297,11 +309,15 @@ def eep_label(events: pl.Expr, horizon: int):
     horizon : int
         The horizon for the early event prediction task.
     """
+    events_ffilled = events.forward_fill().replace(None, False)
+
     positive_labels = events.replace(False, None).backward_fill(horizon)
     # shift(-1) and backward_fill(horizon - 1) excludes the last zero.
     negative_labels = events.replace(True, None).shift(-1).backward_fill(horizon - 1)
-    return pl.when(events.is_null() | events.ne(True)).then(
-        pl.coalesce(positive_labels, negative_labels)
+
+    coalesced_label = pl.coalesce(positive_labels, negative_labels)
+    return pl.when(coalesced_label.eq(False) | events_ffilled.eq(False)).then(
+        coalesced_label
     )
 
 
