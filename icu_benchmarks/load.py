@@ -164,7 +164,7 @@ def features(
     treatment_indicator_features=None,
     treatment_continuous_features=None,
     treatment_detail_level=4,
-    horizons=[8, 24],
+    horizons=None,
 ):
     """
     Get variable-feature names.
@@ -192,6 +192,8 @@ def features(
         are used (no continuous treatment variables). If 2, only the aggregated
         treatment indicators are used. If 1, no treatment variables are used. Ignored if
         `variables` is not `None`.
+    horizons : list of int, optional, default = icu_benchmarks.constants.HORIZONS
+        The horizons for which to return feature names.
 
     Returns
     -------
@@ -206,6 +208,8 @@ def features(
         treatment_indicator_features = TREATMENT_INDICATOR_FEATURES
     if treatment_continuous_features is None:
         treatment_continuous_features = TREATMENT_CONTINUOUS_FEATURES
+    if horizons is None:
+        horizons = HORIZONS
 
     variable_reference = (
         pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"])
