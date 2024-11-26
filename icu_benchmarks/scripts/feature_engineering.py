@@ -56,11 +56,12 @@ def continuous_features(
         Name of column for which to compute features. E.g., `hr`.
     time_col : str
         Name of the time column. E.g., `time_hours`.
-    horizons : list[int]
-        Horizons for which to compute the features. E.g., None.
+    horizons : list[int] or None
+        Horizons for which to compute the features. If None, uses constants.HORIZONS.
     """
     if horizons is None:
         horizons = HORIZONS
+
     # Most features can be computed using cumulative sums. To "ignore" missing values,
     # we fill them with 0.
     col = pl.col(column_name)
@@ -141,8 +142,8 @@ def discrete_features(
         Name of column for which to compute features. E.g., `hr`.
     time_col : str
         Name of the time column. E.g., `time_hours`.
-    horizons : list[int]
-        Horizons for which to compute the features. E.g., None.
+    horizons : list[int] or None
+        Horizons for which to compute the features. If None, uses constants.HORIZONS.
     """
     if horizons is None:
         horizons = HORIZONS
@@ -203,8 +204,8 @@ def treatment_indicator_features(
         Name of column for which to compute features. E.g., `hep_ind`.
     time_col : str
         Not used.
-    horizons : list[int]
-        Horizons for which to compute the features.
+    horizons : list[int] or None
+        Horizons for which to compute the features. If None, uses constants.HORIZONS.
     """
     if horizons is None:
         horizons = HORIZONS
@@ -242,8 +243,8 @@ def treatment_continuous_features(
         Name of column for which to compute features. E.g., `hr`.
     time_col : str
         Not used.
-    horizons : list[int]
-        Horizons for which to compute the features.
+    horizons : list[int] or None
+        Horizons for which to compute the features. If None, uses constants.HORIZONS.
     log_transform : bool, optional, default = True
         Whether to log transform the mean (rate).
     log_eps : float, optional, default = 0.0
