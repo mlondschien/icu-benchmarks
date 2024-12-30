@@ -14,7 +14,6 @@ CONTINUOUS_FEATURES = [
     "slope",
     "fraction_nonnull",
     "all_missing",
-    "ffilled",
     "min",
     "max",
 ]
