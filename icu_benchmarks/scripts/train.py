@@ -11,18 +11,16 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import (
     accuracy_score,
-    auc,
     average_precision_score,
     log_loss,
     r2_score,
-    precision_recall_curve,
     roc_auc_score,
 )
 
+from icu_benchmarks.constants import TASKS
 from icu_benchmarks.gin import GeneralizedLinearRegressor
 from icu_benchmarks.load import load
 from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
-from icu_benchmarks.constants import TASKS
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -57,7 +55,7 @@ def metrics(y, yhat, prefix, task):  # noqa D
         y = y.to_numpy()
     if not isinstance(yhat, np.ndarray):
         yhat = yhat.to_numpy()
-    
+
     y = y.flatten()
     yhat = yhat.flatten()
 
@@ -81,7 +79,6 @@ def metrics(y, yhat, prefix, task):  # noqa D
         }
     else:
         raise ValueError(f"Unknown task {task}")
-
 
 
 @click.command()
