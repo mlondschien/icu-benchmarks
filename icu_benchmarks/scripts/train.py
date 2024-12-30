@@ -14,6 +14,7 @@ from sklearn.metrics import (
     auc,
     average_precision_score,
     log_loss,
+    r2_score,
     precision_recall_curve,
     roc_auc_score,
 )
@@ -21,6 +22,7 @@ from sklearn.metrics import (
 from icu_benchmarks.gin import GeneralizedLinearRegressor
 from icu_benchmarks.load import load
 from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
+from icu_benchmarks.constants import TASKS
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -50,27 +52,43 @@ def l1_ratios(l1_ratios=gin.REQUIRED):  # noqa D
     return l1_ratios
 
 
-def metrics(y, yhat, prefix):  # noqa D
-    return {
-        f"{prefix}/roc": roc_auc_score(y, yhat) if np.unique(y).size > 1 else 0,
-        f"{prefix}/accuracy": (
-            accuracy_score(y, yhat >= 0.5) if np.unique(y).size > 1 else 0
-        ),
-        f"{prefix}/log_loss": log_loss(y, yhat) if np.unique(y).size > 1 else 0,
-        f"{prefix}/average_prc": (
-            average_precision_score(y, yhat) if np.unique(y).size > 1 else 0
-        ),
-        f"{prefix}/auprc": (
-            auc(*precision_recall_curve(y, yhat)[1::-1]) if np.unique(y).size > 1 else 0
-        ),
-        f"{prefix}/brier": np.mean((y - yhat) ** 2) if np.unique(y).size > 1 else 0,
-    }
+def metrics(y, yhat, prefix, task):  # noqa D
+    if not isinstance(y, np.ndarray):
+        y = y.to_numpy()
+    if not isinstance(yhat, np.ndarray):
+        yhat = yhat.to_numpy()
+    
+    y = y.flatten()
+    yhat = yhat.flatten()
+
+    if task == "classification":
+        return {
+            f"{prefix}/roc": roc_auc_score(y, yhat) if np.unique(y).size > 1 else 0,
+            f"{prefix}/accuracy": (
+                accuracy_score(y, yhat >= 0.5) if np.unique(y).size > 1 else 0
+            ),
+            f"{prefix}/log_loss": log_loss(y, yhat) if np.unique(y).size > 1 else 0,
+            f"{prefix}/auprc": (
+                average_precision_score(y, yhat) if np.unique(y).size > 1 else 0
+            ),
+            f"{prefix}/brier": np.mean((y - yhat) ** 2) if np.unique(y).size > 1 else 0,
+        }
+    elif task == "regression":
+        return {
+            f"{prefix}/r2": r2_score(y, yhat),
+            f"{prefix}/mse": np.mean((y - yhat) ** 2),
+            f"{prefix}/mae": np.mean(np.abs(y - yhat)),
+        }
+    else:
+        raise ValueError(f"Unknown task {task}")
+
 
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
 def main(config: str):  # noqa D
     gin.parse_config_file(config)
+    task = TASKS[outcome()]
 
     tags = {
         "outcome": outcome(),
@@ -113,7 +131,7 @@ def main(config: str):  # noqa D
     glms = []
     for l1_ratio in l1_ratios():
         logger.info(f"Fitting the glm with l1_ratio={l1_ratio:.1f}")
-        glm = GeneralizedLinearRegressor(l1_ratio=l1_ratio)
+        glm = GeneralizedLinearRegressor(l1_ratio=l1_ratio, family=task["family"])
         tic = perf_counter()
         glm.fit(df, y, sample_weight=weights)
         toc = perf_counter()
@@ -157,7 +175,8 @@ def main(config: str):  # noqa D
                     synchronous=False,
                 )
                 mlflow.set_tags({**tags, "parent_run": parent_run.info.run_id})
-                mlflow.log_text(glm.coef_table().to_markdown(), "coefficients.md")
+                glm.coef_ = glm.coef_path_[alpha_idx]
+                glm.intercept_ = glm.intercept_path_[alpha_idx]
                 log_df(glm.coef_table(), "coefficients.csv")
 
                 runs.append(
@@ -194,7 +213,7 @@ def main(config: str):  # noqa D
                 yhat = glm.predict(df)
 
                 mlflow.log_metrics(
-                    metrics(y, yhat, f"{target}/{split}"),
+                    metrics(y, yhat, f"{target}/{split}", TASKS[outcome()]["task"]),
                     run_id=run["run_id"],
                     synchronous=False,
                 )

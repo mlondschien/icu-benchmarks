@@ -80,7 +80,7 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 86	ps	Pressure support - mechanical ventilation	observation	v0.1	respiratory	None	cmH2O	continuous	0.0	25.0	Pressure support under mechanical ventilation	False	None	None	None
 87	tv	tidal volume	observation	v0.1	respiratory	None	ml	continuous	0.0	1500.0	Tidal volume	False	None	None	None
 88	airway	type of airway ventilation	observation	v0.1	respiratory	None	None	categorical	None	None	Classes: orotracheal, suprapharyngeal, mask, tracheostomy	False	None	["orotracheal", "suprapharyngeal", "mask", "tracheostomy", "other"]	None
-89	supp_o2_vent	Supplemental Oxygen from ventilator	treatment	v0.1	respiratory	None	%	treatment_cont	0.0	20.0	Supplemental Oxygen as a ventilator setting	False	0.001	None	4.0
+89	supp_o2_vent	Supplemental Oxygen from ventilator	treatment	v0.1	respiratory	None	%	treatment_cont	0.0	20.0	Supplemental Oxygen as a ventilator setting	False	0.001	None	1.0
 90	ygt	gamma gt	observation	v0.1	gastrointestinal	None	U/L	continuous	0.0	2500.0	Gamma-glutamyl transferase (GGT) blood test	True	0.1	None	None
 91	amm	ammoniak	observation	v0.1	gastrointestinal	None	mmol/L	continuous	0.0	600.0	Ammoniak, Ammonia, NH3	True	1.0	None	None
 92	amyl	amylase	observation	v0.1	gastrointestinal	None	U/L	continuous	0.0	2000.0	Amylase	True	1.0	None	None
