@@ -5,15 +5,17 @@ import click
 import gin
 import mlflow
 import numpy as np
-import pandas as pd
+import polars as pl
 import tabmat
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
 
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.gin import GeneralizedLinearRegressor
 from icu_benchmarks.load import load
-from icu_benchmarks.mlflow_utils import log_df, setup_mlflow, log_pickle
+from icu_benchmarks.metrics import metrics
+from icu_benchmarks.mlflow_utils import log_df, log_pickle, setup_mlflow
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -22,17 +24,26 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+
 @gin.configurable
 def outcome(outcome=gin.REQUIRED):  # noqa D
     return outcome
 
-@gin.configurable
-def datasets(datasets=gin.REQUIRED):  # noqa D
-    return datasets
 
 @gin.configurable
-def targets(target=gin.REQUIRED):  # noqa D
+def sources(sources=gin.REQUIRED):  # noqa D
+    return sources
+
+
+@gin.configurable
+def targets(targets=gin.REQUIRED):  # noqa D
     return targets
+
+
+@gin.configurable
+def l1_ratios(l1_ratios=gin.REQUIRED):  # noqa D
+    return l1_ratios
+
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -40,7 +51,7 @@ def main(config: str):  # noqa D
     gin.parse_config_file(config)
     task = TASKS[outcome()]
     tags = {"outcome": outcome(), "sources": sources(), "targets": targets()}
-    run = setup_mlflow(tags)
+    _ = setup_mlflow(tags)
 
     tic = perf_counter()
     df, y, weights, dataset = load(sources=sources(), outcome=outcome(), split="train")
@@ -88,9 +99,13 @@ def main(config: str):  # noqa D
         for alpha_idx, alpha in enumerate(glm._alphas):
             glm.coef_ = glm.coef_path_[alpha_idx]
             glm.intercept_ = glm.intercept_path_[alpha_idx]
-            coef_table_path = f"coefs_alpha_{alpha_idx}_l1_ratio_{l1_ratio_idx}.csv"
-            log_df(glm.coef_table(), run, coef_table_path)
-            log_pickle(Pipeline([("preprocessor", preprocessor), ("glm", glm)]))
+            coef_table_path = (
+                f"coefficients/alpha_{alpha_idx}_l1_ratio_{l1_ratio_idx}.csv"
+            )
+            log_df(glm.coef_table(), coef_table_path)
+            log_pickle(
+                Pipeline([("preprocessor", preprocessor), ("glm", glm)]), "model.pickle"
+            )
 
             results.append(
                 {
@@ -127,10 +142,10 @@ def main(config: str):  # noqa D
                 yhat = glm.predict(df)
                 result = {
                     **result,
-                    metrics(y, yhat, f"{target}/{split}", TASKS[outcome()]["task"]),
+                    **metrics(y, yhat, f"{target}/{split}", TASKS[outcome()]["task"]),
                 }
 
-    mflow.log_df(pl.DataFrame(results), "results.csv")
+    log_df(pl.DataFrame(results), "results.csv")
     # This needs to be at the end of the script to log all relevant information
     mlflow.log_text(gin.operative_config_str(), "config.gin")
 

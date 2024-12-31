@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, Dict
 
 DATA_DIR = Path(__file__).parents[1] / "data"
 VARIABLE_REFERENCE_PATH = (
@@ -44,7 +45,7 @@ OUTCOMES = [
 # be ~125_000. We get a bit less due to boolean and categorical columns.
 OBSERVATIONS_PER_GB = 160_000
 
-TASKS = {
+TASKS: Dict[str, Dict[str, Any]] = {
     "remaining_los": {
         "task": "regression",
         "family": "gamma",
