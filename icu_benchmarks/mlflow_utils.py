@@ -45,15 +45,27 @@ def log_df(df, name, **args):
     with tempfile.TemporaryDirectory() as tmpdir:
         path = f"{tmpdir}/{name}"
 
-        if name.endswith(".csv"):
+        if name.endswith(".csv") and isinstance(df, pd.DataFrame):
             df.to_csv(path, **args)
-        elif name.endswith(".parquet"):
+        elif name.endswith(".csv") and isinstance(df, pl.DataFrame):
+            df.write_csv(path, **args)
+        elif name.endswith(".parquet") and isinstance(df, pd.DataFrame):
             df.to_parquet(path, **args)
+        elif name.endswith(".parquet") and isinstance(df, pl.DataFrame):
+            df.write_parquet(path, **args)
         else:
-            raise ValueError(f"Unknown file extension: {name}")
+            raise ValueError(f"Unknown file extension: {name} or type: {type(df)}")
 
         mlflow.log_artifact(path, target_dir)
 
+def log_pickle(object, name):
+    """Log a pickle object to MLflow."""
+    target_dir, name = os.path.split(name)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = f"{tmpdir}/{name}"
+        with open(path, "wb") as f:
+            pickle.dump(object, f)
+        mlflow.log_artifact(path, target_dir)
 
 @gin.configurable
 def setup_mlflow(
