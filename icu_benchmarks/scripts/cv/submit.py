@@ -84,7 +84,6 @@ icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
 GeneralizedLinearRegressor.alpha = {alpha.tolist()}
 GeneralizedLinearRegressor.family = '{TASKS[outcome]['family']}'
-GeneralizedLinearRegressor.alpha = '{alpha_max}'
 
 icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
 """
