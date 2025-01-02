@@ -1,11 +1,12 @@
 import subprocess
+from itertools import product
 from pathlib import Path
 
 import click
 import numpy as np
-from icu_benchmarks.constants import OBSERVATIONS_PER_GB, TASKS, DATASETS
+
+from icu_benchmarks.constants import DATASETS, OBSERVATIONS_PER_GB, TASKS
 from icu_benchmarks.slurm_utils import setup_mlflow_server
-from itertools import product
 
 SOURCES = [
     "miiv",
@@ -57,7 +58,7 @@ def main(
         [source for source in SOURCES if source != dataset1 and source != dataset2]
         for dataset1 in SOURCES
         for dataset2 in SOURCES
-        if dataset1 <= dataset2  
+        if dataset1 <= dataset2
     ]
 
     for sources, outcome in product(list_of_sources, OUTCOMES):
@@ -65,7 +66,7 @@ def main(
 
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 10)
-    
+
         log_dir = Path(logs) / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
@@ -110,6 +111,7 @@ python icu_benchmarks/scripts/cv/train.py --config {config_file.resolve()}"""
         ] + [str(command_file.resolve())]
         print(" ".join(process))
         subprocess.run(process)
+
 
 if __name__ == "__main__":
     main()
