@@ -48,13 +48,13 @@ def log_df(df, name):
     with tempfile.TemporaryDirectory() as tmpdir:
         path = f"{tmpdir}/{name}"
 
-        if name.endswith(".csv") and isinstance(df, pd.DataFrame):
+        if name.endswith(".csv") and isinstance(df, (pd.DataFrame, pd.Series)):
             df.to_csv(path)
-        elif name.endswith(".csv") and isinstance(df, pl.DataFrame):
+        elif name.endswith(".csv") and isinstance(df, (pl.DataFrame, pl.Series)):
             df.write_csv(path)
-        elif name.endswith(".parquet") and isinstance(df, pd.DataFrame):
+        elif name.endswith(".parquet") and isinstance(df, (pd.DataFrame, pd.Series)):
             df.to_parquet(path)
-        elif name.endswith(".parquet") and isinstance(df, pl.DataFrame):
+        elif name.endswith(".parquet") and isinstance(df, (pl.DataFrame, pl.Series)):
             df.write_parquet(path)
         else:
             raise ValueError(f"Unknown file extension: {name} or type: {type(df)}")
