@@ -66,6 +66,7 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 71	samp	Body fluid sampling, detected bacterial growth	observation	v0.0	infection	None	None	categorical	None	None	Body fluid sampling, testing for bacterial infection, True/False/Missing	False	None	[false, true]	None
 72	spo2	Pulse Oxymetry Oxygen Saturation	observation	v0.0	respiratory	None	%	continuous	50.0	100.0	Pulse oxymetry measured blood oxygen saturation	False	None	None	None
 73	sao2	Oxygen saturation in arterial blood	observation	v0.0	respiratory	None	%	continuous	50.0	100.0	Oxygen saturation in arterial blood as determined by blood sample	False	None	None	None
+74  o2sat   Oxygen saturation (arterial blood or pulse oxymetry)   observation v0.0    respiratory None    %   continuous  50.0    100.0    Oxygen saturation in arterial blood as determined by blood sample, if available, and by pulse oxymetry else False   None    None    None
 75	icp	Intra cranial pressure	observation	v0.1	neuro	None	mmHg	continuous	-10.0	90.0	Intra cranial pressure	False	None	None	None
 76	cout	Cardiac output	observation	v0.1	circulatory	None	l/min	continuous	0.0	20.0	Cardiac output	False	None	None	None
 77	mpap	mean pulmonal arterial pressure	observation	v0.1	circulatory	None	mmHg	continuous	0.0	100.0	mean Pulmonal arterial pressure	False	None	None	None
