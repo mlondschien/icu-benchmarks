@@ -51,7 +51,7 @@ def main(config: str):  # noqa D
     gin.parse_config_file(config)
     task = TASKS[outcome()]
     tags = {"outcome": outcome(), "sources": sources(), "targets": targets()}
-    _ = setup_mlflow(tags)
+    _ = setup_mlflow(tags=tags)
 
     tic = perf_counter()
     df, y, weights, dataset = load(sources=sources(), outcome=outcome(), split="train")
