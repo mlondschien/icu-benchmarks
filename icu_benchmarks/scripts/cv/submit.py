@@ -1,6 +1,7 @@
 import subprocess
 from itertools import product
 from pathlib import Path
+from typing import List
 
 import click
 import numpy as np
@@ -66,7 +67,7 @@ def main(
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 10)
 
-        log_dir = Path(".") / logs / outcome / "_".join(sorted(sources))
+        log_dir = Path(".") / "logs" / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 
