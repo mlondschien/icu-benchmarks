@@ -1,13 +1,13 @@
 import os
-import shlex
 import socket
 import subprocess
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from time import sleep
-import click
-from datetime import datetime
-from icu_benchmarks.constants import OUTCOMES, TASKS, OBSERVATIONS_PER_GB, DATASETS
+from typing import Optional
+
+from icu_benchmarks.constants import DATASETS, OBSERVATIONS_PER_GB, OUTCOMES, TASKS
 
 
 def free_port():
@@ -18,8 +18,16 @@ def free_port():
     return sock.getsockname()[1]
 
 
-def setup_mlflow_server(tracking_uri: str, experiment_name: str, artifact_location: str, hours: int = 24, tmpdir: Path = None, verbose: bool = False, experiment_note=None):
-    """
+def setup_mlflow_server(
+    tracking_uri: str,
+    experiment_name: str,
+    artifact_location: str,
+    hours: int = 24,
+    tmpdir: Optional[Path] = None,
+    verbose: bool = False,
+    experiment_note=None,
+):
+    r"""
     Set up an mlflow server on euler and return the ip address and port.
 
     This function starts a slurm job that runs an mlflow server. Once granted resources,
@@ -29,7 +37,7 @@ def setup_mlflow_server(tracking_uri: str, experiment_name: str, artifact_locati
      - it selects a free port.
      - it writes its ip address and the selected port to a file `ip`.
      - it starts the mlflow server with the selected port.
-    
+
     The function waits until the ip address is written to the file by the machine
     running the mlflow server and reads it. It writes the command to forward the port
     to the local machine and the current time to a file `.mlflow_server` in the current
@@ -102,14 +110,14 @@ mlflow.set_experiment_tag('mlflow.note.content', '{experiment_note}')"""
     # where to store artifacts: https://stackoverflow.com/a/75073333/10586763
     # if experiment exists / else https://github.com/mlflow/mlflow/issues/2464
     cmd_file = tmpdir / "cmd.sh"
-    with cmd_file.open("w") as f:        
+    with cmd_file.open("w") as f:
         f.write(
             f"""#!/bin/sh
 python {python_script.resolve()}
 echo $(hostname -i) > {ip_file.resolve()}
 mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --default-artifact-root={artifact_location}" --artifacts-destinations {artifact_location}" --serve-artifacts"""
         )
-    
+
     cmd = [
         "sbatch",
         "--ntasks=1",
@@ -132,15 +140,16 @@ mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --
     server_file.touch()
     # -N ensures no shell is started and & runs the command in the background
     with open(server_file, "w") as f:
-        f.write(f"""
+        f.write(
+            f"""
 ssh euler -L {port + 1}:{ip}:{port} -N &
 http://localhost:{port + 1}/
 {datetime.now()}
-""")
+"""
+        )
 
     if verbose:
         print(f"ssh euler -L {port + 1}:{ip}:{port} -N &")
         print(f"http://localhost:{port + 1}/")
 
     return ip, port
-

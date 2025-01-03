@@ -219,7 +219,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "rass",
             "sbp",
             "supp_o2_vent",
-        ]
+        ],
     },
     "kidney_failure_at_48h": {
         "task": "classification",
@@ -261,7 +261,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "resp",
             "ufilt_ind",
             "weight",
-        ]
+        ],
     },
     "log_creatine_in_1h": {
         "task": "regression",

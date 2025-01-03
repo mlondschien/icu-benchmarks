@@ -1,4 +1,8 @@
+import numpy as np
+
+
 def severinghaus_spo2_to_po2(spo2):
+    """pO2 imputation from SpO2 using the Severinghaus equation."""
     # http://www.nickalls.org/dick/papers/anes/JWSrevised2007.pdf
     # Table 1:
     # PO2 %Sat PO2 %Sat PO2 %Sat
@@ -55,10 +59,10 @@ def severinghaus_spo2_to_po2(spo2):
             65,
             70,
             75,
-            80 ,
-            85 ,
-            90 ,
-            95 ,
+            80,
+            85,
+            90,
+            95,
             100,
             110,
             120,
@@ -71,12 +75,12 @@ def severinghaus_spo2_to_po2(spo2):
             250,
             300,
             400,
-            500
+            500,
         ]
     )
     po2_grid = np.array(
         [
-            0.60
+            0.60,
             1.19,
             2.56,
             4.37,
@@ -126,7 +130,7 @@ def severinghaus_spo2_to_po2(spo2):
             99.41,
             99.53,
             99.65,
-            99.72
+            99.72,
         ]
     )
     return np.interp(spo2, spo2_grid, po2_grid)
