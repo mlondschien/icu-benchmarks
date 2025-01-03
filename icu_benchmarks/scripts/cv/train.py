@@ -135,12 +135,12 @@ def main(config: str):  # noqa D
             toc = perf_counter()
             logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
 
-            for result in results:
+            for result_idx, result in enumerate(results):
                 glm = glms[result["l1_ratio_idx"]]
                 glm.intercept_ = glm.intercept_path_[result["alpha_idx"]]
                 glm.coef_ = glm.coef_path_[result["alpha_idx"]]
                 yhat = glm.predict(df)
-                result = {
+                results[result_idx] = {
                     **result,
                     **metrics(y, yhat, f"{target}/{split}", TASKS[outcome()]["task"]),
                 }
