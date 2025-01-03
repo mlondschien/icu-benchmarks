@@ -48,6 +48,10 @@ OUTCOMES = [
 OBSERVATIONS_PER_GB = 160_000
 
 TASKS: Dict[str, Dict[str, Any]] = {
+    "log_po2": {
+        "task": "regression",
+        "family": "gaussian",
+    },
     "remaining_los": {
         "task": "regression",
         "family": "gamma",

@@ -16,15 +16,14 @@ SOURCES = [
     "aumc",
     "sic",
 ]
-OUTCOMES = ["respiratory_failure_at_24h"]
 
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
-@click.option("--logs", type=click.Path())
 @click.option("--hours", type=int, default=24)
 @click.option("--experiment_name", type=str, default=None)
 @click.option("--experiment_note", type=str, default=None)
+@click.option("--outcomes", type=List[str], default=None)
 @click.option(
     "--tracking_uri",
     type=str,
@@ -37,10 +36,10 @@ OUTCOMES = ["respiratory_failure_at_24h"]
 )
 def main(
     config: str,
-    logs: str,
     hours: int,
     experiment_name: str,
     experiment_note: str,
+    outcomes: List[str],
     tracking_uri: str,
     artifact_location: str,
 ):  # noqa D
@@ -59,15 +58,15 @@ def main(
         for dataset1 in SOURCES
         for dataset2 in SOURCES
         if dataset1 <= dataset2
-    ]
+    ] + [SOURCES]
 
-    for sources, outcome in product(list_of_sources, OUTCOMES):
+    for sources, outcome in product(list_of_sources, outcomes):
         n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
 
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 10)
 
-        log_dir = Path(logs) / outcome / "_".join(sorted(sources))
+        log_dir = Path(".") / logs / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 
@@ -85,6 +84,7 @@ icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 GeneralizedLinearRegressor.alpha = {alpha.tolist()}
 GeneralizedLinearRegressor.family = '{TASKS[outcome]['family']}'
 
+icu_benchmarks.load.load.weighting_exponent = -0.5
 icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
 """
             )
