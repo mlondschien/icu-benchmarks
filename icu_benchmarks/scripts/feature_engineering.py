@@ -373,6 +373,7 @@ def outcomes():
     - los_at_24h: The length of stay in the ICU at 24 hours after entry.
     - log_creatine_in_1h: The log of the creatinine value in 1 hour.
     - log_lactate_in_1h: The log of the lactate value in 1 hour.
+    - log_po2: The logarithm of the PaO2 value.
     """
     # mortality_at_24h
     # This is a "once per patient" prediction task. At time step 24h, a label is
@@ -531,6 +532,7 @@ def outcomes():
         log_creatine_in_1h,
         log_rel_urine_rate_in_1h,
         log_rel_urine_rate_in_8h,
+        pl.col("log_po2"),
     ]
 
 
@@ -651,6 +653,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         .alias("split")
         .cast(pl.Enum(["train", "val", "test"])),
         pl.lit(dataset).alias("dataset"),
+        pl.col("time_hours").log1p().alias("log_time_hours"),
     )
 
     feature_names = set(features())
@@ -669,6 +672,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         "anchoryear",
         "carevue",
         "metavision",
+        "log_time_hours",
     }
     extra_features = schema_names - feature_names - other_variables - set(OUTCOMES)
     if extra_features:

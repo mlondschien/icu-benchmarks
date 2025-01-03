@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, Dict
 
 DATA_DIR = Path(__file__).parents[1] / "data"
 VARIABLE_REFERENCE_PATH = (
@@ -22,6 +23,7 @@ DATASETS = [
     "sic",
     "zigong",
     "picdb",
+    "nwicu",
 ]
 
 
@@ -38,13 +40,18 @@ OUTCOMES = [
     "log_lactate_in_8h",
     "log_rel_urine_rate_in_1h",
     "log_rel_urine_rate_in_8h",
+    "log_po2",
 ]
 
 # Approx. number of rows per GB of memory. If all ~1000 columns were float64, this would
 # be ~125_000. We get a bit less due to boolean and categorical columns.
 OBSERVATIONS_PER_GB = 160_000
 
-TASKS = {
+TASKS: Dict[str, Dict[str, Any]] = {
+    "log_po2": {
+        "task": "regression",
+        "family": "gaussian",
+    },
     "remaining_los": {
         "task": "regression",
         "family": "gamma",
@@ -154,6 +161,29 @@ TASKS = {
             "aumc-early": 491795,
             "aumc-late": 392512,
         },
+        "variables": [
+            "age",
+            "anti_coag_ind",
+            "cf_treat_ind",
+            "diur_ind",
+            "fio2",
+            "ins_ind",
+            "map",
+            "mgcs",
+            "o2sat",
+            "pco2",
+            "peak",
+            "peep",
+            "pf_ratio",
+            "po2",
+            "resp",
+            "sed_ind",
+            "sex",
+            "supp_o2_vent",
+            "temp",
+            "tgcs",
+            "airway_ind",
+        ],
     },
     "circulatory_failure_at_8h": {
         "task": "classification",
@@ -176,6 +206,24 @@ TASKS = {
             "aumc-early": 68998,
             "aumc-late": 212163,
         },
+        "variables": [
+            "age",
+            "cf_treat_ind",
+            "cout",
+            "crp",
+            "dbp",
+            "glu",
+            "hr",
+            "inr_pt",
+            "lact",
+            "map",
+            "nonop_pain_ind",
+            "o2sat",
+            "peak",
+            "rass",
+            "sbp",
+            "supp_o2_vent",
+        ],
     },
     "kidney_failure_at_48h": {
         "task": "classification",
@@ -198,6 +246,26 @@ TASKS = {
             "aumc-early": 714400,
             "aumc-late": 802464,
         },
+        "variables": [
+            "abx_ind",
+            "airway_ind",
+            "anti_coag_ind",
+            "anti_delir_ind",
+            "bili",
+            "cf_treat_ind",
+            "crea",
+            "crp",
+            "diur_ind",
+            "fluid_ind",
+            "inf_rbc_ind",
+            "k",
+            "mg",
+            "pain_killer_ind",
+            "rel_urine_rate",
+            "resp",
+            "ufilt_ind",
+            "weight",
+        ],
     },
     "log_creatine_in_1h": {
         "task": "regression",

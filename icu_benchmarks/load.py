@@ -137,10 +137,10 @@ def load(
     if not -1 <= weighting_exponent <= 0:
         raise ValueError(f"Invalid weighting exponent: {weighting_exponent}")
 
-    weighting_exponent = float(weighting_exponent)  # error if int
+    weighting_exponent = float(weighting_exponent)  # .pow(x) errors if x is an int
 
     counts = df["dataset"].value_counts()
-    # quotient ensures that sum_i(weights_i) = sum_e(n_e ** weighting_exp * ne) = 1
+    # quotient ensures that sum_i(weights_i) = sum_e(n_e ** weighting_exp * n_e) = 1
     quotient = counts.select(pl.col("count").pow(1.0 + weighting_exponent).sum())
     counts = counts.with_columns(pl.col("count").pow(weighting_exponent) / quotient)
     weights = df.select("dataset").join(counts, on="dataset")["count"].to_numpy()
@@ -151,8 +151,7 @@ def load(
     y = df[outcome].to_numpy()
     assert np.isnan(y).sum() == 0
 
-    # return df, y, weights
-    return df.drop([outcome, "dataset"]), y, weights
+    return df.drop([outcome, "dataset"]), y, weights, df["dataset"].to_numpy()
 
 
 def features(
