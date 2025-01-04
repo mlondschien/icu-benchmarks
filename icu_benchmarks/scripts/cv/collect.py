@@ -52,7 +52,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     )
     sources = results["sources"].explode().unique().to_list()
 
-    metrics = map(re.compile(r"^[a-z]+\/train\/([a-z]+)$").match, results.columns)
+    metrics = map(re.compile(r"^[a-z]+\/train\/(.+)$").match, results.columns)
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
 
     results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)

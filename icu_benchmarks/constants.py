@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 DATA_DIR = Path(__file__).parents[1] / "data"
+
 VARIABLE_REFERENCE_PATH = (
     Path(__file__).parents[1] / "resources" / "variable_reference.tsv"
 )
@@ -205,7 +206,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "supp_o2_vent",
             "temp",
             "tgcs",
-            "airway_ind",
+            # "airway_ind",
         ],
     },
     "circulatory_failure_at_8h": {
@@ -273,7 +274,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
         },
         "variables": [
             "abx_ind",
-            "airway_ind",
+            # "airway_ind",
             "anti_coag_ind",
             "anti_delir_ind",
             "bili",

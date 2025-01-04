@@ -24,7 +24,7 @@ SOURCES = [
 @click.option("--hours", type=int, default=24)
 @click.option("--experiment_name", type=str, default=None)
 @click.option("--experiment_note", type=str, default=None)
-@click.option("--outcomes", type=List[str], default=None)
+@click.option("--outcome", type=str, default=None)
 @click.option(
     "--tracking_uri",
     type=str,
@@ -40,7 +40,7 @@ def main(
     hours: int,
     experiment_name: str,
     experiment_note: str,
-    outcomes: List[str],
+    outcome: str,
     tracking_uri: str,
     artifact_location: str,
 ):  # noqa D
@@ -61,13 +61,14 @@ def main(
         if dataset1 <= dataset2
     ] + [SOURCES]
 
+    outcomes = [outcome]
     for sources, outcome in product(list_of_sources, outcomes):
         n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
 
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 10)
 
-        log_dir = Path(".") / "logs" / outcome / "_".join(sorted(sources))
+        log_dir = Path("logs") / experiment_name / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 
@@ -82,8 +83,7 @@ targets.targets = {DATASETS}
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
-GeneralizedLinearRegressor.alpha = {alpha.tolist()}
-GeneralizedLinearRegressor.family = '{TASKS[outcome]['family']}'
+ALPHA = {alpha.tolist()}
 
 icu_benchmarks.load.load.weighting_exponent = -0.5
 icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}

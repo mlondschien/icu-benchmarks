@@ -50,6 +50,10 @@ def l1_ratios(l1_ratios=gin.REQUIRED):  # noqa D
     return l1_ratios
 
 
+@gin.configurable
+def model(model=gin.REQUIRED):  # noqa D
+    return model
+
 def metrics(y, yhat, prefix, task):  # noqa D
     if not isinstance(y, np.ndarray):
         y = y.to_numpy()
@@ -92,7 +96,6 @@ def main(config: str):  # noqa D
         "sources": sources(),
         "targets": targets(),
         "l1_ratios": l1_ratios(),
-        "parent_run": None,
     }
 
     parent_run = setup_mlflow(tags=tags)
@@ -128,9 +131,9 @@ def main(config: str):  # noqa D
     glms = []
     for l1_ratio in l1_ratios():
         logger.info(f"Fitting the glm with l1_ratio={l1_ratio:.1f}")
-        glm = GeneralizedLinearRegressor(l1_ratio=l1_ratio, family=task["family"])
+        glm = model()(l1_ratio=l1_ratio, family=task["family"])
         tic = perf_counter()
-        glm.fit(df, y, sample_weight=weights)
+        glm.fit(df, y, sample_weight=weights, datasets=datasets)
         toc = perf_counter()
         logger.info(
             f"Fitting the glm with l1_ratio={l1_ratio:.1f} took {toc - tic:.1f} seconds"
