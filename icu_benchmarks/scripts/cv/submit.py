@@ -1,7 +1,6 @@
 import subprocess
 from itertools import product
 from pathlib import Path
-from typing import List
 
 import click
 import numpy as np

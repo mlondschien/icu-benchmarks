@@ -24,7 +24,6 @@ def test_data_shared_lasso(X, y):
     model2 = DataSharedLasso(alpha=1)
     model2.fit(X_polars, y_polars, datasets=datasets)
     yhat2 = model2.predict(X_polars)
-
     assert np.allclose(yhat1, yhat2)
     assert np.allclose(model1.coef_, model2.coef_)
     assert np.allclose(model1.intercept_, model2.intercept_)

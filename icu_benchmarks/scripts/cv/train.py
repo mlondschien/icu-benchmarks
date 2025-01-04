@@ -1,19 +1,17 @@
 import logging
 from time import perf_counter
-from icu_benchmarks.models import DataSharedLasso
+
 import click
 import gin
 import mlflow
 import numpy as np
 import polars as pl
-import tabmat
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
 from icu_benchmarks.constants import TASKS
-from icu_benchmarks.gin import GeneralizedLinearRegressor
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, log_pickle, setup_mlflow
@@ -46,8 +44,8 @@ def parameters(parameters=gin.REQUIRED):  # noqa D
     return parameters
 
 
-@gin.configurable  # noqa D
-def model(model=gin.REQUIRED):
+@gin.configurable
+def model(model=gin.REQUIRED):  # noqa D
     return model
 
 
@@ -66,7 +64,9 @@ def main(config: str):  # noqa D
 
     continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float()]
     bool_variables = [col for col in df.columns if df[col].dtype == pl.Boolean]
-    other = [col for col in df.columns if col not in continuous_variables + bool_variables]
+    other = [
+        col for col in df.columns if col not in continuous_variables + bool_variables
+    ]
 
     scaler = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
     imputer = StandardScaler(copy=False)
@@ -81,7 +81,7 @@ def main(config: str):  # noqa D
             (
                 "other",
                 OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-                other
+                other,
             ),
         ],
         sparse_threshold=0,
@@ -103,9 +103,7 @@ def main(config: str):  # noqa D
 
         glm.fit(df, y, sample_weight=weights, datasets=dataset)
         toc = perf_counter()
-        logger.info(
-            f"Fitting the glm with {parameter} took {toc - tic:.1f} seconds"
-        )
+        logger.info(f"Fitting the glm with {parameter} took {toc - tic:.1f} seconds")
         glms.append(glm)
 
     results = []
@@ -115,9 +113,7 @@ def main(config: str):  # noqa D
         for alpha_idx, alpha in enumerate(glm._alphas):
             glm.coef_ = glm.coef_path_[alpha_idx]
             glm.intercept_ = glm.intercept_path_[alpha_idx]
-            coef_table_path = (
-                f"coefficients/alpha={alpha_idx}_{'_'.join(f'{key}={value}' for key, value in parameter.items())}.csv"
-            )
+            coef_table_path = f"coefficients/alpha={alpha_idx}_{'_'.join(f'{key}={value}' for key, value in parameter.items())}.csv"
             log_df(glm.coef_table(), coef_table_path)
             log_pickle(
                 Pipeline([("preprocessor", preprocessor), ("glm", glm)]), "model.pickle"

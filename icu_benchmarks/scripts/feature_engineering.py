@@ -81,7 +81,7 @@ def continuous_features(
 
     expressions = [
         pl.col(column_name).forward_fill().alias(f"{column_name}_ffilled"),
-        pl.col(column_name).is_null().alias(f"{column_name}_missing")
+        pl.col(column_name).is_null().alias(f"{column_name}_missing"),
     ]
 
     for horizon in horizons:
