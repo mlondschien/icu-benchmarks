@@ -101,7 +101,7 @@ def main(config: str):  # noqa D
         glm.set_params(**parameter)
         tic = perf_counter()
 
-        glm.fit(df, y, sample_weight=weights, datasets=dataset)
+        glm.fit(df, y, sample_weight=weights, dataset=dataset)
         toc = perf_counter()
         logger.info(f"Fitting the glm with {parameter} took {toc - tic:.1f} seconds")
         glms.append(glm)

@@ -9,42 +9,36 @@ from glum import GeneralizedLinearRegressor
 class DataSharedLasso(GeneralizedLinearRegressor):
     """Data Shared Lasso Estimator from S. Gross and R. Tibshirani."""
 
-    def fit(self, X, y, sample_weight=None, datasets=None):  # noqa: D
-        self.fit_datasets_ = np.sort(np.unique(datasets))
+    def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
+        self.fit_datasets_ = np.sort(np.unique(dataset))
 
         if isinstance(X, np.ndarray):
-            means = [X[datasets == d].mean(axis=0) for d in self.fit_datasets_]
+            means = [X[dataset == d].mean(axis=0) for d in self.fit_datasets_]
             X_interacted = np.hstack(
                 [X]
                 + [
-                    (X - means[idx][np.newaxis, :]) * (datasets == d)[:, np.newaxis]
+                    (X - means[idx][np.newaxis, :]) * (dataset == d)[:, np.newaxis]
                     for idx, d in enumerate(self.fit_datasets_)
                 ]
             )
         elif isinstance(X, pl.DataFrame):
-            means = [X.filter(datasets == d).mean() for d in self.fit_datasets_]
-            X_interacted = X.with_columns(_datasets=datasets)
+            means = [X.filter(dataset == d).mean() for d in self.fit_datasets_]
+            X_interacted = X.with_columns(_dataset=dataset)
             X_interacted = X_interacted.with_columns(
                 [
-                    pl.when(pl.col("_datasets").eq(d))
+                    pl.when(pl.col("_dataset").eq(d))
                     .then(X[col] - means[idx][col])
                     .otherwise(0)
                     .alias(f"_dataset={d}_x_{col}")
-                    for col in X.columns
                     for idx, d in enumerate(self.fit_datasets_)
+                    for col in X.columns
                 ]
-            ).drop("_datasets")
+            ).drop("_dataset")
         else:
             raise ValueError("X must be a numpy array or polars DataFrame")
 
-        self.P1 = np.repeat(
-            [1]
-            + [
-                np.sqrt(np.sum(datasets == d) / len(datasets))
-                for d in self.fit_datasets_
-            ],
-            X.shape[1],
-        )
+        rg = [np.sqrt(np.sum(dataset == d) / len(dataset)) for d in self.fit_datasets_]
+        self.P1 = np.repeat([1] + rg, X.shape[1])
 
         # Need to convert to tabmat here. Else, the feature names are not set correctly.
         if isinstance(X_interacted, pl.DataFrame):
@@ -169,10 +163,11 @@ class AnchorRegression(GeneralizedLinearRegressor):
         )
         self.gamma = gamma
 
-    def fit(self, X, y, sample_weight=None, datasets=None):  # noqa: D
-        mult = np.sqrt(1 / self.gamma)  # 1 - kappa = 1 - (gamma - 1) / gamma
+    def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
+        # 1 - kappa = 1 - (gamma - 1) / gamma = 1 / gamma
+        mult = np.sqrt(1 / self.gamma)
 
-        self.fit_datasets_ = np.sort(np.unique(datasets))
+        self.fit_datasets_ = np.sort(np.unique(dataset))
 
         if not isinstance(y, np.ndarray):
             y = y.to_numpy()
@@ -189,7 +184,7 @@ class AnchorRegression(GeneralizedLinearRegressor):
         X_tilde = X_tilde - x_mean
 
         for d in self.fit_datasets_:
-            mask = datasets == d
+            mask = dataset == d
             y_tilde[mask] = mult * y_tilde[mask] + (1 - mult) * y_tilde[mask].mean()
             X_tilde[mask, :] = mult * X_tilde[mask, :] + (1 - mult) * X_tilde[
                 mask, :
