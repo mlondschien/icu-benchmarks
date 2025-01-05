@@ -47,7 +47,8 @@ class DataSharedLasso(GeneralizedLinearRegressor):
         )
 
         # Need to convert to tabmat here. Else, the feature names are not set correctly.
-        X_interacted = tabmat.from_df(X_interacted)
+        if isinstance(X_interacted, pl.DataFrame):
+            X_interacted = tabmat.from_df(X_interacted)
 
         super().fit(X_interacted, y)  # , sample_weight=sample_weight)
 
@@ -70,7 +71,9 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             raise ValueError("X must be a numpy array or polars DataFrame")
 
         # convert to tabmat here as we did so in fit
-        X_interacted = tabmat.from_df(X_interacted)
+        if isinstance(X_interacted, pl.DataFrame):
+            X_interacted = tabmat.from_df(X_interacted)
+
         return super().predict(X_interacted)
 
 
@@ -167,7 +170,7 @@ class AnchorRegression(GeneralizedLinearRegressor):
         self.gamma = gamma
 
     def fit(self, X, y, sample_weight=None, datasets=None):  # noqa: D
-        _kappa = (self.gamma - 1) / self.gamma
+        mult = np.sqrt(1 / self.gamma)  # 1 - kappa = 1 - (gamma - 1) / gamma
 
         self.fit_datasets_ = np.sort(np.unique(datasets))
 
@@ -187,24 +190,24 @@ class AnchorRegression(GeneralizedLinearRegressor):
 
         for d in self.fit_datasets_:
             mask = datasets == d
+            y_tilde[mask] = mult * y_tilde[mask] + (1 - mult) * y_tilde[mask].mean()
+            X_tilde[mask, :] = mult * X_tilde[mask, :] + (1 - mult) * X_tilde[
+                mask, :
+            ].mean(axis=0)
 
-            y_tilde[mask] = (
-                np.sqrt(1 - _kappa) * y_tilde[mask]
-                + (1 - np.sqrt(1 - _kappa)) * y_tilde[mask, :].mean()
-            )
-            X_tilde[mask, :] = np.sqrt(1 - _kappa) * X_tilde[mask, :] + (
-                1 - np.sqrt(1 - _kappa)
-            ) * X_tilde[mask, :].mean(axis=0)
+        X_tilde = X_tilde + x_mean
+        y_tilde = y_tilde + y_mean
 
         if isinstance(X, pl.DataFrame):
-            X_tilde = pl.DataFrame(X_tilde, columns=X.columns)
+            X_tilde = tabmat.from_df(pl.DataFrame(X_tilde, schema=X.columns))
 
-        X_tilde = tabmat.from_df(X_tilde)
-        super().fit(X_tilde, y, sample_weight=sample_weight)
+        super().fit(X_tilde, y_tilde, sample_weight=sample_weight)
 
         return self
 
     def predict(self, X):  # noqa: D
         # convert to tabmat here as we did so in fit
-        X = tabmat.from_df(X)
+        if isinstance(X, pl.DataFrame):
+            X = tabmat.from_df(X)
+
         return super().predict(X)
