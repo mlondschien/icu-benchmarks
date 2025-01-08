@@ -34,6 +34,7 @@ SOURCES = [
     type=str,
     default="file:///cluster/work/math/lmalte/mlflow/artifacts",
 )
+@click.option("--script", type=str, default="train_linear.py")
 def main(
     config: str,
     hours: int,
@@ -42,6 +43,7 @@ def main(
     outcome: str,
     tracking_uri: str,
     artifact_location: str,
+    script: str,
 ):  # noqa D
     ip, port = setup_mlflow_server(
         tracking_uri=tracking_uri,
@@ -96,7 +98,7 @@ icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
         with command_file.open("w") as f:
             f.write(
                 f"""#!/bin/sh
-python icu_benchmarks/scripts/cv/train.py --config {config_file.resolve()}"""
+python icu_benchmarks/scripts/cv/{script} --config {config_file.resolve()}"""
             )
 
         process = [

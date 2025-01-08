@@ -1,0 +1,11 @@
+import icu_benchmarks.gin
+
+icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
+icu_benchmarks.load.load.weighting_exponent = -0.5
+
+parameters.parameters = [
+    {"num_boost_round": 100, "objective": @AnchorRegressionObjective, "gamma": 1},
+    {"num_boost_round": 100, "objective": @AnchorRegressionObjective, "gamma": 2},
+    {"num_boost_round": 100, "objective": @AnchorRegressionObjective, "gamma": 4},
+    {"num_boost_round": 100, "objective": @AnchorRegressionObjective, "gamma": 8},
+]

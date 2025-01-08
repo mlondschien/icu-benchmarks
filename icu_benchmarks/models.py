@@ -1,4 +1,5 @@
 import gin
+import lightgbm as lgb
 import numpy as np
 import polars as pl
 import tabmat
@@ -224,3 +225,54 @@ class AnchorRegression(GeneralizedLinearRegressor):
             X = tabmat.from_df(X)
 
         return super().predict(X)
+
+
+@gin.configurable
+class LGBMAnchorModel:  # noqa: D
+    def __init__(self, objective, params):
+        self.objective = objective
+        self.params = params
+        self.model = None
+
+    def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
+        categorical_features = [
+            c
+            for c, dtype in X.schema.items()
+            if dtype.is_float() or dtype == pl.Boolean
+        ]
+
+        data = lgb.Dataset(
+            X.to_arrow(),
+            label=y,
+            weight=sample_weight,
+            init_score=(
+                self.objective.init_score(y)
+                if hasattr(self.objective, "init_score")
+                else None
+            ),
+            categorical_feature=categorical_features,
+            free_raw_data=False,
+        )
+        data.anchor = dataset
+
+        if "gamma" in self.params:
+            objective = self.objective(self.params.pop("gamma"))
+
+        params = {
+            **self.params,
+            "objective": objective,
+            "categorical_feature": categorical_features,
+        }
+        self.model = lgb.train(
+            # avoid lgbm UserWarning: Found `num_boost_round` in params. Will use it...
+            params={k: v for k, v in params.items() if k != "num_boost_round"},
+            train_set=data,
+            num_boost_round=self.params.get("num_boost_round", 100),
+        )
+        return self
+
+    def predict(self, X):  # noqa: D
+        if self.model is None:
+            raise ValueError("Model not fitted")
+
+        return self.model.predict(X.to_arrow())
