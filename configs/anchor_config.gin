@@ -19,6 +19,21 @@ parameters.parameters = [
     {"l1_ratio": 0.5, "gamma": 4},
     {"l1_ratio": 0.8, "gamma": 4},
     {"l1_ratio": 1, "gamma": 4},
+    {"l1_ratio": 0.01, "gamma": 6},
+    {"l1_ratio": 0.2, "gamma": 6},
+    {"l1_ratio": 0.5, "gamma": 6},
+    {"l1_ratio": 0.8, "gamma": 6},
+    {"l1_ratio": 1, "gamma": 6},
+    {"l1_ratio": 0.01, "gamma": 8},
+    {"l1_ratio": 0.2, "gamma": 8},
+    {"l1_ratio": 0.5, "gamma": 8},
+    {"l1_ratio": 0.8, "gamma": 8},
+    {"l1_ratio": 1, "gamma": 8},
+    {"l1_ratio": 0.01, "gamma": 12},
+    {"l1_ratio": 0.2, "gamma": 12},
+    {"l1_ratio": 0.5, "gamma": 12},
+    {"l1_ratio": 0.8, "gamma": 12},
+    {"l1_ratio": 1, "gamma": 12},
 ]
 
 AnchorRegression.alpha = %ALPHA
