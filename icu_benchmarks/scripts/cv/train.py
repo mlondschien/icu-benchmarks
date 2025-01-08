@@ -10,7 +10,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
+from icu_benchmarks.models import AnchorRegression, DataSharedLasso
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
@@ -54,7 +54,13 @@ def model(model=gin.REQUIRED):  # noqa D
 def main(config: str):  # noqa D
     gin.parse_config_file(config)
     task = TASKS[outcome()]
-    tags = {"outcome": outcome(), "sources": sources(), "targets": targets()}
+    tags = {
+        "outcome": outcome(),
+        "sources": sources(),
+        "targets": targets(),
+        "parameter_names": np.unique([k for p in parameters() for k in p.keys()])
+    }
+
     _ = setup_mlflow(tags=tags)
 
     tic = perf_counter()
