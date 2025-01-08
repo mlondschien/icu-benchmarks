@@ -10,11 +10,12 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from icu_benchmarks.models import AnchorRegression, DataSharedLasso
+
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, log_pickle, setup_mlflow
+from icu_benchmarks.models import AnchorRegression, DataSharedLasso  # noqa F401
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -58,7 +59,7 @@ def main(config: str):  # noqa D
         "outcome": outcome(),
         "sources": sources(),
         "targets": targets(),
-        "parameter_names": np.unique([k for p in parameters() for k in p.keys()])
+        "parameter_names": np.unique([k for p in parameters() for k in p.keys()]),
     }
 
     _ = setup_mlflow(tags=tags)
@@ -119,12 +120,12 @@ def main(config: str):  # noqa D
         for alpha_idx, alpha in enumerate(glm._alphas):
             glm.coef_ = glm.coef_path_[alpha_idx]
             glm.intercept_ = glm.intercept_path_[alpha_idx]
-            suffix = "_".join(f'{key}={value}' for key, value in parameter.items())
-            coef_table_path = (f"coefficients/alpha={alpha_idx}_{suffix}.csv")
+            suffix = "_".join(f"{key}={value}" for key, value in parameter.items())
+            coef_table_path = f"coefficients/alpha={alpha_idx}_{suffix}.csv"
             log_df(glm.coef_table(), coef_table_path)
             log_pickle(
                 Pipeline([("preprocessor", preprocessor), ("glm", glm)]),
-                f"model_{suffix}.pkl"
+                f"model_{suffix}.pkl",
             )
 
             results.append(

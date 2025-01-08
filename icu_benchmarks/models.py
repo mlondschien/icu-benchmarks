@@ -38,9 +38,14 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             raise ValueError("X must be a numpy array or polars DataFrame")
 
         if sample_weight is None:
-            rg = [np.sqrt(np.sum(dataset == d) / len(dataset)) for d in self.fit_datasets_]
+            rg = [
+                np.sqrt(np.sum(dataset == d) / len(dataset)) for d in self.fit_datasets_
+            ]
         else:
-            rg = [np.sqrt(np.sum(sample_weight[dataset == d]) / np.sum(sample_weight)) for d in self.fit_datasets_]
+            rg = [
+                np.sqrt(np.sum(sample_weight[dataset == d]) / np.sum(sample_weight))
+                for d in self.fit_datasets_
+            ]
 
         self.P1 = np.repeat([1] + rg, X.shape[1])
         self.P2 = np.repeat([0] + rg, X.shape[1])
@@ -173,7 +178,7 @@ class AnchorRegression(GeneralizedLinearRegressor):
         if self.gamma == 1:
             if isinstance(X, pl.DataFrame):
                 X = tabmat.from_df(X)
-            
+
             super().fit(X, y, sample_weight=sample_weight)
             return self
 
