@@ -37,14 +37,19 @@ class DataSharedLasso(GeneralizedLinearRegressor):
         else:
             raise ValueError("X must be a numpy array or polars DataFrame")
 
-        rg = [np.sqrt(np.sum(dataset == d) / len(dataset)) for d in self.fit_datasets_]
+        if sample_weight is None:
+            rg = [np.sqrt(np.sum(dataset == d) / len(dataset)) for d in self.fit_datasets_]
+        else:
+            rg = [np.sqrt(np.sum(sample_weight[dataset == d]) / np.sum(sample_weight)) for d in self.fit_datasets_]
+
         self.P1 = np.repeat([1] + rg, X.shape[1])
+        self.P2 = np.repeat([0] + rg, X.shape[1])
 
         # Need to convert to tabmat here. Else, the feature names are not set correctly.
         if isinstance(X_interacted, pl.DataFrame):
             X_interacted = tabmat.from_df(X_interacted)
 
-        super().fit(X_interacted, y)  # , sample_weight=sample_weight)
+        super().fit(X_interacted, y, sample_weight=sample_weight)
 
         return self
 
@@ -164,6 +169,14 @@ class AnchorRegression(GeneralizedLinearRegressor):
         self.gamma = gamma
 
     def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
+
+        if self.gamma == 1:
+            if isinstance(X, pl.DataFrame):
+                X = tabmat.from_df(X)
+            
+            super().fit(X, y, sample_weight=sample_weight)
+            return self
+
         # 1 - kappa = 1 - (gamma - 1) / gamma = 1 / gamma
         mult = np.sqrt(1 / self.gamma)
 

@@ -113,10 +113,12 @@ def main(config: str):  # noqa D
         for alpha_idx, alpha in enumerate(glm._alphas):
             glm.coef_ = glm.coef_path_[alpha_idx]
             glm.intercept_ = glm.intercept_path_[alpha_idx]
-            coef_table_path = f"coefficients/alpha={alpha_idx}_{'_'.join(f'{key}={value}' for key, value in parameter.items())}.csv"
+            suffix = "_".join(f'{key}={value}' for key, value in parameter.items())
+            coef_table_path = (f"coefficients/alpha={alpha_idx}_{suffix}.csv")
             log_df(glm.coef_table(), coef_table_path)
             log_pickle(
-                Pipeline([("preprocessor", preprocessor), ("glm", glm)]), "model.pickle"
+                Pipeline([("preprocessor", preprocessor), ("glm", glm)]),
+                f"model_{suffix}.pkl"
             )
 
             results.append(
