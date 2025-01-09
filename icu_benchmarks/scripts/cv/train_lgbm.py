@@ -13,7 +13,7 @@ from sklearn.preprocessing import OrdinalEncoder
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
+from icu_benchmarks.mlflow_utils import log_df, setup_mlflow, log_pickle
 from icu_benchmarks.models import LGBMAnchorModel
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,6 @@ def num_iterations(num_iterations=gin.REQUIRED):  # noqa D
 @click.option("--config", type=click.Path(exists=True))
 def main(config: str):  # noqa D
     gin.parse_config_file(config)
-    # task = TASKS[outcome()]
     tags = {
         "outcome": outcome(),
         "sources": sources(),
@@ -104,11 +103,11 @@ def main(config: str):  # noqa D
     results = []
 
     for parameter_idx, parameter in enumerate(parameters()):
-        model = models[parameter_idx]
-        parameter["objective"] = str(parameter["objective"])
         name = "_".join(f"{key}={value}" for key, value in parameter.items())
+        model = models[parameter_idx]
+        log_pickle(model, f"models/model_{name}.pkl")
+        parameter["objective"] = str(parameter["objective"])
         for num_iteration in num_iterations():
-
             results.append(
                 {
                     **{
