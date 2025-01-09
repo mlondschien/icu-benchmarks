@@ -1,3 +1,4 @@
+import logging
 import re
 import tempfile
 
@@ -5,7 +6,7 @@ import click
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-import logging
+
 from icu_benchmarks.constants import DATASETS
 
 GREATER_IS_BETTER = ["accuracy", "roc", "auprc", "r2"]
@@ -44,7 +45,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     for run in runs:
         run_id = run.info.run_id
         with tempfile.TemporaryDirectory() as f:
-            if not "results.csv" in [x.path for x in client.list_artifacts(run_id)]:
+            if "results.csv" not in [x.path for x in client.list_artifacts(run_id)]:
                 logger.warning(f"Run {run_id} has no results.csv")
                 continue
 
@@ -58,9 +59,18 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
         )
         all_results.append(results)
 
-
     parameter_names = [
-        x for x in ["alpha_idx", "l1_ratio", "gamma", "num_boost_round", "num_iteration", "learning_rate", "num_leaves"] if x in results.columns
+        x
+        for x in [
+            "alpha_idx",
+            "l1_ratio",
+            "gamma",
+            "num_boost_round",
+            "num_iteration",
+            "learning_rate",
+            "num_leaves",
+        ]
+        if x in results.columns
     ]
 
     results = pl.concat(all_results)
@@ -99,11 +109,10 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
             else:
                 best = cv_grouped[cv_grouped[col].arg_min()]
 
-            model = results_n1.filter(~pl.col("sources").list.contains(target)
-                & pl.all_horizontal(
-                    pl.col(p).eq(best[p]) for p in parameter_names
-                            )
-                                )
+            model = results_n1.filter(
+                ~pl.col("sources").list.contains(target)
+                & pl.all_horizontal(pl.col(p).eq(best[p]) for p in parameter_names)
+            )
             cv_results.append(
                 {
                     **{
@@ -112,10 +121,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                         "cv_value": best[col].item(),
                         "target_value": model[f"{target}/train/{metric}"].item(),
                     },
-                    **{
-                        p: best[p].item()
-                        for p in parameter_names
-                    },
+                    **{p: best[p].item() for p in parameter_names},
                     **{
                         f"{source}/train/": model[f"{source}/train/{metric}"].item()
                         for source in sorted(DATASETS)
@@ -133,7 +139,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                 .filter(pl.col("metric").eq(metric))
                 .sort("target")
             )
-    breakpoint()
+
 
 if __name__ == "__main__":
     main()

@@ -13,7 +13,7 @@ from sklearn.preprocessing import OrdinalEncoder
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import log_df, setup_mlflow, log_pickle
+from icu_benchmarks.mlflow_utils import log_df, log_pickle, setup_mlflow
 from icu_benchmarks.models import LGBMAnchorModel
 
 logger = logging.getLogger(__name__)
