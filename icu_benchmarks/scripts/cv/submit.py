@@ -24,6 +24,7 @@ SOURCES = [
 @click.option("--experiment_name", type=str, default=None)
 @click.option("--experiment_note", type=str, default=None)
 @click.option("--outcome", type=str, default=None)
+@click.option("--style", type=str, default="cv")
 @click.option(
     "--tracking_uri",
     type=str,
@@ -41,6 +42,7 @@ def main(
     experiment_name: str,
     experiment_note: str,
     outcome: str,
+    style: str,
     tracking_uri: str,
     artifact_location: str,
     script: str,
@@ -54,15 +56,23 @@ def main(
         experiment_note=experiment_note,
     )
 
-    # "<" avoids duplicates in the n-2. The "=" includes n-1 lists.
-    list_of_sources = [
-        [source for source in SOURCES if source != dataset1 and source != dataset2]
-        for dataset1 in SOURCES
-        for dataset2 in SOURCES
-        if dataset1 <= dataset2
-    ] + [SOURCES]
+    if style == "cv":
+        # "<" avoids duplicates in the n-2. The "=" includes n-1 lists.
+        list_of_sources = [
+            [source for source in SOURCES if source != dataset1 and source != dataset2]
+            for dataset1 in SOURCES
+            for dataset2 in SOURCES
+            if dataset1 <= dataset2
+        ] + [SOURCES]
+    elif style == "1v1":
+        list_of_sources = [SOURCES]
+    else:
+        raise ValueError(f"Unknown style {style}")
 
     outcomes = [outcome]
+
+    config_text = Path(config).read_text()
+
     for sources, outcome in product(list_of_sources, outcomes):
         n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
 
@@ -75,8 +85,8 @@ def main(
 
         with config_file.open("w") as f:
             f.write(
-                f"""
-include '{config}'
+                f"""{config_text}
+
 sources.sources = {sources}
 outcome.outcome = '{outcome}'
 targets.targets = {DATASETS}
