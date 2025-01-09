@@ -86,6 +86,8 @@ class DataSharedLasso(GeneralizedLinearRegressor):
 class AnchorRegression(GeneralizedLinearRegressor):
     """Anchor Regression Estimator from D. Rothenhäusler et al."""
 
+    # All parameters are copied from the GLM estimator. They need to be explicit to
+    # adhere to sklearn's API. GLR inherits from BaseEstimator.
     def __init__(
         self,
         gamma=1.0,
@@ -131,6 +133,7 @@ class AnchorRegression(GeneralizedLinearRegressor):
     ):
         if gamma != 1 and family not in ["gaussian", "normal"]:
             raise ValueError(f"Family {family} not supported for AnchorRegression.")
+
         super().__init__(
             alpha=alpha,
             l1_ratio=l1_ratio,
@@ -175,7 +178,21 @@ class AnchorRegression(GeneralizedLinearRegressor):
         self.gamma = gamma
 
     def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
+        """
+        Fit the Anchor Regression model.
 
+        Parameters
+        ----------
+        X : np.ndarray or polars.DataFrame
+            The input data.
+        y : np.ndarray
+            The outcome.
+        sample_weight : np.ndarray, optional
+            The sample weights.
+        dataset : np.ndarray
+            Array of dataset indicators. Each unique value is assumed to correspond to a
+            single environment. The anchor then is a one-hot encoding of this.
+        """
         if self.gamma == 1:
             if isinstance(X, pl.DataFrame):
                 X = tabmat.from_df(X)
@@ -212,7 +229,7 @@ class AnchorRegression(GeneralizedLinearRegressor):
         X_tilde = X_tilde + x_mean
         y_tilde = y_tilde + y_mean
 
-        if isinstance(X, pl.DataFrame):
+        if isinstance(X, pl.DataFrame):  # glum does not support polars yet
             X_tilde = tabmat.from_df(pl.DataFrame(X_tilde, schema=X.columns))
 
         super().fit(X_tilde, y_tilde, sample_weight=sample_weight)
