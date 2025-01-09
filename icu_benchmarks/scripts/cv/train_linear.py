@@ -1,4 +1,5 @@
 import logging
+from itertools import product
 from time import perf_counter
 
 import click
@@ -41,8 +42,13 @@ def targets(targets=gin.REQUIRED):  # noqa D
 
 
 @gin.configurable
-def parameters(parameters=gin.REQUIRED):  # noqa D
-    return parameters
+def parameters(parameters=gin.REQUIRED):
+    """If parameters is a dictionary, create list of records with all combinations."""
+    if isinstance(parameters, dict):
+        keys, values = parameters.keys(), parameters.values()
+        return [dict(zip(keys, combination)) for combination in product(*values)]
+    else:
+        return parameters
 
 
 @gin.configurable

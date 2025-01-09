@@ -3,38 +3,10 @@ import icu_benchmarks.gin
 icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
 icu_benchmarks.load.load.weighting_exponent = -0.5
 
-parameters.parameters = [
-    {"l1_ratio": 0.01, "gamma": 1},
-    {"l1_ratio": 0.2, "gamma": 1},
-    {"l1_ratio": 0.5, "gamma": 1},
-    {"l1_ratio": 0.8, "gamma": 1},
-    {"l1_ratio": 1, "gamma": 1},
-    {"l1_ratio": 0.01, "gamma": 2},
-    {"l1_ratio": 0.2, "gamma": 2},
-    {"l1_ratio": 0.5, "gamma": 2},
-    {"l1_ratio": 0.8, "gamma": 2},
-    {"l1_ratio": 1, "gamma": 2},
-    {"l1_ratio": 0.01, "gamma": 4},
-    {"l1_ratio": 0.2, "gamma": 4},
-    {"l1_ratio": 0.5, "gamma": 4},
-    {"l1_ratio": 0.8, "gamma": 4},
-    {"l1_ratio": 1, "gamma": 4},
-    {"l1_ratio": 0.01, "gamma": 6},
-    {"l1_ratio": 0.2, "gamma": 6},
-    {"l1_ratio": 0.5, "gamma": 6},
-    {"l1_ratio": 0.8, "gamma": 6},
-    {"l1_ratio": 1, "gamma": 6},
-    {"l1_ratio": 0.01, "gamma": 8},
-    {"l1_ratio": 0.2, "gamma": 8},
-    {"l1_ratio": 0.5, "gamma": 8},
-    {"l1_ratio": 0.8, "gamma": 8},
-    {"l1_ratio": 1, "gamma": 8},
-    {"l1_ratio": 0.01, "gamma": 12},
-    {"l1_ratio": 0.2, "gamma": 12},
-    {"l1_ratio": 0.5, "gamma": 12},
-    {"l1_ratio": 0.8, "gamma": 12},
-    {"l1_ratio": 1, "gamma": 12},
-]
+parameters.parameters = {
+    "l1_ratio": [0.01, 0.2, 0.5, 0.8, 1],
+    "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8, 11.2, 16],
+}
 
 AnchorRegression.alpha = %ALPHA
 AnchorRegression.family = "gaussian"
