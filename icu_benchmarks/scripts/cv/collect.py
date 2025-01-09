@@ -5,10 +5,18 @@ import click
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-
+import logging
 from icu_benchmarks.constants import DATASETS
 
 GREATER_IS_BETTER = ["accuracy", "roc", "auprc", "r2"]
+
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 @click.command()
@@ -36,6 +44,10 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     for run in runs:
         run_id = run.info.run_id
         with tempfile.TemporaryDirectory() as f:
+            if not "results.csv" in [x.path for x in client.list_artifacts(run_id)]:
+                logger.warning(f"Run {run_id} has no results.csv")
+                continue
+
             client.download_artifacts(run_id, "results.csv", f)
             results = pl.read_csv(f"{f}/results.csv")
 
@@ -46,6 +58,11 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
         )
         all_results.append(results)
 
+
+    parameter_names = [
+        x for x in ["alpha_idx", "l1_ratio", "gamma", "num_boost_round", "num_iteration", "learning_rate", "num_leaves"] if x in results.columns
+    ]
+
     results = pl.concat(all_results)
     results = results.with_columns(
         pl.col("sources").str.replace_all("'", '"').str.json_decode()
@@ -55,6 +72,8 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     metrics = map(re.compile(r"^[a-z]+\/train\/(.+)$").match, results.columns)
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
 
+    # results = results.filter(pl.col("gamma").eq(1))
+
     results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
     results_n1 = results.filter(pl.col("sources").list.len() == len(sources) - 1)
 
@@ -62,42 +81,40 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
 
     for target in sources:
         cv = results_n2.filter(~pl.col("sources").list.contains(target))
-
+        cv_sources = [source for source in sources if source != target]
         for metric in metrics:
             expr = pl.coalesce(
                 pl.when(~pl.col("sources").list.contains(t)).then(
                     pl.col(f"{t}/train/{metric}")
                 )
-                for t in sources
+                for t in cv_sources
             )
             col = f"target/train/{metric}"
 
             cv = cv.with_columns(expr.alias(col))
-            cv_grouped = cv.group_by(["l1_ratio_idx", "alpha_idx"]).agg(pl.mean(col))
+            cv_grouped = cv.group_by(parameter_names).agg(pl.mean(col))
 
             if metric in GREATER_IS_BETTER:
                 best = cv_grouped[cv_grouped[col].arg_max()]
             else:
                 best = cv_grouped[cv_grouped[col].arg_min()]
 
-            model = results_n1.filter(
-                ~pl.col("sources").list.contains(target)
-                & pl.col("alpha_idx").eq(best["alpha_idx"])
-                & pl.col("l1_ratio_idx").eq(best["l1_ratio_idx"])
-            )
+            model = results_n1.filter(~pl.col("sources").list.contains(target)
+                & pl.all_horizontal(
+                    pl.col(p).eq(best[p]) for p in parameter_names
+                            )
+                                )
             cv_results.append(
                 {
                     **{
                         "target": target,
                         "metric": metric,
-                        "l1_ratio_idx": best["l1_ratio_idx"].item(),
-                        "alpha_idx": best["alpha_idx"].item(),
                         "cv_value": best[col].item(),
-                        "target_value": model.filter(
-                            ~pl.col("sources").list.contains(target)
-                            & pl.col("alpha_idx").eq(best["alpha_idx"])
-                            & pl.col("l1_ratio_idx").eq(best["l1_ratio_idx"])
-                        )[f"{target}/train/{metric}"].item(),
+                        "target_value": model[f"{target}/train/{metric}"].item(),
+                    },
+                    **{
+                        p: best[p].item()
+                        for p in parameter_names
                     },
                     **{
                         f"{source}/train/": model[f"{source}/train/{metric}"].item()
@@ -116,7 +133,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                 .filter(pl.col("metric").eq(metric))
                 .sort("target")
             )
-
+    breakpoint()
 
 if __name__ == "__main__":
     main()
