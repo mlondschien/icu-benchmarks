@@ -12,6 +12,8 @@ from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, log_lgbm_model, setup_mlflow
 from icu_benchmarks.models import LGBMAnchorModel  # noqa F401
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.compose import ColumnTransformer
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -41,6 +43,11 @@ def parameters(parameters=gin.REQUIRED):  # noqa D
     return parameters
 
 
+@gin.configurable
+def num_iterations(num_iterations=gin.REQUIRED):  # noqa D
+    return num_iterations
+
+
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
 def main(config: str):  # noqa D
@@ -60,6 +67,24 @@ def main(config: str):  # noqa D
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
+    continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float()]
+    bool_variables = [col for col in df.columns if df[col].dtype == pl.Boolean]
+    other = [
+        col for col in df.columns if col not in continuous_variables + bool_variables
+    ]
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("continuous", "passthrough", continuous_variables),
+            ("categorical", OrdinalEncoder(), other)
+        ]
+    ).set_output(transform="polars")
+
+    tic = perf_counter()
+    df = preprocessor.fit_transform(df)
+    toc = perf_counter()
+    logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
+    
     models = []
     for parameter in parameters():
         logger.info(f"Fitting the lgbm model with {parameter}")
@@ -70,23 +95,24 @@ def main(config: str):  # noqa D
         toc = perf_counter()
         logger.info(f"Fitting the glm with {parameter} took {toc - tic:.1f} seconds")
         models.append(model)
-
     results = []
 
     for parameter_idx, parameter in enumerate(parameters()):
         model = models[parameter_idx]
-        suffix = "_".join(f"{key}={value}" for key, value in parameter.items())
-        log_lgbm_model(model.model, f"models/model_{suffix}.pkl")
+        parameter["objective"] = str(parameter["objective"])
+        name = "_".join(f"{key}={value}" for key, value in parameter.items())
+        for num_iteration in num_iterations():
 
-        results.append(
-            {
-                **{
-                    "model_path": f"models/model_{suffix}.pkl",
-                    "parameter_idx": parameter_idx,
-                },
-                **parameter,
-            }
-        )
+            results.append(
+                {
+                    **{
+                        "name": name,
+                        "parameter_idx": parameter_idx,
+                        "num_iteration": num_iteration,
+                    },
+                    **parameter,
+                }
+            )
 
     for target in targets():
         for split in ["train", "val", "test"]:
@@ -99,10 +125,15 @@ def main(config: str):  # noqa D
             if df.shape[0] == 0:
                 logger.warning(f"No data for {target}/{split}")
                 continue
+            
+            tic = perf_counter()
+            df = preprocessor.transform(df)
+            toc = perf_counter()
+            logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
 
             for result_idx, result in enumerate(results):
                 model = models[result["parameter_idx"]]
-                yhat = model.predict(df)
+                yhat = model.predict(df, num_iteration=result["num_iteration"])
                 results[result_idx] = {
                     **result,
                     **metrics(y, yhat, f"{target}/{split}", TASKS[outcome()]["task"]),

@@ -229,50 +229,45 @@ class AnchorRegression(GeneralizedLinearRegressor):
 
 @gin.configurable
 class LGBMAnchorModel:  # noqa: D
-    def __init__(self, objective, params):
+    def __init__(self, objective, params, num_boost_round=100):
         self.objective = objective
         self.params = params
+        self.num_boost_round = num_boost_round
         self.model = None
 
     def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
         categorical_features = [
             c
             for c, dtype in X.schema.items()
-            if dtype.is_float() or dtype == pl.Boolean
+            if not dtype.is_float() and not dtype == pl.Boolean
         ]
+
+        if "gamma" in self.params:
+            self.objective = self.objective(self.params.pop("gamma"), categories=np.unique(dataset))
+        else:
+            self.objective = self.objective()
 
         data = lgb.Dataset(
             X.to_arrow(),
             label=y,
             weight=sample_weight,
-            init_score=(
-                self.objective.init_score(y)
-                if hasattr(self.objective, "init_score")
-                else None
-            ),
             categorical_feature=categorical_features,
             free_raw_data=False,
+            feature_name=X.columns,
         )
         data.anchor = dataset
 
-        if "gamma" in self.params:
-            objective = self.objective(self.params.pop("gamma"))
+        self.params["objective"] = self.objective.objective
 
-        params = {
-            **self.params,
-            "objective": objective,
-            "categorical_feature": categorical_features,
-        }
         self.model = lgb.train(
-            # avoid lgbm UserWarning: Found `num_boost_round` in params. Will use it...
-            params={k: v for k, v in params.items() if k != "num_boost_round"},
+            params=self.params,
             train_set=data,
-            num_boost_round=self.params.get("num_boost_round", 100),
+            num_boost_round=self.num_boost_round,
         )
         return self
 
-    def predict(self, X):  # noqa: D
+    def predict(self, X, num_iteration=-1):  # noqa: D
         if self.model is None:
             raise ValueError("Model not fitted")
-
-        return self.model.predict(X.to_arrow())
+        scores = self.model.predict(X.to_arrow(), num_iteration=num_iteration)
+        return self.objective.predictions(scores)

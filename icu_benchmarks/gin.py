@@ -16,3 +16,9 @@ GeneralizedLinearRegressor = gin.external_configurable(
 AnchorRegressionObjective = gin.external_configurable(
     anchorboost.AnchorRegressionObjective, module="anchorboost"
 )
+AnchorKookClassificationObjective = gin.external_configurable(
+    anchorboost.AnchorKookClassificationObjective, module="anchorboost"
+)
+AnchorLiuClassificationObjective = gin.external_configurable(
+    anchorboost.AnchorLiuClassificationObjective, module="anchorboost"
+)
