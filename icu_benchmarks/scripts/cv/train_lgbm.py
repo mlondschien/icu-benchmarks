@@ -6,14 +6,14 @@ import gin
 import mlflow
 import numpy as np
 import polars as pl
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OrdinalEncoder
 
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import log_df, log_lgbm_model, setup_mlflow
-from icu_benchmarks.models import LGBMAnchorModel  # noqa F401
-from sklearn.preprocessing import OrdinalEncoder
-from sklearn.compose import ColumnTransformer
+from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
+from icu_benchmarks.models import LGBMAnchorModel
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -76,7 +76,7 @@ def main(config: str):  # noqa D
     preprocessor = ColumnTransformer(
         transformers=[
             ("continuous", "passthrough", continuous_variables),
-            ("categorical", OrdinalEncoder(), other)
+            ("categorical", OrdinalEncoder(), other),
         ]
     ).set_output(transform="polars")
 
@@ -84,7 +84,7 @@ def main(config: str):  # noqa D
     df = preprocessor.fit_transform(df)
     toc = perf_counter()
     logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
-    
+
     models = []
     for parameter in parameters():
         logger.info(f"Fitting the lgbm model with {parameter}")
@@ -125,7 +125,7 @@ def main(config: str):  # noqa D
             if df.shape[0] == 0:
                 logger.warning(f"No data for {target}/{split}")
                 continue
-            
+
             tic = perf_counter()
             df = preprocessor.transform(df)
             toc = perf_counter()

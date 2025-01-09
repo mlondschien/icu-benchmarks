@@ -243,7 +243,9 @@ class LGBMAnchorModel:  # noqa: D
         ]
 
         if "gamma" in self.params:
-            self.objective = self.objective(self.params.pop("gamma"), categories=np.unique(dataset))
+            self.objective = self.objective(
+                self.params.pop("gamma"), categories=np.unique(dataset)
+            )
         else:
             self.objective = self.objective()
 
