@@ -107,21 +107,20 @@ icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(
-                f"""#!/bin/sh
+                f"""#!/bin/bash
+
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task={int(n_cpus)}
+#SBATCH --time={hours}:00
+#SBATCH --mem-per-cpu=8G
+#SBATCH --job-name={outcome}_{'_'.join(sorted(sources))}
+#SBATCH --output={log_dir}/slurm.out"
+#SBATCH --error={log_dir}/slurm.err"
+
 python icu_benchmarks/scripts/cv/{script} --config {config_file.resolve()}"""
             )
 
-        process = [
-            "sbatch",
-            "--ntasks=1",
-            f"--cpus-per-task={int(n_cpus)}",
-            "--mem-per-cpu=8G",
-            f"--time={hours}:00:00",
-            f"--output={log_dir}/slurm.out",
-            f"--job-name={outcome}_{'_'.join(sorted(sources))}",
-        ] + [str(command_file.resolve())]
-        print(" ".join(process))
-        subprocess.run(process)
+        subprocess.run(["sbatch", str(command_file.resolve())])
 
 
 if __name__ == "__main__":
