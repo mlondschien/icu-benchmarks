@@ -17,4 +17,4 @@ dependencies:
   - ivmodels
   - lightgbm
   - pip:
-    - "git+git@github.com:mlondschien/anchorboost.git"
+    - "git+https://github.com/mlondschien/anchorboost.git"
