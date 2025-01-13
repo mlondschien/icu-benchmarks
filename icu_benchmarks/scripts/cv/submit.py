@@ -1,7 +1,6 @@
 import subprocess
 from itertools import product
 from pathlib import Path
-from typing import List
 
 import click
 import numpy as np
@@ -24,7 +23,8 @@ SOURCES = [
 @click.option("--hours", type=int, default=24)
 @click.option("--experiment_name", type=str, default=None)
 @click.option("--experiment_note", type=str, default=None)
-@click.option("--outcomes", type=List[str], default=None)
+@click.option("--outcome", type=str, default=None)
+@click.option("--style", type=str, default="cv")
 @click.option(
     "--tracking_uri",
     type=str,
@@ -35,14 +35,17 @@ SOURCES = [
     type=str,
     default="file:///cluster/work/math/lmalte/mlflow/artifacts",
 )
+@click.option("--script", type=str, default="train_linear.py")
 def main(
     config: str,
     hours: int,
     experiment_name: str,
     experiment_note: str,
-    outcomes: List[str],
+    outcome: str,
+    style: str,
     tracking_uri: str,
     artifact_location: str,
+    script: str,
 ):  # noqa D
     ip, port = setup_mlflow_server(
         tracking_uri=tracking_uri,
@@ -53,13 +56,22 @@ def main(
         experiment_note=experiment_note,
     )
 
-    # "<" avoids duplicates in the n-2. The "=" includes n-1 lists.
-    list_of_sources = [
-        [source for source in SOURCES if source != dataset1 and source != dataset2]
-        for dataset1 in SOURCES
-        for dataset2 in SOURCES
-        if dataset1 <= dataset2
-    ] + [SOURCES]
+    if style == "cv":
+        # "<" avoids duplicates in the n-2. The "=" includes n-1 lists.
+        list_of_sources = [
+            [source for source in SOURCES if source != dataset1 and source != dataset2]
+            for dataset1 in SOURCES
+            for dataset2 in SOURCES
+            if dataset1 <= dataset2
+        ] + [SOURCES]
+    elif style == "1v1":
+        list_of_sources = [SOURCES]
+    else:
+        raise ValueError(f"Unknown style {style}")
+
+    outcomes = [outcome]
+
+    config_text = Path(config).read_text()
 
     for sources, outcome in product(list_of_sources, outcomes):
         n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
@@ -67,14 +79,14 @@ def main(
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 10)
 
-        log_dir = Path(".") / "logs" / outcome / "_".join(sorted(sources))
+        log_dir = Path("logs") / experiment_name / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 
         with config_file.open("w") as f:
             f.write(
-                f"""
-include '{config}'
+                f"""{config_text}
+
 sources.sources = {sources}
 outcome.outcome = '{outcome}'
 targets.targets = {DATASETS}
@@ -82,8 +94,7 @@ targets.targets = {DATASETS}
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
-GeneralizedLinearRegressor.alpha = {alpha.tolist()}
-GeneralizedLinearRegressor.family = '{TASKS[outcome]['family']}'
+ALPHA = {alpha.tolist()}
 
 icu_benchmarks.load.load.weighting_exponent = -0.5
 icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
@@ -96,21 +107,20 @@ icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(
-                f"""#!/bin/sh
-python icu_benchmarks/scripts/cv/train.py --config {config_file.resolve()}"""
+                f"""#!/bin/bash
+
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task={int(n_cpus)}
+#SBATCH --time={hours}:00
+#SBATCH --mem-per-cpu=8G
+#SBATCH --job-name={outcome}_{'_'.join(sorted(sources))}
+#SBATCH --output={log_dir}/slurm.out"
+#SBATCH --error={log_dir}/slurm.err"
+
+python icu_benchmarks/scripts/cv/{script} --config {config_file.resolve()}"""
             )
 
-        process = [
-            "sbatch",
-            "--ntasks=1",
-            f"--cpus-per-task={int(n_cpus)}",
-            "--mem-per-cpu=8G",
-            f"--time={hours}:00:00",
-            f"--output={log_dir}/slurm.out",
-            f"--job-name={outcome}_{'_'.join(sorted(sources))}",
-        ] + [str(command_file.resolve())]
-        print(" ".join(process))
-        subprocess.run(process)
+        subprocess.run(["sbatch", str(command_file.resolve())])
 
 
 if __name__ == "__main__":

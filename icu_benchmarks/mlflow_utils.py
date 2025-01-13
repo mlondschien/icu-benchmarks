@@ -62,6 +62,15 @@ def log_df(df, name):
         mlflow.log_artifact(path, target_dir)
 
 
+def log_lgbm_model(model, name):
+    """Log a lightgbm model to MLflow."""
+    target_dir, name = os.path.split(name)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = f"{tmpdir}/{name}"
+        model.booster_.save_model(path)
+        mlflow.log_artifact(path, target_dir)
+
+
 def log_pickle(object, name):
     """Log a pickle object to MLflow."""
     target_dir, name = os.path.split(name)

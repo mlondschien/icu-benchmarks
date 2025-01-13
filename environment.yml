@@ -14,3 +14,7 @@ dependencies:
   - gin-config
   - pyarrow
   - tabulate
+  - ivmodels
+  - lightgbm
+  - pip:
+    - "git+https://github.com/mlondschien/anchorboost.git"

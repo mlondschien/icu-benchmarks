@@ -4,8 +4,8 @@ icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
 icu_benchmarks.load.load.weighting_exponent = -0.5
 
 parameters.parameters = {
-    "gamma": [1],
-    "l1_ratio": [0.01, 0.2, 0.5, 0.8, 1.0],
+    "l1_ratio": [0.01, 0.2, 0.5, 0.8, 1],
+    "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8, 11.2, 16],
 }
 
 AnchorRegression.alpha = %ALPHA

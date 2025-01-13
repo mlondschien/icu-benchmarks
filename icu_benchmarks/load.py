@@ -103,6 +103,7 @@ def load(
         horizons = HORIZONS
 
     filters = (ds.field("time_hours") >= min_hours - 1) & ~ds.field(outcome).is_null()
+    # filters &= ds.field("age") >= 18
 
     if split == "train":
         filters &= ds.field("hash") < 0.7
@@ -125,14 +126,13 @@ def load(
     )
 
     data_dir = Path(DATA_DIR if data_dir is None else data_dir)
-
     df = pl.from_arrow(
         ParquetDataset(
             [data_dir / source / "features.parquet" for source in sources],
             filters=filters,
         ).read(columns=columns + [outcome, "dataset"])
     )
-    df = df.filter(pl.col("age") >= 18)
+    # df = df.filter(pl.col("age") >= 18)
 
     if not -1 <= weighting_exponent <= 0:
         raise ValueError(f"Invalid weighting exponent: {weighting_exponent}")
@@ -243,7 +243,7 @@ def features(
         if row["VariableType"] == "static":
             features += [variable]
         elif row["DataType"] == "continuous":
-            features += [f"{variable}_ffilled"]
+            features += [f"{variable}_ffilled", f"{variable}_missing"]
             features += [
                 f"{variable}_{feature}_h{horizon}"
                 for feature in continuous_features

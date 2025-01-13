@@ -38,6 +38,7 @@ def continuous_features(
 
     These are:
     - ffilled: The column with missing values filled forward.
+    - missing: True if the value is missing.
     - mean: The mean of the column within the last `horizon` hours. This is nan if there
       are only missing values within the last `horizon` hours.
     - std: The standard deviation of the column within the last `horizon` hours. This is
@@ -78,7 +79,10 @@ def continuous_features(
     col_sq_cs = (col_filled * col_filled).cum_sum()
     timexcol_cs = (time * col_filled).cum_sum()
 
-    expressions = [pl.col(column_name).forward_fill().alias(f"{column_name}_ffilled")]
+    expressions = [
+        pl.col(column_name).forward_fill().alias(f"{column_name}_ffilled"),
+        pl.col(column_name).is_null().alias(f"{column_name}_missing"),
+    ]
 
     for horizon in horizons:
         window_size = (pl.col(time_col) + 1).clip(None, horizon)

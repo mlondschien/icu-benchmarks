@@ -1,3 +1,4 @@
+import anchorboost
 import gin
 import glum
 
@@ -11,4 +12,13 @@ import glum
 # `from glum import GeneralizedLinearRegressor` in order to apply the gin configuration.
 GeneralizedLinearRegressor = gin.external_configurable(
     glum.GeneralizedLinearRegressor, module="glum"
+)
+AnchorRegressionObjective = gin.external_configurable(
+    anchorboost.AnchorRegressionObjective, module="anchorboost"
+)
+AnchorKookClassificationObjective = gin.external_configurable(
+    anchorboost.AnchorKookClassificationObjective, module="anchorboost"
+)
+AnchorLiuClassificationObjective = gin.external_configurable(
+    anchorboost.AnchorLiuClassificationObjective, module="anchorboost"
 )
