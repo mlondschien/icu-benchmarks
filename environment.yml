@@ -16,3 +16,5 @@ dependencies:
   - tabulate
   - ivmodels
   - lightgbm
+  - pip:
+    - "--editable=git+git@github.com:mlondschien/anchorboost.git"
