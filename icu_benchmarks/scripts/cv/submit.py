@@ -77,7 +77,7 @@ def main(
         n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
 
         alpha_max = TASKS[outcome]["alpha_max"]
-        alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 10)
+        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)
 
         log_dir = Path("logs") / experiment_name / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -111,11 +111,11 @@ icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
 
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task={int(n_cpus)}
-#SBATCH --time={hours}:00
+#SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=8G
-#SBATCH --job-name={outcome}_{'_'.join(sorted(sources))}
-#SBATCH --output={log_dir}/slurm.out"
-#SBATCH --error={log_dir}/slurm.err"
+#SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
+#SBATCH --output="{log_dir}/slurm.out"
+#SBATCH --error="{log_dir}/slurm.err"
 
 python icu_benchmarks/scripts/cv/{script} --config {config_file.resolve()}"""
             )

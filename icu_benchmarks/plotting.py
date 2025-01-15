@@ -18,6 +18,7 @@ SOURCE_COLORS = {
     "picdb": "pink",
     "ehrshot": "gray",
     "miived": "cyan",
+    "nwicu": "yellow",
 }
 
 LINESTYLES = {
