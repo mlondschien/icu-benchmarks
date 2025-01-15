@@ -9,6 +9,7 @@ from glum import GeneralizedLinearRegressor
 @gin.configurable
 class DataSharedLasso(GeneralizedLinearRegressor):
     """Data Shared Lasso Estimator from S. Gross and R. Tibshirani."""
+
     # All parameters are copied from the GLR estimator. They need to be explicit to
     # adhere to sklearn's API. GLR inherits from BaseEstimator.
     def __init__(
@@ -104,7 +105,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             means = [X[dataset == d].mean(axis=0) for d in self.fit_datasets_]
             X_interacted = np.hstack(
                 [X]
-                + [(dataset == d).reshape(-1,1) for d in self.fit_datasets_]
+                + [(dataset == d).reshape(-1, 1) for d in self.fit_datasets_]
                 + [
                     (X - means[idx][np.newaxis, :]) * (dataset == d)[:, np.newaxis]
                     for idx, d in enumerate(self.fit_datasets_)
@@ -114,7 +115,10 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             means = [X.filter(dataset == d).mean() for d in self.fit_datasets_]
             X_interacted = X.with_columns(_dataset=dataset)
             X_interacted = X_interacted.with_columns(
-                [pl.col("_dataset").eq(d).alias(f"_dataset={d}") for d in self.fit_datasets_]
+                [
+                    pl.col("_dataset").eq(d).alias(f"_dataset={d}")
+                    for d in self.fit_datasets_
+                ]
                 + [
                     pl.when(pl.col("_dataset").eq(d))
                     .then(X[col] - means[idx][col])
@@ -128,7 +132,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             raise ValueError("X must be a numpy array or polars DataFrame")
 
         # The DSL uses the loss
-        # sum_i (y_i - yhat_i)^2 / n + r_0 lambda || beta_0 ||_1 + 
+        # sum_i (y_i - yhat_i)^2 / n + r_0 lambda || beta_0 ||_1 +
         #    lambda sum_g r_g || beta_g ||_1.
         # Here, beta_0 are the "shared" coefficients, and beta_g are the group specific
         # coefficients.
@@ -138,7 +142,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
         # observation's group. Assume all weights sum to 1. The loss is:
         # sum_i w_g(i) (y_i - yhat_i)^2 + lambda || beta_0 ||_1 +
         #    lambda sum_g r_g || beta_g ||_1
-        # = sum_g (w_g * n_g) * [ sum_{i in G} (y_i - yhat_i)^2 / n_g + 
+        # = sum_g (w_g * n_g) * [ sum_{i in G} (y_i - yhat_i)^2 / n_g +
         #    lambda r_g / (w_g * n_g) || beta_g ||_1 ] + lambda_0 || beta_0 ||_1
         # Let n_eff = [ sum_i w_g(i) ]^2 / sum_i w_g(i)^2.
         # Asymptotic Lasso theory suggest scaling l1-penalty with sqrt(1 / sample size).
@@ -152,7 +156,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
         #   r_g = sqrt(1/G)
         # - weighting_exponent: 1.0 => w_g = 1 / n_g / G
         #   n_eff = G^2 / sum_g (1/n_g), r_g = 1 / [ sqrt(sum_g (1/n_g)) * sqrt(n_g) ]
-        # 
+        #
         # Here, we allow the w_i to be arbitrary. We thus replace (w_g * n_g) with
         # sum_{i in g} w_g.
         #
@@ -166,9 +170,10 @@ class DataSharedLasso(GeneralizedLinearRegressor):
                 np.sqrt(np.sum(dataset == d) / len(dataset)) for d in self.fit_datasets_
             ]
         else:
-            eff_sample_size = np.sum(sample_weight) ** 2 / np.sum(sample_weight ** 2)
+            eff_sample_size = np.sum(sample_weight) ** 2 / np.sum(sample_weight**2)
             rg = [
-                np.sqrt(eff_sample_size / np.sum(dataset == d)) * np.sum(sample_weight[dataset == d]) 
+                np.sqrt(eff_sample_size / np.sum(dataset == d))
+                * np.sum(sample_weight[dataset == d])
                 for d in self.fit_datasets_
             ]
 
@@ -191,7 +196,8 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             )
         elif isinstance(X, pl.DataFrame):
             X_interacted = X.with_columns(
-                [pl.lit(0).alias(f"_dataset={d}") for d in self.fit_datasets_] + [
+                [pl.lit(0).alias(f"_dataset={d}") for d in self.fit_datasets_]
+                + [
                     pl.lit(0).alias(f"_dataset={d}_x_{col}")
                     for col in X.columns
                     for d in self.fit_datasets_
