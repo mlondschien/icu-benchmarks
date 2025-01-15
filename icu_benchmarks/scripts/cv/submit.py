@@ -77,7 +77,7 @@ def main(
         n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
 
         alpha_max = TASKS[outcome]["alpha_max"]
-        alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 10)
+        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)
 
         log_dir = Path("logs") / experiment_name / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)

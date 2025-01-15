@@ -9,6 +9,93 @@ from glum import GeneralizedLinearRegressor
 @gin.configurable
 class DataSharedLasso(GeneralizedLinearRegressor):
     """Data Shared Lasso Estimator from S. Gross and R. Tibshirani."""
+    # All parameters are copied from the GLR estimator. They need to be explicit to
+    # adhere to sklearn's API. GLR inherits from BaseEstimator.
+    def __init__(
+        self,
+        ratio=1.0,
+        alpha=None,
+        l1_ratio=0,
+        P1="identity",
+        P2="identity",
+        fit_intercept=True,
+        family="normal",
+        link="auto",
+        solver="auto",
+        max_iter=100,
+        max_inner_iter=100000,
+        gradient_tol=None,
+        step_size_tol=None,
+        hessian_approx=0.0,
+        warm_start=False,
+        alpha_search=False,
+        alphas=None,
+        n_alphas=100,
+        min_alpha_ratio=None,
+        min_alpha=None,
+        start_params=None,
+        selection="cyclic",
+        random_state=None,
+        copy_X=None,
+        check_input=True,
+        verbose=0,
+        scale_predictors=False,
+        lower_bounds=None,
+        upper_bounds=None,
+        A_ineq=None,
+        b_ineq=None,
+        force_all_finite=True,
+        drop_first=False,
+        robust=True,
+        expected_information=False,
+        formula=None,
+        interaction_separator=":",
+        categorical_format="{name}[{category}]",
+        cat_missing_method="fail",
+        cat_missing_name="(MISSING)",
+    ):
+        super().__init__(
+            alpha=alpha,
+            l1_ratio=l1_ratio,
+            P1=P1,
+            P2=P2,
+            fit_intercept=fit_intercept,
+            family=family,
+            link=link,
+            solver=solver,
+            max_iter=max_iter,
+            max_inner_iter=max_inner_iter,
+            gradient_tol=gradient_tol,
+            step_size_tol=step_size_tol,
+            hessian_approx=hessian_approx,
+            warm_start=warm_start,
+            alpha_search=alpha_search,
+            alphas=alphas,
+            n_alphas=n_alphas,
+            min_alpha_ratio=min_alpha_ratio,
+            min_alpha=min_alpha,
+            start_params=start_params,
+            selection=selection,
+            random_state=random_state,
+            copy_X=copy_X,
+            check_input=check_input,
+            verbose=verbose,
+            scale_predictors=scale_predictors,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
+            A_ineq=A_ineq,
+            b_ineq=b_ineq,
+            force_all_finite=force_all_finite,
+            drop_first=drop_first,
+            robust=robust,
+            expected_information=expected_information,
+            formula=formula,
+            interaction_separator=interaction_separator,
+            categorical_format=categorical_format,
+            cat_missing_method=cat_missing_method,
+            cat_missing_name=cat_missing_name,
+        )
+        self.ratio = ratio
 
     def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
         self.fit_datasets_ = np.sort(np.unique(dataset))
@@ -17,6 +104,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             means = [X[dataset == d].mean(axis=0) for d in self.fit_datasets_]
             X_interacted = np.hstack(
                 [X]
+                + [(dataset == d).reshape(-1,1) for d in self.fit_datasets_]
                 + [
                     (X - means[idx][np.newaxis, :]) * (dataset == d)[:, np.newaxis]
                     for idx, d in enumerate(self.fit_datasets_)
@@ -26,7 +114,8 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             means = [X.filter(dataset == d).mean() for d in self.fit_datasets_]
             X_interacted = X.with_columns(_dataset=dataset)
             X_interacted = X_interacted.with_columns(
-                [
+                [pl.col("_dataset").eq(d).alias(f"_dataset={d}") for d in self.fit_datasets_]
+                + [
                     pl.when(pl.col("_dataset").eq(d))
                     .then(X[col] - means[idx][col])
                     .otherwise(0)
@@ -38,18 +127,54 @@ class DataSharedLasso(GeneralizedLinearRegressor):
         else:
             raise ValueError("X must be a numpy array or polars DataFrame")
 
+        # The DSL uses the loss
+        # sum_i (y_i - yhat_i)^2 / n + r_0 lambda || beta_0 ||_1 + 
+        #    lambda sum_g r_g || beta_g ||_1.
+        # Here, beta_0 are the "shared" coefficients, and beta_g are the group specific
+        # coefficients.
+        # Given G groups of equal size, the authors suggest to use a scaling
+        # r_g ~ 1/sqrt(G).
+        # We have G groups with n_g observations and weights w_g. Let g(i) be the i-th
+        # observation's group. Assume all weights sum to 1. The loss is:
+        # sum_i w_g(i) (y_i - yhat_i)^2 + lambda || beta_0 ||_1 +
+        #    lambda sum_g r_g || beta_g ||_1
+        # = sum_g (w_g * n_g) * [ sum_{i in G} (y_i - yhat_i)^2 / n_g + 
+        #    lambda r_g / (w_g * n_g) || beta_g ||_1 ] + lambda_0 || beta_0 ||_1
+        # Let n_eff = [ sum_i w_g(i) ]^2 / sum_i w_g(i)^2.
+        # Asymptotic Lasso theory suggest scaling l1-penalty with sqrt(1 / sample size).
+        # This would imply
+        # - lambda ~ sqrt(1 / n_eff)
+        # - lambda r_g / (w_g * n_g) ~ sqrt(1 / n_g)
+        #    => r_g ~ (w_g * n_g) * sqrt(n_eff / n_g)
+        # This implies:
+        # - weighting_exponent: 0 => w_g = 1/n, n_eff = n, r_g = sqrt(n_g / n)
+        # - weighting_exponent: -0.5 => w_g = 1/sqrt(n_g)/const, n_eff = const^2 / G,
+        #   r_g = sqrt(1/G)
+        # - weighting_exponent: 1.0 => w_g = 1 / n_g / G
+        #   n_eff = G^2 / sum_g (1/n_g), r_g = 1 / [ sqrt(sum_g (1/n_g)) * sqrt(n_g) ]
+        # 
+        # Here, we allow the w_i to be arbitrary. We thus replace (w_g * n_g) with
+        # sum_{i in g} w_g.
+        #
+        # If all groups have the same size and are equally weighted, then
+        # r_g = 1 / sqrt(G).
+        #
+        # We also allow an extra term scaling r_g *= ratio, where ratio is a tuning
+        # parameter around 1.
         if sample_weight is None:
             rg = [
                 np.sqrt(np.sum(dataset == d) / len(dataset)) for d in self.fit_datasets_
             ]
         else:
+            eff_sample_size = np.sum(sample_weight) ** 2 / np.sum(sample_weight ** 2)
             rg = [
-                np.sqrt(np.sum(sample_weight[dataset == d]) / np.sum(sample_weight))
+                np.sqrt(eff_sample_size / np.sum(dataset == d)) * np.sum(sample_weight[dataset == d]) 
                 for d in self.fit_datasets_
             ]
 
-        self.P1 = np.repeat([1] + rg, X.shape[1])
-        self.P2 = np.repeat([0] + rg, X.shape[1])
+        # extra 1 for dataset-specific intercepts
+        self.P1 = np.repeat([1] + self.ratio * rg, X.shape[1] + 1)[1:]
+        self.P2 = np.repeat([1] + self.ratio * rg, X.shape[1] + 1)[1:]
 
         # Need to convert to tabmat here. Else, the feature names are not set correctly.
         if isinstance(X_interacted, pl.DataFrame):
@@ -62,11 +187,11 @@ class DataSharedLasso(GeneralizedLinearRegressor):
     def predict(self, X):  # noqa: D
         if isinstance(X, np.ndarray):
             X_interacted = np.hstack(
-                [X, np.zeros((X.shape[0], len(self.fit_datasets_) * X.shape[1]))]
+                [X, np.zeros((X.shape[0], len(self.fit_datasets_) * (X.shape[1] + 1)))]
             )
         elif isinstance(X, pl.DataFrame):
             X_interacted = X.with_columns(
-                [
+                [pl.lit(0).alias(f"_dataset={d}") for d in self.fit_datasets_] + [
                     pl.lit(0).alias(f"_dataset={d}_x_{col}")
                     for col in X.columns
                     for d in self.fit_datasets_
