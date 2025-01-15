@@ -173,8 +173,8 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             ]
 
         # extra 1 for dataset-specific intercepts
-        self.P1 = np.repeat([1] + self.ratio * rg, X.shape[1] + 1)[1:]
-        self.P2 = np.repeat([1] + self.ratio * rg, X.shape[1] + 1)[1:]
+        self.P1 = np.repeat([1] + [self.ratio * r for r in rg], X.shape[1] + 1)[1:]
+        self.P2 = np.repeat([1] + [self.ratio * r for r in rg], X.shape[1] + 1)[1:]
 
         # Need to convert to tabmat here. Else, the feature names are not set correctly.
         if isinstance(X_interacted, pl.DataFrame):
