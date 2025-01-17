@@ -3,6 +3,7 @@ import polars as pl
 from scipy.stats import gaussian_kde
 import re
 import matplotlib.pyplot as plt
+from icu_benchmarks.constants import TASKS
 
 SOURCE_COLORS = {
     "eicu": "black",
@@ -181,6 +182,8 @@ def plot_by_x(results, x, metric, aggregation="mean"):
     """
     param_names = [p for p in PARAMETER_NAMES if p in results.columns and p != x]
 
+    task = TASKS[results["outcome"].unique().to_list()[0]]
+
     if results["sources"].dtype == pl.String:
         expr = pl.col("sources").str.replace_all("'", '"').str.json_decode()
         results = results.with_columns(expr)
@@ -218,8 +221,23 @@ def plot_by_x(results, x, metric, aggregation="mean"):
         )
         cv_col = f"cv/train/{metric}"
         cv_results = cv_results.with_columns(expr.alias(cv_col))
+
+        expr = pl.coalesce(
+            pl.when(~pl.col("sources").list.contains(t)).then(
+                pl.lit(task["n_samples"][t])
+            )
+            for t in cv_sources
+        )
+        cv_results = cv_results.with_columns(expr.alias("n_samples"))
+
         if aggregation in ["mean", "mean_0"]:
             agg = pl.mean(cv_col)
+        elif aggregation == "mean_05":
+            weights = pl.col("n_samples").sqrt() / pl.col("n_samples").sqrt().sum()
+            agg = (weights * pl.col(cv_col)).sum()
+        elif aggregation == "mean_1":
+            weights = pl.col("n_samples") / pl.col("n_samples").sum()
+            agg = (weights * pl.col(cv_col)).sum()
         elif aggregation == "median":
             agg = pl.median(cv_col)
         elif aggregation == "worst":
@@ -227,7 +245,7 @@ def plot_by_x(results, x, metric, aggregation="mean"):
         else:
             raise ValueError(f"Unknown aggregation {aggregation}")
 
-        cv_grouped = cv_results.group_by(param_names + [x]).agg(agg)
+        cv_grouped = cv_results.group_by(param_names + [x]).agg(agg.alias(cv_col))
         # cv_best is the row in cv_grouped with the best value of `metric`.
         cv_best = argbest(cv_grouped, cv_col, metric)
 
