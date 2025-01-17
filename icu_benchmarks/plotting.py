@@ -1,6 +1,11 @@
+import re
+
+import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
+
+from icu_benchmarks.constants import TASKS
 
 SOURCE_COLORS = {
     "eicu": "black",
@@ -28,6 +33,19 @@ LINESTYLES = {
     "mimic-metavision": "dotted",
     "mimic-carevue": "dashed",
 }
+
+PARAMETER_NAMES = [
+    "alpha",
+    "ratio",
+    "l1_ratio",
+    "gamma",
+    "num_boost_round",
+    "num_iteration",
+    "learning_rate",
+    "num_leaves",
+]
+
+GREATER_IS_BETTER = ["auc", "auprc", "accuracy", "prc", "r2"]
 
 
 def plot_discrete(ax, data, name, missings=True):
@@ -145,3 +163,149 @@ def plot_continuous(ax, data, name, legend=True, missing_rate=True):
     ax.set_title(name)
     if legend:
         ax.legend()
+
+
+def plot_by_x(results, x, metric, aggregation="mean"):
+    """
+    Plot the value of `metric` for each dataset in `results` as a function of `x`.
+
+    Parameters
+    ----------
+    x : str
+        Variable to plot on the x-axis.
+    results : pl.DataFrame
+        DataFrame with variables `x` (str), `"{s}/train/{metric}` (float) and
+        `"{s}/test/{metric}"` for `s` in `sources`, `"sources"` (list[str] or str
+        representation of list), and columns from `PARAMETER_NAMES`.
+    metric : str
+        Metric to plot. E.g., `"mse"`, `"mae"`, `"quantile_0.9"` for regression or
+        `"auc"`, `"accuracy"`, `"prc"`, `"log_loss"` for classification.
+    aggregation : str, optional, default="mean"
+        Aggregation method for cross-validation results. One of "mean", "median",
+        "worst", "mean_05", "mean_1".
+    """
+    param_names = [p for p in PARAMETER_NAMES if p in results.columns and p != x]
+
+    task = TASKS[results["outcome"].unique().to_list()[0]]
+
+    if results["sources"].dtype == pl.String:
+        expr = pl.col("sources").str.replace_all("'", '"').str.json_decode()
+        results = results.with_columns(expr)
+
+    sources = results["sources"].explode().unique().to_list()
+
+    metrics = map(re.compile(r"^[a-z]+\/train\/(.+)$").match, results.columns)
+    metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
+
+    results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
+    results_n1 = results.filter(pl.col("sources").list.len() == len(sources) - 1)
+
+    cv_results = []
+
+    fig, axes = plt.subplots(2, len(sources) // 2, figsize=(2.5 * len(sources), 10))
+
+    def argbest(df, col, metric):
+        if metric in GREATER_IS_BETTER:
+            return df[df[col].arg_max()]
+        return df[df[col].arg_min()]
+
+    for target, ax in zip(sorted(sources), axes.flat[: len(sources)]):
+        # cv_results are results where the current target and one additional dataset
+        # were held out. For these, we will aggregate the value of `metric` on the
+        # additional held-out dataset to select "optimal" parameters.
+        cv_results = results_n2.filter(~pl.col("sources").list.contains(target))
+        cv_sources = [source for source in sources if source != target]
+
+        # target/train/{metric} is the value of `metric` for the held-out-dataset
+        expr = pl.coalesce(
+            pl.when(~pl.col("sources").list.contains(t)).then(
+                pl.col(f"{t}/train/{metric}")
+            )
+            for t in cv_sources
+        )
+        cv_col = f"cv/train/{metric}"
+        cv_results = cv_results.with_columns(expr.alias(cv_col))
+
+        expr = pl.coalesce(
+            pl.when(~pl.col("sources").list.contains(t)).then(
+                pl.lit(task["n_samples"][t])
+            )
+            for t in cv_sources
+        )
+        cv_results = cv_results.with_columns(expr.alias("n_samples"))
+
+        if aggregation in ["mean", "mean_0"]:
+            agg = pl.mean(cv_col)
+        elif aggregation == "mean_05":
+            weights = pl.col("n_samples").sqrt() / pl.col("n_samples").sqrt().sum()
+            agg = (weights * pl.col(cv_col)).sum()
+        elif aggregation == "mean_1":
+            weights = pl.col("n_samples") / pl.col("n_samples").sum()
+            agg = (weights * pl.col(cv_col)).sum()
+        elif aggregation == "median":
+            agg = pl.median(cv_col)
+        elif aggregation == "worst":
+            agg = pl.min(cv_col) if metric in GREATER_IS_BETTER else pl.max(cv_col)
+        else:
+            raise ValueError(f"Unknown aggregation {aggregation}")
+
+        cv_grouped = cv_results.group_by(param_names + [x]).agg(agg.alias(cv_col))
+        # cv_best is the row in cv_grouped with the best value of `metric`.
+        cv_best = argbest(cv_grouped, cv_col, metric)
+
+        # cur_results_n1 are results where only target was held out (cur for this loop)
+        cur_results_n1 = results_n1.filter(~pl.col("sources").list.contains(target))
+        # We filter cur_results_n1 to only include rows with the best parameters
+        # (according to cv), except for x, along which we plot. sort by x for plotting.
+        _filter = pl.all_horizontal(pl.col(p).eq(cv_best[p]) for p in param_names)
+        cur_results_n1_cv = cur_results_n1.filter(_filter).sort(x)
+
+        ax.plot(
+            cur_results_n1_cv[x],
+            cur_results_n1_cv[f"{target}/test/{metric}"],
+            label="model chosen by cv",
+            color="blue",
+            zorder=3,
+        )
+        _filter = pl.col(x) == cv_best[x].item()
+        ax.scatter(
+            cur_results_n1_cv.filter(_filter)[x],
+            cur_results_n1_cv.filter(_filter)[f"{target}/test/{metric}"],
+            color="blue",
+            zorder=3,
+            marker="*",
+        )
+
+        oracle_best = argbest(cur_results_n1, f"{target}/train/{metric}", metric)
+        _filter = pl.all_horizontal(pl.col(p).eq(oracle_best[p]) for p in param_names)
+        oracle_results = cur_results_n1.filter(_filter).sort(x)
+
+        ax.plot(
+            oracle_results[x],
+            oracle_results[f"{target}/test/{metric}"],
+            label="oracle model",
+            color="black",
+            zorder=2,
+        )
+        ax.scatter(
+            oracle_best[x],
+            oracle_best[f"{target}/test/{metric}"],
+            color="black",
+            zorder=2,
+            marker="*",
+        )
+
+        ymin, ymax = ax.get_ylim()
+        for _, group in cur_results_n1.group_by(param_names):
+            group = group.sort(x)
+            ax.plot(group[x], group[f"{target}/test/{metric}"], color="gray", alpha=0.1)
+
+        ax.set_title(target)
+        ax.set_ylim(ymin, ymax)
+        if x in ["gamma", "alpha", "ratio", "learning_rate"]:
+            ax.set_xscale("log")
+
+        ax.legend()
+        ax.set_xlabel(x)
+
+    return fig
