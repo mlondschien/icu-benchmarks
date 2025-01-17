@@ -1,8 +1,10 @@
+import re
+
+import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
-import re
-import matplotlib.pyplot as plt
+
 from icu_benchmarks.constants import TASKS
 
 SOURCE_COLORS = {
@@ -44,6 +46,7 @@ PARAMETER_NAMES = [
 ]
 
 GREATER_IS_BETTER = ["auc", "auprc", "accuracy", "prc", "r2"]
+
 
 def plot_discrete(ax, data, name, missings=True):
     """
@@ -164,6 +167,7 @@ def plot_continuous(ax, data, name, legend=True, missing_rate=True):
 
 def plot_by_x(results, x, metric, aggregation="mean"):
     """
+    Plot the value of `metric` for each dataset in `results` as a function of `x`.
 
     Parameters
     ----------
@@ -178,7 +182,7 @@ def plot_by_x(results, x, metric, aggregation="mean"):
         `"auc"`, `"accuracy"`, `"prc"`, `"log_loss"` for classification.
     aggregation : str, optional, default="mean"
         Aggregation method for cross-validation results. One of "mean", "median",
-        "worst".
+        "worst", "mean_05", "mean_1".
     """
     param_names = [p for p in PARAMETER_NAMES if p in results.columns and p != x]
 
@@ -261,7 +265,7 @@ def plot_by_x(results, x, metric, aggregation="mean"):
             cur_results_n1_cv[f"{target}/test/{metric}"],
             label="model chosen by cv",
             color="blue",
-            zorder=3
+            zorder=3,
         )
         _filter = pl.col(x) == cv_best[x].item()
         ax.scatter(
@@ -269,7 +273,7 @@ def plot_by_x(results, x, metric, aggregation="mean"):
             cur_results_n1_cv.filter(_filter)[f"{target}/test/{metric}"],
             color="blue",
             zorder=3,
-            marker="*"
+            marker="*",
         )
 
         oracle_best = argbest(cur_results_n1, f"{target}/train/{metric}", metric)
@@ -281,14 +285,14 @@ def plot_by_x(results, x, metric, aggregation="mean"):
             oracle_results[f"{target}/test/{metric}"],
             label="oracle model",
             color="black",
-            zorder=2
+            zorder=2,
         )
         ax.scatter(
             oracle_best[x],
             oracle_best[f"{target}/test/{metric}"],
             color="black",
             zorder=2,
-            marker="*"
+            marker="*",
         )
 
         ymin, ymax = ax.get_ylim()
@@ -303,6 +307,5 @@ def plot_by_x(results, x, metric, aggregation="mean"):
 
         ax.legend()
         ax.set_xlabel(x)
-    
-    return fig
 
+    return fig

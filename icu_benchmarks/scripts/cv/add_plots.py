@@ -3,12 +3,13 @@ import re
 import tempfile
 
 import click
+import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-import matplotlib.pyplot as plt
-from icu_benchmarks.constants import DATASETS
+
 from icu_benchmarks.mlflow_utils import log_fig
+from icu_benchmarks.plotting import PARAMETER_NAMES, plot_by_x
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -16,7 +17,7 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-from icu_benchmarks.plotting import plot_by_x, PARAMETER_NAMES
+
 
 @click.command()
 @click.option("--experiment_name", type=str)
@@ -25,7 +26,7 @@ from icu_benchmarks.plotting import plot_by_x, PARAMETER_NAMES
     type=str,
     default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
 )
-def main(experiment_name, tracking_uri):
+def main(experiment_name, tracking_uri):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment = client.get_experiment_by_name(experiment_name)
 
@@ -58,10 +59,12 @@ def main(experiment_name, tracking_uri):
             pl.lit(run.data.tags["outcome"]).alias("outcome"),
         )
         all_results.append(results)
-    
+
     results = pl.concat(all_results)
 
-    run = client.search_runs(experiment_ids=[experiment_id], filter_string="tags.sources = ''")
+    run = client.search_runs(
+        experiment_ids=[experiment_id], filter_string="tags.sources = ''"
+    )
     if len(run) > 0:
         run = run[0]
     else:
@@ -75,9 +78,14 @@ def main(experiment_name, tracking_uri):
         for x in [p for p in PARAMETER_NAMES if p in results.columns]:
             for aggregation in ["mean", "mean_05", "mean_1", "median", "worst"]:
                 fig = plot_by_x(results, x, metric, aggregation)
-                log_fig(fig, f"plot_by_x/{metric}/{x}_{aggregation}.png", client, run.info.run_id)
+                log_fig(
+                    fig,
+                    f"plot_by_x/{metric}/{x}_{aggregation}.png",
+                    client,
+                    run.info.run_id,
+                )
                 plt.close(fig)
-    
+
 
 if __name__ == "__main__":
     main()
