@@ -143,14 +143,14 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 1043	pain_killer_ind	Any painkiller treatment indicator	treatment	v1.1	circulatory	pain_killer	None	treatment_ind	None	None	Any painkiller as an indicator	False	None	None	2.0
 1044	diur_ind	Any diuretic treatment indicator	treatment	v1.1	circulatory	diuretic	None	treatment_ind	None	None	Any diuretic as an indicator	False	None	None	2.0
 1045	blood_prod_ind	Any blood products infusion treatment indicator	treatment	v1.1	circulatory	blood_products_infusion	None	treatment_ind	None	None	Any products infusion treatment as an indicator	False	None	None	2.0
-1046	vent_ind2	Ventilation indicator	treatment	v2.0	respiratory	ventilation	None	None	None	None	ventilation as an indicator	False	None	None	2.0
-2001	sofa	SOFA score	observation	v2.0	None	None	None	None	0   24	continuous	SOFA score based on 24h history	False	None	None	None
-2002	sofa4	SOFA score	observation	v2.0	None	None	None	None	0   24	continuous	SOFA score based on 4h history	False	None	None	None
-2003	qsofa	SOFA score	observation	v2.0	None	None	None	None	0   3	continuous	quick SOFA score based on 4h history	False	None	None	None
-2004	qsofa4	SOFA score	observation	v2.0	None	None	None	None	0   3	continuous	quick SOFA score based on 4h history	False	None	None	None
-2005	sofa_resp	SOFA score	observation	v2.0	None	None	None	None	0   4	continuous	respiratory component of the SOFA score	False	None	None	None
-2006	sofa_coag	SOFA score	observation	v2.0	None	None	None	None	0   4	continuous	coagulation component of the SOFA score	False	None	None	None
-2007	sofa_liver	SOFA score	observation	v2.0	None	None	None	None	0   4	continuous	liver component of the SOFA score	False	None	None	None
-2008	sofa_cardio	SOFA score	observation	v2.0	None	None	None	None	0   4	continuous	cardiovascular system component of the SOFA score	False	None	None	None
-2009	sofa_cns	SOFA score	observation	v2.0	None	None	None	None	0   4	continuous	central nervous system component of the SOFA score	False	None	None	None
-2010	sofa_renal	SOFA score	observation	v2.0	None	None	None	None	0   4	continuous	renal function component of the SOFA score	False	None	None	None
+1046	vent_ind	Ventilation indicator	treatment	v2.0	respiratory	ventilation	None	treatment_ind	None	None	ventilation as an indicator	False	None	None	2.0
+2001	sofa	SOFA score	observation	v2.0	None	None	None	continuous	0	24	SOFA score based on 24h history	False	None	None	None
+2002	sofa4	SOFA score	observation	v2.0	None	None	None	continuous	0	24	SOFA score based on 4h history	False	None	None	None
+2003	qsofa	SOFA score	observation	v2.0	None	None	None	continuous	0	3	quick SOFA score based on 4h history	False	None	None	None
+2004	qsofa4	SOFA score	observation	v2.0	None	None	None	continuous	0	3	quick SOFA score based on 4h history	False	None	None	None
+2005	sofa_resp	SOFA score	observation	v2.0	None	None	None	continuous	0	4	respiratory component of the SOFA score	False	None	None	None
+2006	sofa_coag	SOFA score	observation	v2.0	None	None	None	continuous	0	4	coagulation component of the SOFA score	False	None	None	None
+2007	sofa_liver	SOFA score	observation	v2.0	None	None	None	continuous	0	4	liver component of the SOFA score	False	None	None	None
+2008	sofa_cardio	SOFA score	observation	v2.0	None	None	None	continuous	0	4	cardiovascular system component of the SOFA score	False	None	None	None
+2009	sofa_cns	SOFA score	observation	v2.0	None	None	None	continuous	0	4	central nervous system component of the SOFA score	False	None	None	None
+2010	sofa_renal	SOFA score	observation	v2.0	None	None	None	continuous	0	4	renal function component of the SOFA score	False	None	None	None
