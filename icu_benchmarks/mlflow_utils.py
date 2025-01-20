@@ -20,7 +20,11 @@ class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):  # noqa D
         if isinstance(obj, np.ndarray):
             return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
+
+        try:
+            return json.JSONEncoder.default(self, obj)
+        except TypeError:
+            return str(obj)
 
 
 def log_dict(dict, name):

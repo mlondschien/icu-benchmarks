@@ -1,0 +1,17 @@
+import icu_benchmarks.gin
+
+icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
+icu_benchmarks.load.load.weighting_exponent = -0.5
+
+num_iterations.num_iterations = [10, 20, 30, 40, 50, 60, 70, 80]
+
+outcome.outcome = "log_po2"
+icu_benchmarks.load.load.variables = ['age', 'anti_coag_ind', 'cf_treat_ind', 'diur_ind', 'fio2', 'ins_ind', 'map', 'mgcs', 'o2sat', 'pco2', 'peak', 'peep', 'resp', 'sed_ind', 'sex', 'supp_o2_vent', 'temp', 'tgcs']
+icu_benchmarks.load.load.sources = ["mimic"]
+
+get_run.tracking_uri = "http://10.205.179.177:37737"
+get_run.run_id = "0a8508ebac4e442d8176e70313b0f501"
+
+seeds.seeds = [0, 1, 2, 3, 4]
+n_samples.n_samples = [10, 100, 1000]
+refit_parameters.refit_parameters = {"decay_rate": [0.0, 0.1, 0.2, 0.5, 0.8, 1.0]}

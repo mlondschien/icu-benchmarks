@@ -13,7 +13,7 @@ from sklearn.preprocessing import OrdinalEncoder
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import log_df, log_pickle, setup_mlflow
+from icu_benchmarks.mlflow_utils import log_df, log_pickle, setup_mlflow, log_dict
 from icu_benchmarks.models import LGBMAnchorModel
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,7 @@ def main(config: str):  # noqa D
     }
 
     _ = setup_mlflow(tags=tags)
+    log_dict(parameters(), "parameters.json")
 
     tic = perf_counter()
     df, y, weights, dataset = load(sources=sources(), outcome=outcome(), split="train", other_columns=["dataset"])

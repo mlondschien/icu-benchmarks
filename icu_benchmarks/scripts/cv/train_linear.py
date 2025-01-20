@@ -171,7 +171,7 @@ def main(config: str):  # noqa D
                 yhat = glm.predict(df)
                 results[result_idx] = {
                     **result,
-                    **metrics(y, yhat, f"{target}/{split}", TASKS[outcome()]["task"]),
+                    **metrics(y, yhat, f"{target}/{split}/", TASKS[outcome()]["task"]),
                 }
 
     log_df(pl.DataFrame(results), "results.csv")
