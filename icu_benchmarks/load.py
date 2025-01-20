@@ -129,9 +129,11 @@ def load(
         horizons=horizons,
     )
 
+    if other_columns is None:
+        other_columns = []
+
     columns_to_load = columns + [outcome, "dataset"]
-    if other_columns is not None:
-        columns_to_load += [c for c in other_columns if c not in columns_to_load]
+    columns_to_load += [c for c in other_columns if c not in columns_to_load]
 
     data_dir = Path(DATA_DIR if data_dir is None else data_dir)
     df = pl.from_arrow(
