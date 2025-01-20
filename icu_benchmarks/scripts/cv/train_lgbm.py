@@ -68,7 +68,7 @@ def main(config: str):  # noqa D
     _ = setup_mlflow(tags=tags)
 
     tic = perf_counter()
-    df, y, weights, dataset = load(sources=sources(), outcome=outcome(), split="train")
+    df, y, weights, dataset = load(sources=sources(), outcome=outcome(), split="train", other_columns=["dataset"])
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
@@ -89,6 +89,7 @@ def main(config: str):  # noqa D
     df = preprocessor.fit_transform(df)
     toc = perf_counter()
     logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
+    log_pickle(preprocessor, "models/preprocessor.pkl")
 
     models = []
     for parameter in parameters():
@@ -96,23 +97,23 @@ def main(config: str):  # noqa D
         tic = perf_counter()
         objective = parameter.pop("objective")
         model = LGBMAnchorModel(params=parameter, objective=objective)
-        model.fit(df, y, sample_weight=weights, dataset=dataset)
+        model.fit(df, y, sample_weight=weights, dataset=dataset.to_numpy())
         toc = perf_counter()
         logger.info(f"Fitting the glm with {parameter} took {toc - tic:.1f} seconds")
         models.append(model)
     results = []
 
-    for parameter_idx, parameter in enumerate(parameters()):
+    for model_idx, parameter in enumerate(parameters()):
         name = "_".join(f"{key}={value}" for key, value in parameter.items())
-        model = models[parameter_idx]
-        log_pickle(model, f"models/model_{name}.pkl")
+        model = models[model_idx]
+        log_pickle(model, f"models/model_{model_idx}.pkl")
         parameter["objective"] = str(parameter["objective"])
         for num_iteration in num_iterations():
             results.append(
                 {
                     **{
                         "name": name,
-                        "parameter_idx": parameter_idx,
+                        "model_idx": model_idx,
                         "num_iteration": num_iteration,
                     },
                     **parameter,
@@ -123,7 +124,7 @@ def main(config: str):  # noqa D
         for split in ["train", "val", "test"]:
             logger.info(f"Scoring on {target}/{split}")
             tic = perf_counter()
-            df, y, _, _ = load(sources=[target], outcome=outcome(), split=split)
+            df, y, _ = load(sources=[target], outcome=outcome(), split=split)
             toc = perf_counter()
             logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
@@ -137,11 +138,11 @@ def main(config: str):  # noqa D
             logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
 
             for result_idx, result in enumerate(results):
-                model = models[result["parameter_idx"]]
+                model = models[result["model_idx"]]
                 yhat = model.predict(df, num_iteration=result["num_iteration"])
                 results[result_idx] = {
                     **result,
-                    **metrics(y, yhat, f"{target}/{split}", TASKS[outcome()]["task"]),
+                    **metrics(y, yhat, f"{target}/{split}/", TASKS[outcome()]["task"]),
                 }
 
     log_df(pl.DataFrame(results), "results.csv")

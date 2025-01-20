@@ -4,7 +4,9 @@ import numpy as np
 import polars as pl
 import tabmat
 from glum import GeneralizedLinearRegressor
-
+from sklearn.model_selection import GroupKFold, ParameterGrid
+from sklearn.base import BaseEstimator
+import copy
 
 @gin.configurable
 class DataSharedLasso(GeneralizedLinearRegressor):
@@ -376,12 +378,109 @@ class AnchorRegression(GeneralizedLinearRegressor):
 
 
 @gin.configurable
-class LGBMAnchorModel:  # noqa: D
+class EmpiricalBayes(GeneralizedLinearRegressor):
+    """
+    Empirical Bayes elastic net Regression with prior around beta_prior.
+
+    This optimizes
+    1 / n_train ||y - X beta||^2 + l1_ratio * alpha || beta - beta_prior ||_2^2 + 
+    (1 - l1_ratio) * alpha || beta - beta_prior ||_1
+    over `beta`.
+
+    Parameters
+    ----------
+    alpha : float
+        Regularization parameter.
+    prior : glum.GeneralizedLinearRegressor
+        Prior.
+    P2 : np.array
+        Standard deviation of beta for each feature.
+    fit_intercept : bool
+        Whether to fit an intercept.
+    """
+
+    def __init__(self, alpha=None, prior=None, P2=None, fit_intercept=True):
+        super().__init__(alpha=alpha, P2=P2, fit_intercept=fit_intercept)
+        self.prior = prior
+
+    def fit(self, X, y):  # noqa D
+        if np.isfinite(self.alpha):
+            offset = self.prior.linear_predictor(X)
+            super().fit(X, y, offset=offset)
+
+        return self
+
+    def predict(self, X):  # noqa D
+        if np.isfinite(self.alpha):
+            offset = self.prior.linear_predictor(X)
+            return super().predict(X, offset=offset)
+        else:
+            return self.prior.predict(X)
+
+class CVMixin:
+    """Mixin adding a `fit_predict_cv` method."""
+
+    def __init__(self, cv=5, **kwargs):
+        super().__init__(**kwargs)
+        self.cv = cv
+    
+    def refit_predict_cv(self, X, y, groups=None, **kwargs):
+        """
+        Fit the model and predict the outcome using grouped cross-validation.
+
+        At the end, this fits the model itself on the whole data.
+        """
+        parameter_grid = ParameterGrid(kwargs) if kwargs is not None else [{}]
+        yhats = [np.zeros(len(y), dtype=float) for _ in range(len(parameter_grid))]
+
+        for train_idx, val_idx in GroupKFold(n_splits=self.cv).split(X, y, groups):
+            X_train, y_train, X_val = X[train_idx], y[train_idx], X[val_idx]
+            self.refit(X_train, y_train)
+
+            for idx, params in enumerate(parameter_grid):
+                yhats[idx][val_idx] = self.predict(X_val, **params)
+
+        self.refit(X, y)
+
+        return yhats
+
+
+@gin.configurable
+class EmpiricalBayesRidgeCV(CVMixin, EmpiricalBayes):
+    """
+    Empirical Bayes elastic net Regression with prior around beta_prior.
+
+    Additionally to `EmpiricalBayesRidge`, this class has a `fit_predict_cv` method
+    that performs cross-validation to predict the outcome.
+
+    Parameters
+    ----------
+    alpha : float
+        Regularization parameter.
+    prior : glum.GeneralizedLinearRegressor
+        Prior.
+    P2 : np.array
+        Standard deviation of beta for each feature.
+    fit_intercept : bool
+        Whether to fit an intercept.
+    cv : int
+        Number of folds for cross-validation.
+
+    """
+
+    def __init__(self, alpha=None, prior=None, P2="identity", fit_intercept=True, cv=5):
+        super().__init__(
+            alpha=alpha, prior=prior, P2=P2, fit_intercept=fit_intercept, cv=cv
+        )
+
+
+@gin.configurable
+class LGBMAnchorModel(BaseEstimator):  # noqa: D
     def __init__(self, objective, params, num_boost_round=100):
         self.objective = objective
         self.params = params
         self.num_boost_round = num_boost_round
-        self.model = None
+        self.booster = None
 
     def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
         categorical_features = [
@@ -409,7 +508,7 @@ class LGBMAnchorModel:  # noqa: D
 
         self.params["objective"] = self.objective.objective
 
-        self.model = lgb.train(
+        self.booster = lgb.train(
             params=self.params,
             train_set=data,
             num_boost_round=self.num_boost_round,
@@ -417,7 +516,63 @@ class LGBMAnchorModel:  # noqa: D
         return self
 
     def predict(self, X, num_iteration=-1):  # noqa: D
-        if self.model is None:
-            raise ValueError("Model not fitted")
-        scores = self.model.predict(X.to_arrow(), num_iteration=num_iteration)
+        if self.booster is None:
+            raise ValueError("Booster not fitted")
+    
+        if isinstance(X, pl.DataFrame):
+            X = X.to_arrow()
+        scores = self.booster.predict(X, num_iteration=num_iteration)
         return self.objective.predictions(scores)
+
+@gin.configurable
+class RefitLGBMModel(BaseEstimator):
+    """
+    LGBM Model that gets refit on new data.
+
+    Parameters
+    ----------
+    prior : LGBMAnchorModel
+        Prior model with attribute `booster`.
+    decay_rate : float
+        Decay rate for refitting. If `decay_rate=1`, the new data is ignored.
+    """
+
+    def __init__(self, prior=None, decay_rate=0.5):
+        self.prior = prior
+        self.decay_rate = decay_rate
+
+    def refit(self, X, y):  # noqa D
+        self.model = copy.deepcopy(self.prior)
+
+        if self.model.booster.params is None:
+            # self.model.model.params = {"num_threads": 1, "force_col_wise":True}
+            self.model.booster.params = {"force_col_wise": True}
+        else:
+            # self.model.model.params["num_threads"] = 1
+            self.model.booster.params["force_col_wise"] = True
+
+        self.model.booster = self.model.booster.refit(
+            data=X.to_arrow(), label=y, decay_rate=self.decay_rate # ,  dataset_params={"num_threads": 1}
+        )
+        return self
+
+    def predict(self, X, num_iteration=-1):  # noqa D
+        return self.model.predict(X.to_arrow(), num_iteration=num_iteration)
+
+@gin.configurable
+class RefitLGBMModelCV(CVMixin, RefitLGBMModel):
+    """
+    LGBM Model that gets refit on new data.
+
+    Parameters
+    ----------
+    prior : LGBMModel
+        Prior model.
+    decay_rate : float
+        Decay rate for refitting. If `decay_rate=0`, the new data is ignored.
+    cv : int
+        Number of folds for cross-validation.
+    """
+
+    def __init__(self, prior=None, decay_rate=0.5, cv=5):
+        super().__init__(prior=prior, decay_rate=decay_rate, cv=cv)

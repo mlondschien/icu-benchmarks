@@ -10,5 +10,5 @@ parameters.parameters = {
     "objective": [@AnchorKookClassificationObjective],
     "num_leaves": [31, 10],
     "learning_rate": [0.1, 0.05],
-    "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8],
+    "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8, 11.2, 16],
 }
