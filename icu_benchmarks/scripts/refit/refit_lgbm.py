@@ -7,9 +7,6 @@ import gin
 import mlflow
 import numpy as np
 import polars as pl
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OrdinalEncoder
-from mlflow.tracking import MlflowClient
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
@@ -18,23 +15,13 @@ from icu_benchmarks.models import LGBMAnchorModel, RefitLGBMModelCV
 import pickle
 import tempfile
 from pathlib import Path
-from icu_benchmarks.gin import MlflowClient
-from joblib import Parallel, delayed
 from sklearn.model_selection import ParameterGrid
-import multiprocessing
-from line_profiler import profile
-import lightgbm as lgb
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-
-
-@gin.configurable
-def outcome(outcome=gin.REQUIRED):  # noqa D
-    return outcome
 
 
 @gin.configurable
@@ -57,10 +44,10 @@ def n_samples(n_samples=gin.REQUIRED):
 def seeds(seeds=gin.REQUIRED):
     return seeds
 
-@gin.configurabe
-def target(target=gin.REQUIRED):
-    return target
-
+@gin.configurable
+def outcome(outcome=gin.REQUIRED):
+    return outcome
+    
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
 def main(config: str):  # noqa D
@@ -79,10 +66,10 @@ def main(config: str):  # noqa D
             with open(model_dir / f"model_{model_idx}.pkl", "rb") as f:
                 models.append(pickle.load(f))
 
-    df, y, _, hashes = load(outcome=outcome(), sources=[target()], split="train", other_columns=["hash"])
+    df, y, _, hashes = load(split="train", outcome=outcome(), other_columns=["hash"])
     df = preprocessor.transform(df)
 
-    df_test, y_test, _ = load(outcome=outcome(), sources=[target()], split="test")
+    df_test, y_test, _ = load(split="test", outcome=outcome())
     df_test = preprocessor.transform(df_test)
 
     train_hashes = [hashes.sample(max(n_samples()), seed=seed, shuffle=True, with_replacement=False) for seed in seeds()]
@@ -108,7 +95,7 @@ def main(config: str):  # noqa D
                     model_results[n_sample][seed]["scores_cv"] = [metrics(y_train, yhat, "", TASKS[outcome()]["task"]) for yhat in yhats_cv]
                     model_results[n_sample][seed]["scores_test"] = [metrics(y_test, model.predict(df_test, num_iteration=num_iteration), "", TASKS[outcome()]["task"]) for num_iteration in num_iterations()]
 
-            refit_results.append(
+            refit_results += [
                 {
                     **{
                         "model_idx": model_idx,
@@ -118,10 +105,9 @@ def main(config: str):  # noqa D
                     **{
                         f"cv_{n_sample}_{seed}/{k}": v for n_sample, seed in product(n_samples(), seeds()) for k, v in model_results[n_sample][seed]["scores_cv"][num_iteration_idx].items()
                     },
-                } for num_iteration_idx, num_iteration in num_iterations()
-            )
-
-    log_df(pl.DataFrame(refit_results), "refit_results.csv")
+                } for num_iteration_idx, num_iteration in enumerate(num_iterations())
+            ]
+    log_df(pl.DataFrame(refit_results), "refit_results.csv", client=client, run_id=run_id)
 
 if __name__ == "__main__":
     main()
