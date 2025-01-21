@@ -1,14 +1,12 @@
+import json
 import subprocess
-from itertools import product
 from pathlib import Path
 
 import click
-import numpy as np
-
-from icu_benchmarks.constants import DATASETS, OBSERVATIONS_PER_GB, TASKS
-from icu_benchmarks.slurm_utils import setup_mlflow_server
-import json
 from mlflow.tracking import MlflowClient
+
+from icu_benchmarks.constants import TASKS
+from icu_benchmarks.slurm_utils import setup_mlflow_server
 
 SOURCES = [
     "miiv",
@@ -18,6 +16,7 @@ SOURCES = [
     "aumc",
     "sic",
 ]
+
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -59,17 +58,18 @@ def main(
         sources = sorted(json.loads(run.data.tags["sources"].replace("'", '"')))
         if len(sources) != len(SOURCES) - 1:
             continue
-        
+
         target = [d for d in SOURCES if d not in sources][0]
 
         outcome = run.data.tags["outcome"]
-        log_dir = Path("logs") / experiment_name / outcome / '_'.join(sources)
+        log_dir = Path("logs") / experiment_name / outcome / "_".join(sources)
         (log_dir / "refit").mkdir(parents=True, exist_ok=True)
         refit_config_file = log_dir / "refit" / "config.gin"
         # train_config_text = (log_dir / "config.gin").read_text()
-        
+
         with refit_config_file.open("w") as f:
-            f.write(f"""{config_text}
+            f.write(
+                f"""{config_text}
 
 num_iterations.num_iterations = [100, 200, 300, 400, 500, 600, 700, 800]
 
@@ -83,9 +83,9 @@ icu_benchmarks.load.load.sources = ["{target}"]
 
 get_run.run_id = "{run.info.run_id}"
 get_run.tracking_uri = "http://{ip}:{port}"
-""")
+"""
+            )
 
-        
         command_file = log_dir / "refit" / "command.sh"
         with command_file.open("w") as f:
             f.write(
@@ -100,7 +100,7 @@ get_run.tracking_uri = "http://{ip}:{port}"
 
 python icu_benchmarks/scripts/refit/{script} --config {refit_config_file.resolve()}"""
             )
-        
+
         subprocess.run(["sbatch", str(command_file.resolve())])
 
 

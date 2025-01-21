@@ -118,6 +118,7 @@ def setup_mlflow(
 
 @gin.configurable
 def get_run(tracking_uri, run_id):
+    """Set up client with tracking_uri, then get the run with run_id."""
     client = mlflow.client.MlflowClient(tracking_uri=tracking_uri)
     run = client.get_run(run_id=run_id)
     return client, run

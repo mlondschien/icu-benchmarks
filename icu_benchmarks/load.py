@@ -161,7 +161,9 @@ def load(
     y = df[outcome].to_numpy()
     assert np.isnan(y).sum() == 0
 
-    return (df.select(columns), y, weights) + tuple(df.select(c).to_series() for c in other_columns)
+    return (df.select(columns), y, weights) + tuple(
+        df.select(c).to_series() for c in other_columns
+    )
 
 
 def features(

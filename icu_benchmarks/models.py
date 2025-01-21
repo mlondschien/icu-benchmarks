@@ -1,12 +1,14 @@
+import copy
+
 import gin
 import lightgbm as lgb
 import numpy as np
 import polars as pl
 import tabmat
 from glum import GeneralizedLinearRegressor
-from sklearn.model_selection import GroupKFold, ParameterGrid
 from sklearn.base import BaseEstimator
-import copy
+from sklearn.model_selection import GroupKFold, ParameterGrid
+
 
 @gin.configurable
 class DataSharedLasso(GeneralizedLinearRegressor):
@@ -383,7 +385,7 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
     Empirical Bayes elastic net Regression with prior around beta_prior.
 
     This optimizes
-    1 / n_train ||y - X beta||^2 + l1_ratio * alpha || beta - beta_prior ||_2^2 + 
+    1 / n_train ||y - X beta||^2 + l1_ratio * alpha || beta - beta_prior ||_2^2 +
     (1 - l1_ratio) * alpha || beta - beta_prior ||_1
     over `beta`.
 
@@ -417,13 +419,14 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
         else:
             return self.prior.predict(X)
 
+
 class CVMixin:
     """Mixin adding a `fit_predict_cv` method."""
 
     def __init__(self, cv=5, **kwargs):
         super().__init__(**kwargs)
         self.cv = cv
-    
+
     def refit_predict_cv(self, X, y, groups=None, **kwargs):
         """
         Fit the model and predict the outcome using grouped cross-validation.
@@ -518,11 +521,12 @@ class LGBMAnchorModel(BaseEstimator):  # noqa: D
     def predict(self, X, num_iteration=-1):  # noqa: D
         if self.booster is None:
             raise ValueError("Booster not fitted")
-    
+
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
         scores = self.booster.predict(X, num_iteration=num_iteration)
         return self.objective.predictions(scores)
+
 
 @gin.configurable
 class RefitLGBMModel(BaseEstimator):
@@ -552,12 +556,15 @@ class RefitLGBMModel(BaseEstimator):
             self.model.booster.params["force_col_wise"] = True
 
         self.model.booster = self.model.booster.refit(
-            data=X.to_arrow(), label=y, decay_rate=self.decay_rate # ,  dataset_params={"num_threads": 1}
+            data=X.to_arrow(),
+            label=y,
+            decay_rate=self.decay_rate,  # ,  dataset_params={"num_threads": 1}
         )
         return self
 
     def predict(self, X, num_iteration=-1):  # noqa D
         return self.model.predict(X.to_arrow(), num_iteration=num_iteration)
+
 
 @gin.configurable
 class RefitLGBMModelCV(CVMixin, RefitLGBMModel):
