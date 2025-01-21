@@ -37,16 +37,20 @@ def log_dict(dict, name):
         mlflow.log_artifact(path, target_dir)
 
 
-def log_fig(fig, name):
+def log_fig(fig, name, client=None, run_id=None):
     """Log a matplotlib figure to MLflow."""
     target_dir, name = os.path.split(name)
     with tempfile.TemporaryDirectory() as tmpdir:
         path = f"{tmpdir}/{name}"
         fig.savefig(path)
-        mlflow.log_artifact(path, target_dir)
+
+        if client is not None:
+            client.log_artifact(run_id, path, target_dir)
+        else:
+            mlflow.log_artifact(path, target_dir)
 
 
-def log_df(df, name):
+def log_df(df, name, client=None, run_id=None):
     """Log a pandas dataframe to MLflow."""
     target_dir, name = os.path.split(name)
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -63,7 +67,10 @@ def log_df(df, name):
         else:
             raise ValueError(f"Unknown file extension: {name} or type: {type(df)}")
 
-        mlflow.log_artifact(path, target_dir)
+        if client is not None:
+            client.log_artifact(run_id, path, target_dir)
+        else:
+            mlflow.log_artifact(path, target_dir)
 
 
 def log_lgbm_model(model, name):
