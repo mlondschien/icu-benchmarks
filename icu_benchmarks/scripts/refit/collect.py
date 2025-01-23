@@ -63,13 +63,13 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
             pl.lit(run.data.tags["sources"]).alias("sources"),
             pl.lit(run.data.tags["outcome"]).alias("outcome"),
         )
-        if len(results.columns) == 306:
-            all_results.append(results)
+        all_results.append(results)
 
     parameter_names = [
         x
         for x in [
             "alpha_idx",
+            "refit_alpha_idx",
             "l1_ratio",
             "gamma",
             "num_boost_round",
@@ -95,6 +95,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
 
     out = []
     for result in all_results:
+        result = result.filter(pl.col("refit_alpha_idx").eq(0))
         target = [
             t for t in SOURCES if t not in result["sources"].explode().unique()[0]
         ][0]
@@ -117,65 +118,10 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                             "n_target": n_target,
                         }
                     )
-
     out = pl.DataFrame(out)
-
-    results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
-    results_n1 = results.filter(pl.col("sources").list.len() == len(sources) - 1)
-
-    cv_results = []
-
-    for target in sources:
-        cv = results_n2.filter(~pl.col("sources").list.contains(target))
-        cv_sources = [source for source in sources if source != target]
-        for metric in metrics:
-            expr = pl.coalesce(
-                pl.when(~pl.col("sources").list.contains(t)).then(
-                    pl.col(f"{t}/train/{metric}")
-                )
-                for t in cv_sources
-            )
-            col = f"target/train/{metric}"
-
-            cv = cv.with_columns(expr.alias(col))
-            cv_grouped = cv.group_by(parameter_names).agg(pl.mean(col))
-
-            if metric in GREATER_IS_BETTER:
-                best = cv_grouped[cv_grouped[col].arg_max()]
-            else:
-                best = cv_grouped[cv_grouped[col].arg_min()]
-
-            model = results_n1.filter(
-                ~pl.col("sources").list.contains(target)
-                & pl.all_horizontal(pl.col(p).eq(best[p]) for p in parameter_names)
-            )
-            cv_results.append(
-                {
-                    **{
-                        "target": target,
-                        "metric": metric,
-                        "cv_value": best[col].item(),
-                        "target_value": model[f"{target}/train/{metric}"].item(),
-                    },
-                    **{p: best[p].item() for p in parameter_names},
-                    **{
-                        f"{source}/train/": model[f"{source}/train/{metric}"].item()
-                        for source in sorted(DATASETS)
-                        if f"{source}/train/{metric}" in model.columns
-                    },
-                }
-            )
-
-    for metric in metrics:
-        print("metric:", metric)
-        with pl.Config() as cfg:
-            cfg.set_tbl_cols(20)
-            print(
-                pl.DataFrame(cv_results)
-                .filter(pl.col("metric").eq(metric))
-                .sort("target")
-            )
-
+    pl.Config.set_tbl_rows(100)
+    print(out.filter(pl.col("metric")=="mse").group_by([pl.col("target"), pl.col("n_target")]).agg(pl.col("test_value").mean()).sort(["target", "n_target"]))
+    breakpoint()
 
 if __name__ == "__main__":
     main()
