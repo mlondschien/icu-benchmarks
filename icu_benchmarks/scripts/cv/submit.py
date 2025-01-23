@@ -115,7 +115,6 @@ icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
 #SBATCH --mem-per-cpu=8G
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
-#SBATCH --error="{log_dir}/slurm.err"
 
 python icu_benchmarks/scripts/cv/{script} --config {config_file.resolve()}"""
             )

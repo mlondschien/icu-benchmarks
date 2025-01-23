@@ -47,9 +47,9 @@ def seeds(seeds=gin.REQUIRED):  # noqa D
     return seeds
 
 
-@gin.configurable
-def outcome(outcome=gin.REQUIRED):  # noqa D
-    return outcome
+# @gin.configurable
+# def outcome(outcome=gin.REQUIRED):  # noqa D
+#     return outcome
 
 
 @click.command()
@@ -69,6 +69,8 @@ def main(config: str):  # noqa D
         for model_idx in range(len(list(model_dir.glob("model_*.pkl")))):
             with open(model_dir / f"model_{model_idx}.pkl", "rb") as f:
                 models.append(pickle.load(f))
+
+    outcome = run.data.tags["outcome"]
 
     df, y, _, hashes = load(split="train", outcome=outcome(), other_columns=["hash"])
     df = preprocessor.transform(df)
@@ -126,6 +128,13 @@ def main(config: str):  # noqa D
                         f"cv_{n_sample}_{seed}/{k}": v
                         for n_sample, seed in product(n_samples(), seeds())
                         for k, v in model_results[n_sample][seed]["scores_cv"][
+                            num_iteration_idx
+                        ].items()
+                    },
+                    **{
+                        f"test_{n_sample}_{seed}/{k}": v
+                        for n_sample, seed in product(n_samples(), seeds())
+                        for k, v in model_results[n_sample][seed]["scores_test"][
                             num_iteration_idx
                         ].items()
                     },

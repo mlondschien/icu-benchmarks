@@ -71,9 +71,7 @@ def main(
             f.write(
                 f"""{config_text}
 
-num_iterations.num_iterations = [100, 200, 300, 400, 500, 600, 700, 800]
-
-outcome.outcome = "{outcome}"
+# outcome.outcome = "{outcome}"
 
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
@@ -94,7 +92,7 @@ get_run.tracking_uri = "http://{ip}:{port}"
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --time={hours}:00:00
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem-per-cpu=4G
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir / "refit"}/slurm.out"
 

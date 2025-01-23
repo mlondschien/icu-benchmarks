@@ -371,12 +371,12 @@ class AnchorRegression(GeneralizedLinearRegressor):
 
         return self
 
-    def predict(self, X):  # noqa: D
+    def predict(self, X, **kwargs):  # noqa: D
         # convert to tabmat here as we did so in fit
         if isinstance(X, pl.DataFrame):
             X = tabmat.from_df(X)
 
-        return super().predict(X)
+        return super().predict(X, **kwargs)
 
 
 @gin.configurable
@@ -401,23 +401,101 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
         Whether to fit an intercept.
     """
 
-    def __init__(self, alpha=None, prior=None, P2=None, fit_intercept=True):
-        super().__init__(alpha=alpha, P2=P2, fit_intercept=fit_intercept)
+    def __init__(
+        self,
+        prior=None,
+        alpha=None,
+        l1_ratio=0,
+        P1="identity",
+        P2="identity",
+        fit_intercept=True,
+        family="normal",
+        link="auto",
+        solver="auto",
+        max_iter=100,
+        max_inner_iter=100000,
+        gradient_tol=None,
+        step_size_tol=None,
+        hessian_approx=0.0,
+        warm_start=False,
+        alpha_search=False,
+        alphas=None,
+        n_alphas=100,
+        min_alpha_ratio=None,
+        min_alpha=None,
+        start_params=None,
+        selection="cyclic",
+        random_state=None,
+        copy_X=None,
+        check_input=True,
+        verbose=0,
+        scale_predictors=False,
+        lower_bounds=None,
+        upper_bounds=None,
+        A_ineq=None,
+        b_ineq=None,
+        force_all_finite=True,
+        drop_first=False,
+        robust=True,
+        expected_information=False,
+        formula=None,
+        interaction_separator=":",
+        categorical_format="{name}[{category}]",
+        cat_missing_method="fail",
+        cat_missing_name="(MISSING)"
+    ):
+        super().__init__(
+            alpha=alpha,
+            l1_ratio=l1_ratio,
+            P1=P1,
+            P2=P2,
+            fit_intercept=fit_intercept,
+            family=family,
+            link=link,
+            solver=solver,
+            max_iter=max_iter,
+            max_inner_iter=max_inner_iter,
+            gradient_tol=gradient_tol,
+            step_size_tol=step_size_tol,
+            hessian_approx=hessian_approx,
+            warm_start=warm_start,
+            alpha_search=alpha_search,
+            alphas=alphas,
+            n_alphas=n_alphas,
+            min_alpha_ratio=min_alpha_ratio,
+            min_alpha=min_alpha,
+            start_params=start_params,
+            selection=selection,
+            random_state=random_state,
+            copy_X=copy_X,
+            check_input=check_input,
+            verbose=verbose,
+            scale_predictors=scale_predictors,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
+            A_ineq=A_ineq,
+            b_ineq=b_ineq,
+            force_all_finite=force_all_finite,
+            drop_first=drop_first,
+            robust=robust,
+            expected_information=expected_information,
+            formula=formula,
+            interaction_separator=interaction_separator,
+            categorical_format=categorical_format,
+            cat_missing_method=cat_missing_method,
+            cat_missing_name=cat_missing_name
+        )
         self.prior = prior
 
-    def fit(self, X, y):  # noqa D
-        if np.isfinite(self.alpha):
-            offset = self.prior.linear_predictor(X)
-            super().fit(X, y, offset=offset)
+    def refit(self, X, y):  # noqa D
+        offset = self.prior.linear_predictor(X)
+        super().fit(X, y, offset=offset)
 
         return self
 
-    def predict(self, X):  # noqa D
-        if np.isfinite(self.alpha):
-            offset = self.prior.linear_predictor(X)
-            return super().predict(X, offset=offset)
-        else:
-            return self.prior.predict(X)
+    def predict(self, X, alpha_index=None):  # noqa D
+        offset = self.prior.linear_predictor(X)
+        return super().predict(X, offset=offset, alpha_index=alpha_index)
 
 
 class CVMixin:
@@ -471,9 +549,92 @@ class EmpiricalBayesRidgeCV(CVMixin, EmpiricalBayes):
 
     """
 
-    def __init__(self, alpha=None, prior=None, P2="identity", fit_intercept=True, cv=5):
+    def __init__(
+            self,
+            prior=None,
+            cv=5,
+            alpha=None,
+            l1_ratio=0,
+            P1="identity",
+            P2="identity",
+            fit_intercept=True,
+            family="normal",
+            link="auto",
+            solver="auto",
+            max_iter=100,
+            max_inner_iter=100000,
+            gradient_tol=None,
+            step_size_tol=None,
+            hessian_approx=0.0,
+            warm_start=False,
+            alpha_search=False,
+            alphas=None,
+            n_alphas=100,
+            min_alpha_ratio=None,
+            min_alpha=None,
+            start_params=None,
+            selection="cyclic",
+            random_state=None,
+            copy_X=None,
+            check_input=True,
+            verbose=0,
+            scale_predictors=False,
+            lower_bounds=None,
+            upper_bounds=None,
+            A_ineq=None,
+            b_ineq=None,
+            force_all_finite=True,
+            drop_first=False,
+            robust=True,
+            expected_information=False,
+            formula=None,
+            interaction_separator=":",
+            categorical_format="{name}[{category}]",
+            cat_missing_method="fail",
+            cat_missing_name="(MISSING)",
+    ):
         super().__init__(
-            alpha=alpha, prior=prior, P2=P2, fit_intercept=fit_intercept, cv=cv
+            prior=prior,
+            cv=cv,
+            alpha=alpha,
+            l1_ratio=l1_ratio,
+            P1=P1,
+            P2=P2,
+            fit_intercept=fit_intercept,
+            family=family,
+            link=link,
+            solver=solver,
+            max_iter=max_iter,
+            max_inner_iter=max_inner_iter,
+            gradient_tol=gradient_tol,
+            step_size_tol=step_size_tol,
+            hessian_approx=hessian_approx,
+            warm_start=warm_start,
+            alpha_search=alpha_search,
+            alphas=alphas,
+            n_alphas=n_alphas,
+            min_alpha_ratio=min_alpha_ratio,
+            min_alpha=min_alpha,
+            start_params=start_params,
+            selection=selection,
+            random_state=random_state,
+            copy_X=copy_X,
+            check_input=check_input,
+            verbose=verbose,
+            scale_predictors=scale_predictors,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
+            A_ineq=A_ineq,
+            b_ineq=b_ineq,
+            force_all_finite=force_all_finite,
+            drop_first=drop_first,
+            robust=robust,
+            expected_information=expected_information,
+            formula=formula,
+            interaction_separator=interaction_separator,
+            categorical_format=categorical_format,
+            cat_missing_method=cat_missing_method,
+            cat_missing_name=cat_missing_name,
         )
 
 
@@ -525,7 +686,10 @@ class LGBMAnchorModel(BaseEstimator):  # noqa: D
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
         scores = self.booster.predict(X, num_iteration=num_iteration)
-        return self.objective.predictions(scores)
+        if hasattr(self.objective, "predictions"):
+            return self.objective.predictions(scores)
+        else:
+            return scores
 
 
 @gin.configurable
@@ -555,15 +719,23 @@ class RefitLGBMModel(BaseEstimator):
             # self.model.model.params["num_threads"] = 1
             self.model.booster.params["force_col_wise"] = True
 
-        self.model.booster = self.model.booster.refit(
-            data=X.to_arrow(),
-            label=y,
-            decay_rate=self.decay_rate,  # ,  dataset_params={"num_threads": 1}
-        )
+        if self.decay_rate < 1:
+            self.model.booster = self.model.booster.refit(
+                data=X.to_arrow(),
+                label=y,
+                decay_rate=self.decay_rate,
+            )
         return self
 
-    def predict(self, X, num_iteration=-1):  # noqa D
-        return self.model.predict(X.to_arrow(), num_iteration=num_iteration)
+    def predict(self, X, num_iteration=None):  # noqa D
+        if isinstance(X, pl.DataFrame):
+            X = X.to_arrow()
+        if num_iteration is None:
+            return self.model.predict(X)
+        else:
+            yhat = np.empty((X.shape[0], len(num_iteration)), dtype=np.float64)
+            for idx, n in enumerate(num_iteration):
+                yhat[:, idx] = self.model.predict(X, num_iteration=n)
 
 
 @gin.configurable
