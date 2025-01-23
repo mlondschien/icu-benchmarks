@@ -78,12 +78,15 @@ def main(config: str):  # noqa D
     df_test, y_test, _ = load(split="test", outcome=outcome())
     df_test = preprocessor.transform(df_test)
 
-    train_hashes = [
-        hashes.sample(max(n_samples()), seed=seed, shuffle=True, with_replacement=False)
-        for seed in seeds()
-    ]
-
-    refit_results: list[dict] = []
+    hashes = hashes.sort()
+    data = {}
+    for seed in seeds():
+        sampled_hashes = hashes.sample(max(n_samples()), seed=seed, shuffle=True)
+        for n in n_samples():
+            mask = hashes.is_in(sampled_hashes[:n])
+            data[n, seed] = (df.filter(mask), y[mask], hashes.filter(mask))
+            refit_results: list[dict] = []
+    
     for model_idx, model in enumerate(models):
         logger.info(f"Refitting model {model_idx}/{len(models)}")
         for refit_parameter in refit_parameters():
@@ -93,19 +96,16 @@ def main(config: str):  # noqa D
                 model_results[n_sample] = {}
                 for seed in seeds():
                     model_results[n_sample][seed] = {}
-                    mask = hashes.is_in(train_hashes[seed][:n_sample])
 
-                    df_train = df.filter(mask)
-                    y_train = y[mask]
-                    groups = hashes.filter(mask)
+                    df_train, y_train, groups = data[n_sample, seed]
 
                     refit_model = RefitLGBMModelCV(prior=model, **refit_parameter)
-                    yhats_cv = refit_model.refit_predict_cv(
+                    yhat_cv = refit_model.refit_predict_cv(
                         df_train, y_train, groups=groups, num_iteration=num_iterations()
                     )
                     model_results[n_sample][seed]["scores_cv"] = [
-                        metrics(y_train, yhat, "", TASKS[outcome()]["task"])
-                        for yhat in yhats_cv
+                        metrics(y_train, yhat_cv[:, idx], "", TASKS[outcome()]["task"])
+                        for idx in range(len(num_iterations()))
                     ]
                     model_results[n_sample][seed]["scores_test"] = [
                         metrics(

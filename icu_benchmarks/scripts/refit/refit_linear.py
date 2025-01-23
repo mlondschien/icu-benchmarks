@@ -107,7 +107,7 @@ def main(config: str, n_cpus: int):  # noqa D
                 details = {
                     "model_idx": model_idx,
                     "alpha_idx": alpha_idx,
-                    **refit_parameter,
+                    **{f"refit_{k}": v for k, v in refit_parameter.items()},
                 }
                 jobs.append(
                     delayed(_refit)(
