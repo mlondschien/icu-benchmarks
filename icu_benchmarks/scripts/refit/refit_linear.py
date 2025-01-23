@@ -4,7 +4,6 @@ import pickle
 import tempfile
 from itertools import product
 from pathlib import Path
-from time import perf_counter
 
 import click
 import gin
@@ -124,37 +123,18 @@ def main(config: str, n_cpus: int):  # noqa D
                 )
 
     n_jobs = n_cpus // min(1, (6 + df_test_size) // 4)
-    print(n_jobs)
+
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
-    tic = perf_counter()
 
     with Parallel(n_jobs=n_jobs, prefer="processes") as parallel:
         refit_results = parallel(jobs)
-    toc = perf_counter()
-    print(toc - tic)
 
     del df, y
 
     results = []
     for refit_result in refit_results:
-        # for n_sample in n_samples():
-        #     for seed in seeds():
-        # model = refit_result[n_sample][seed].pop("refit_model")
-        # refit_result[n_sample][seed]["alphas"] = model._alphas
-
-        # yhats = model.predict(df_test, alpha_index=range(len(model._alphas)))
-        # yhats = [yhats[:, idx] for idx in range(yhats.shape[1])]
-        # refit_result[n_sample][seed]["scores_test"] = [
-        #     metrics(
-        #         y_test,
-        #         yhat,
-        #         "",
-        #         TASKS[outcome]["task"],
-        #     )
-        #     for yhat in yhats
-        # ]
 
         results += [
             {
@@ -203,17 +183,7 @@ def _refit(refit_model, data_train, df_test, y_test, n_samples, seeds, task, det
             ]
 
             results[n_sample][seed]["refit_alpha"] = refit_model._alphas
-            # results[n_sample][seed]["scores_test"] = metrics(y_test, refit_model.predict(df_test), "", task)
     return results
-    # return {
-    #     "refit_model": refit_model,
-    #     **details,
-    #     **{
-    #         f"cv_{n_sample}_{seed}/{k}": v
-    #         for n_sample, seed in product(n_samples(), seeds())
-    #         for k, v in results[n_sample][seed]["scores_cv"].items()
-    #     }
-    # }
 
 
 if __name__ == "__main__":
