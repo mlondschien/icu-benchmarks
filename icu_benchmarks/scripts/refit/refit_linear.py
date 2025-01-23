@@ -129,29 +129,28 @@ def main(config: str, n_cpus: int):  # noqa D
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
     with Parallel(n_jobs=n_jobs, prefer="processes") as parallel:
-        refit_results = parallel(jobs)
+        parallel_results = parallel(jobs)
 
     del df, y
 
-    results = []
-    for refit_result in refit_results:
-
-        results += [
+    refit_results = []
+    for parallel_result in parallel_results:
+        refit_results += [
             {
                 "refit_alpha_idx": alpha_idx,
                 "refit_alpha": alpha,
-                **refit_result["details"],
+                **parallel_result["details"],
                 **{
                     f"cv_{n_sample}_{seed}/{k}": v
                     for n_sample, seed in product(n_samples(), seeds())
-                    for k, v in refit_result[n_sample][seed]["scores_cv"][
+                    for k, v in parallel_result[n_sample][seed]["scores_cv"][
                         alpha_idx
                     ].items()
                 },
                 **{
                     f"test_{n_sample}_{seed}/{k}": v
                     for n_sample, seed in product(n_samples(), seeds())
-                    for k, v in refit_result[n_sample][seed]["scores_test"][
+                    for k, v in parallel_result[n_sample][seed]["scores_test"][
                         alpha_idx
                     ].items()
                 },
@@ -159,7 +158,9 @@ def main(config: str, n_cpus: int):  # noqa D
             for alpha_idx, alpha in enumerate(refit_alphas())
         ]
 
-    log_df(pl.DataFrame(results), "refit_results.csv", client=client, run_id=run_id)
+    log_df(
+        pl.DataFrame(refit_results), "refit_results.csv", client=client, run_id=run_id
+    )
 
 
 def _refit(refit_model, data_train, df_test, y_test, n_samples, seeds, task, details):
