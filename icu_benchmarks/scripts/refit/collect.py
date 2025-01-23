@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import tempfile
@@ -8,7 +9,6 @@ import polars as pl
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import DATASETS
-import json
 
 GREATER_IS_BETTER = ["accuracy", "roc", "auprc", "r2"]
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
@@ -18,6 +18,7 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
 
 @click.command()
 @click.option("--experiment_name", type=str)
@@ -48,7 +49,9 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
             continue
 
         with tempfile.TemporaryDirectory() as f:
-            if "refit_results.csv" not in [x.path for x in client.list_artifacts(run_id)]:
+            if "refit_results.csv" not in [
+                x.path for x in client.list_artifacts(run_id)
+            ]:
                 logger.warning(f"Run {run_id} has no results.csv")
                 continue
 
@@ -80,7 +83,9 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     ]
 
     results = pl.concat(all_results)
-    results = results.with_columns(pl.col("sources").str.replace_all("'", '"').str.json_decode())
+    results = results.with_columns(
+        pl.col("sources").str.replace_all("'", '"').str.json_decode()
+    )
     sources = results["sources"].explode().unique().to_list()
 
     metrics = map(re.compile(r"\/(.+)$").search, results.columns)
@@ -90,7 +95,9 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
 
     out = []
     for result in all_results:
-        target = [t for t in SOURCES if t not in result["sources"].explode().unique()[0]][0]
+        target = [
+            t for t in SOURCES if t not in result["sources"].explode().unique()[0]
+        ][0]
         for metric in metrics:
             for n_target in [10, 30, 100, 300, 1000]:
                 for seed in [0, 1, 2, 3, 4]:
@@ -98,7 +105,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                         df = result[result[f"cv_{n_target}_{seed}/{metric}"].arg_max()]
                     else:
                         df = result[result[f"cv_{n_target}_{seed}/{metric}"].arg_min()]
-                    
+
                     out.append(
                         {
                             "target": target,
@@ -110,9 +117,9 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                             "n_target": n_target,
                         }
                     )
-                
+
     out = pl.DataFrame(out)
-    breakpoint()
+
     results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
     results_n1 = results.filter(pl.col("sources").list.len() == len(sources) - 1)
 

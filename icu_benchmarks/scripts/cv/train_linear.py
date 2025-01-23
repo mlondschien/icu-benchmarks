@@ -71,7 +71,9 @@ def main(config: str):  # noqa D
     _ = setup_mlflow(tags=tags)
 
     tic = perf_counter()
-    df, y, weights, dataset = load(sources=sources(), outcome=outcome(), split="train", other_columns=["dataset"])
+    df, y, weights, dataset = load(
+        sources=sources(), outcome=outcome(), split="train", other_columns=["dataset"]
+    )
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 

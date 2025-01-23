@@ -1,22 +1,23 @@
 import logging
+import os
 import pickle
 import tempfile
 from itertools import product
 from pathlib import Path
 from time import perf_counter
+
 import click
 import gin
 import polars as pl
-from sklearn.model_selection import ParameterGrid
+import tabmat
 from joblib import Parallel, delayed
+from sklearn.model_selection import ParameterGrid
+
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import get_run, log_df
 from icu_benchmarks.models import EmpiricalBayesRidgeCV
-import tabmat
-import multiprocessing
-import os
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -53,7 +54,7 @@ def seeds(seeds=gin.REQUIRED):  # noqa D
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
 @click.option("--n_cpus", type=int, default=None)
-def main(config: str, n_cpus:int):  # noqa D
+def main(config: str, n_cpus: int):  # noqa D
     gin.parse_config_file(config)
 
     client, run = get_run()
@@ -80,34 +81,55 @@ def main(config: str, n_cpus:int):  # noqa D
         sampled_hashes = hashes.sample(max(n_samples()), seed=seed, shuffle=True)
         for n in n_samples():
             mask = hashes.is_in(sampled_hashes[:n])
-            data[n, seed] = (tabmat.from_df(df.filter(mask)), y[mask], hashes.filter(mask))
+            data[n, seed] = (
+                tabmat.from_df(df.filter(mask)),
+                y[mask],
+                hashes.filter(mask),
+            )
 
     df_test, y_test, _ = load(split="test", outcome=outcome)
     df_test = preprocessor.transform(df_test)
     df_test_size = df_test.estimated_size("gb")
     df_test = tabmat.from_df(df_test, sparse_threshold=1)
-    
+
     jobs = []
     for model_idx, model in enumerate(models):
         for alpha_idx in range(len(model.alpha)):
             model.coef_ = model.coef_path_[alpha_idx]
             model.intercept_ = model.intercept_path_[alpha_idx]
             for refit_parameter in refit_parameters():
-                refit_model = EmpiricalBayesRidgeCV(prior=model, alpha=refit_alphas(), alpha_search=True, copy_X=False, **refit_parameter)
+                refit_model = EmpiricalBayesRidgeCV(
+                    prior=model,
+                    alpha=refit_alphas(),
+                    alpha_search=True,
+                    copy_X=False,
+                    **refit_parameter,
+                )
                 details = {
                     "model_idx": model_idx,
                     "alpha_idx": alpha_idx,
                     **refit_parameter,
                 }
-                jobs.append(delayed(_refit)(refit_model, data, df_test, y_test, n_samples(), seeds(), TASKS[outcome]["task"], details))
-  
+                jobs.append(
+                    delayed(_refit)(
+                        refit_model,
+                        data,
+                        df_test,
+                        y_test,
+                        n_samples(),
+                        seeds(),
+                        TASKS[outcome]["task"],
+                        details,
+                    )
+                )
+
     n_jobs = n_cpus // min(1, (6 + df_test_size) // 4)
     print(n_jobs)
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
     tic = perf_counter()
-    
+
     with Parallel(n_jobs=n_jobs, prefer="processes") as parallel:
         refit_results = parallel(jobs)
     toc = perf_counter()
@@ -119,21 +141,21 @@ def main(config: str, n_cpus:int):  # noqa D
     for refit_result in refit_results:
         # for n_sample in n_samples():
         #     for seed in seeds():
-                # model = refit_result[n_sample][seed].pop("refit_model")
-                # refit_result[n_sample][seed]["alphas"] = model._alphas
+        # model = refit_result[n_sample][seed].pop("refit_model")
+        # refit_result[n_sample][seed]["alphas"] = model._alphas
 
-                # yhats = model.predict(df_test, alpha_index=range(len(model._alphas)))
-                # yhats = [yhats[:, idx] for idx in range(yhats.shape[1])]
-                # refit_result[n_sample][seed]["scores_test"] = [
-                #     metrics(
-                #         y_test,
-                #         yhat,
-                #         "",
-                #         TASKS[outcome]["task"],
-                #     )
-                #     for yhat in yhats
-                # ]
-        
+        # yhats = model.predict(df_test, alpha_index=range(len(model._alphas)))
+        # yhats = [yhats[:, idx] for idx in range(yhats.shape[1])]
+        # refit_result[n_sample][seed]["scores_test"] = [
+        #     metrics(
+        #         y_test,
+        #         yhat,
+        #         "",
+        #         TASKS[outcome]["task"],
+        #     )
+        #     for yhat in yhats
+        # ]
+
         results += [
             {
                 "refit_alpha_idx": alpha_idx,
@@ -154,7 +176,7 @@ def main(config: str, n_cpus:int):  # noqa D
                     ].items()
                 },
             }
-                for alpha_idx, alpha in enumerate(refit_alphas())
+            for alpha_idx, alpha in enumerate(refit_alphas())
         ]
 
     log_df(pl.DataFrame(results), "refit_results.csv", client=client, run_id=run_id)
@@ -168,12 +190,18 @@ def _refit(refit_model, data_train, df_test, y_test, n_samples, seeds, task, det
             results[n_sample][seed] = {}
             df_train, y_train, groups = data_train[n_sample, seed]
             alpha_index = list(range(len(refit_model.alpha)))
-            yhat = refit_model.refit_predict_cv(df_train, y_train, groups=groups, alpha_index=alpha_index)
-            results[n_sample][seed]["scores_cv"] = [metrics(y_train, yhat[:, idx], "", task) for idx in alpha_index]
+            yhat = refit_model.refit_predict_cv(
+                df_train, y_train, groups=groups, alpha_index=alpha_index
+            )
+            results[n_sample][seed]["scores_cv"] = [
+                metrics(y_train, yhat[:, idx], "", task) for idx in alpha_index
+            ]
 
             yhat_test = refit_model.predict(df_test, alpha_index=alpha_index)
-            results[n_sample][seed]["scores_test"] = [metrics(y_test, yhat_test[:, idx], "", task) for idx in alpha_index]
-            
+            results[n_sample][seed]["scores_test"] = [
+                metrics(y_test, yhat_test[:, idx], "", task) for idx in alpha_index
+            ]
+
             results[n_sample][seed]["refit_alpha"] = refit_model._alphas
             # results[n_sample][seed]["scores_test"] = metrics(y_test, refit_model.predict(df_test), "", task)
     return results
