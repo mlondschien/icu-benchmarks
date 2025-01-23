@@ -512,18 +512,18 @@ class CVMixin:
         At the end, this fits the model itself on the whole data.
         """
         parameter_grid = ParameterGrid(kwargs) if kwargs is not None else [{}]
-        yhats = [np.zeros(len(y), dtype=float) for _ in range(len(parameter_grid))]
+        yhat = np.zeros((len(y), len(parameter_grid)), dtype=np.float64)
 
         for train_idx, val_idx in GroupKFold(n_splits=self.cv).split(X, y, groups):
             X_train, y_train, X_val = X[train_idx], y[train_idx], X[val_idx]
             self.refit(X_train, y_train)
 
             for idx, params in enumerate(parameter_grid):
-                yhats[idx][val_idx] = self.predict(X_val, **params)
+                yhat[val_idx, idx] = self.predict(X_val, **params)
 
         self.refit(X, y)
 
-        return yhats
+        return yhat
 
 
 @gin.configurable
@@ -685,6 +685,7 @@ class LGBMAnchorModel(BaseEstimator):  # noqa: D
 
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
+
         scores = self.booster.predict(X, num_iteration=num_iteration)
         if hasattr(self.objective, "predictions"):
             return self.objective.predictions(scores)

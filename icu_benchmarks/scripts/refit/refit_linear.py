@@ -15,14 +15,15 @@ from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import get_run, log_df
 from icu_benchmarks.models import EmpiricalBayesRidgeCV
 import tabmat
+import multiprocessing
+import os
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-import os
-from line_profiler import profile
 
 
 @gin.configurable
@@ -51,8 +52,8 @@ def seeds(seeds=gin.REQUIRED):  # noqa D
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
-@profile
-def main(config: str):  # noqa D
+@click.option("--n_cpus", type=int, default=None)
+def main(config: str, n_cpus:int):  # noqa D
     gin.parse_config_file(config)
 
     client, run = get_run()
@@ -68,8 +69,6 @@ def main(config: str):  # noqa D
             with open(model_dir / f"model_{model_idx}.pkl", "rb") as f:
                 models.append(pickle.load(f))
 
-    models = models
-
     outcome = run.data.tags["outcome"]
 
     df, y, _, hashes = load(split="train", outcome=outcome, other_columns=["hash"])
@@ -84,7 +83,9 @@ def main(config: str):  # noqa D
             data[n, seed] = (tabmat.from_df(df.filter(mask)), y[mask], hashes.filter(mask))
 
     df_test, y_test, _ = load(split="test", outcome=outcome)
-    df_test = tabmat.from_df(preprocessor.transform(df_test), sparse_threshold=1)
+    df_test = preprocessor.transform(df_test)
+    df_test_size = df_test.estimated_size("gb")
+    df_test = tabmat.from_df(df_test, sparse_threshold=1)
     
     jobs = []
     for model_idx, model in enumerate(models):
@@ -99,16 +100,15 @@ def main(config: str):  # noqa D
                     **refit_parameter,
                 }
                 jobs.append(delayed(_refit)(refit_model, data, df_test, y_test, n_samples(), seeds(), TASKS[outcome]["task"], details))
-
-
-    
-    
+  
+    n_jobs = n_cpus // min(1, (6 + df_test_size) // 4)
+    print(n_jobs)
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
     tic = perf_counter()
     
-    with Parallel(n_jobs=1, prefer="processes") as parallel:
+    with Parallel(n_jobs=n_jobs, prefer="processes") as parallel:
         refit_results = parallel(jobs)
     toc = perf_counter()
     print(toc - tic)
@@ -167,12 +167,14 @@ def _refit(refit_model, data_train, df_test, y_test, n_samples, seeds, task, det
         for seed in seeds:
             results[n_sample][seed] = {}
             df_train, y_train, groups = data_train[n_sample, seed]
-            yhats = refit_model.refit_predict_cv(df_train, y_train, groups=groups, alpha_index=range(len(refit_model.alpha)))
-            results[n_sample][seed]["scores_cv"] = [metrics(y_train, yhat, "", task) for yhat in yhats]
-            yhats_test = refit_model.predict(df_test, alpha_index=range(len(refit_model.alpha)))
-            results[n_sample][seed]["scores_test"] = [metrics(y_test, yhats_test[:, idx], "", task) for idx in range(yhats_test.shape[1])]
+            alpha_index = list(range(len(refit_model.alpha)))
+            yhat = refit_model.refit_predict_cv(df_train, y_train, groups=groups, alpha_index=alpha_index)
+            results[n_sample][seed]["scores_cv"] = [metrics(y_train, yhat[:, idx], "", task) for idx in alpha_index]
+
+            yhat_test = refit_model.predict(df_test, alpha_index=alpha_index)
+            results[n_sample][seed]["scores_test"] = [metrics(y_test, yhat_test[:, idx], "", task) for idx in alpha_index]
+            
             results[n_sample][seed]["refit_alpha"] = refit_model._alphas
-            results[n_sample][seed]["refit_model"] = refit_model
             # results[n_sample][seed]["scores_test"] = metrics(y_test, refit_model.predict(df_test), "", task)
     return results
     # return {

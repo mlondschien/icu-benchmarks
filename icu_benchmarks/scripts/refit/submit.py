@@ -96,7 +96,7 @@ get_run.tracking_uri = "http://{ip}:{port}"
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir / "refit"}/slurm.out"
 
-python icu_benchmarks/scripts/refit/{script} --config {refit_config_file.resolve()}"""
+python icu_benchmarks/scripts/refit/{script} --config {refit_config_file.resolve()} --n_cpus=32"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])
