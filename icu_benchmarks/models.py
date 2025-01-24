@@ -796,33 +796,36 @@ class RefitLGBMModel(BaseEstimator):
         Decay rate for refitting. If `decay_rate=1`, the new data is ignored.
     """
 
-    def __init__(self, prior=None, decay_rate=0.5):
+    def __init__(self, prior=None, decay_rate=0.5, objective=None):
         self.prior = prior
         self.decay_rate = decay_rate
+        self.objective = objective
 
     def refit(self, X, y):  # noqa D
         self.model = copy.deepcopy(self.prior)
 
         if self.model.booster.params is None:
-            # self.model.model.params = {"num_threads": 1, "force_col_wise":True}
-            self.model.booster.params = {"force_col_wise": True}
+            self.model.booster.params = {"num_threads": 1, "force_col_wise":True, "objective": self.objective}
         else:
-            # self.model.model.params["num_threads"] = 1
+            self.model.booster.params["num_threads"] = 1
             self.model.booster.params["force_col_wise"] = True
+            self.model.booster.params["objective"] = self.objective
+
 
         if self.decay_rate < 1:
             self.model.booster = self.model.booster.refit(
                 data=X.to_arrow(),
                 label=y,
                 decay_rate=self.decay_rate,
+                dataset_params={"num_threads": 1, "force_col_wise": True},
             )
         return self
 
     def predict(self, X, num_iteration=None):  # noqa D
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
-        if num_iteration is None:
-            return self.model.predict(X, num_iteration=num_iteration)
+        return self.model.predict(X, num_iteration=num_iteration)
+
 
 
 @gin.configurable
@@ -840,5 +843,5 @@ class RefitLGBMModelCV(CVMixin, RefitLGBMModel):
         Number of folds for cross-validation.
     """
 
-    def __init__(self, prior=None, decay_rate=0.5, cv=5):
-        super().__init__(prior=prior, decay_rate=decay_rate, cv=cv)
+    def __init__(self, prior=None, decay_rate=0.5, objective=None, cv=5):
+        super().__init__(prior=prior, decay_rate=decay_rate, objective=objective, cv=cv)

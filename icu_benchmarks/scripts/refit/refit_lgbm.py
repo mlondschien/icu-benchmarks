@@ -47,11 +47,6 @@ def seeds(seeds=gin.REQUIRED):  # noqa D
     return seeds
 
 
-# @gin.configurable
-# def outcome(outcome=gin.REQUIRED):  # noqa D
-#     return outcome
-
-
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
 def main(config: str):  # noqa D

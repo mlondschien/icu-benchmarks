@@ -58,6 +58,13 @@ def seeds(seeds=gin.REQUIRED):  # noqa D
 def model(model=gin.REQUIRED):  # noqa D
     return model
 
+@gin.configurable
+def from_df(df, to_tabmat=gin.REQUIRED):
+    if to_tabmat:
+        return tabmat.from_df(df, sparse_threshold=0.05)
+    else:
+        return df
+
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -89,13 +96,13 @@ def main(config: str):  # noqa D
         for n in n_samples():
             mask = hashes.is_in(sampled_hashes[:n])
             data[n, seed] = (
-                tabmat.from_df(df.filter(mask)),
+                from_df(df.filter(mask)),
                 y[mask],
                 hashes.filter(mask),
             )
 
     df_test, y_test, _ = load(split="test", outcome=outcome)
-    df_test = tabmat.from_df(preprocessor.transform(df_test), sparse_threshold=0.05)
+    df_test = from_df(preprocessor.transform(df_test))
 
     jobs = []
     for model_idx, prior in enumerate(priors):
@@ -123,9 +130,9 @@ def main(config: str):  # noqa D
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-    with Parallel(n_jobs=1, prefer="processes") as parallel:
+    with Parallel(n_jobs=-1, prefer="processes") as parallel:
         parallel_results = parallel(jobs)
-
+    
     del df, y
 
     refit_results = sum(parallel_results, [])

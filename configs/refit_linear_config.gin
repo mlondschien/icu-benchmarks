@@ -2,7 +2,7 @@ import icu_benchmarks.gin
 
 icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
 
-%REFIT_ALPHA = [10, 1, 0.1, 0.01]
+REFIT_ALPHA = [10, 1, 0.1, 0.01]
 
 seeds.seeds = [0] # , 1, 2, 3, 4]
 n_samples.n_samples = [10, 30, 100, 300, 1000]
@@ -20,3 +20,5 @@ EmpiricalBayesCV.copy_X = False
 EmpiricalBayesCV.solver = "irls-cd"
 
 model.model = @EmpiricalBayesCV
+
+from_df.to_tabmat = True
