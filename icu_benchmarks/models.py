@@ -1,9 +1,13 @@
+import copy
+
 import gin
 import lightgbm as lgb
 import numpy as np
 import polars as pl
 import tabmat
 from glum import GeneralizedLinearRegressor
+from sklearn.base import BaseEstimator
+from sklearn.model_selection import GroupKFold, ParameterGrid
 
 
 @gin.configurable
@@ -367,21 +371,280 @@ class AnchorRegression(GeneralizedLinearRegressor):
 
         return self
 
-    def predict(self, X):  # noqa: D
+    def predict(self, X, **kwargs):  # noqa: D
         # convert to tabmat here as we did so in fit
         if isinstance(X, pl.DataFrame):
             X = tabmat.from_df(X)
 
-        return super().predict(X)
+        return super().predict(X, **kwargs)
 
 
 @gin.configurable
-class LGBMAnchorModel:  # noqa: D
+class EmpiricalBayes(GeneralizedLinearRegressor):
+    """
+    Empirical Bayes elastic net Regression with prior around beta_prior.
+
+    This optimizes
+    1 / n_train ||y - X beta||^2 + l1_ratio * alpha || beta - beta_prior ||_2^2 +
+    (1 - l1_ratio) * alpha || beta - beta_prior ||_1
+    over `beta`.
+
+    Parameters
+    ----------
+    alpha : float
+        Regularization parameter.
+    prior : glum.GeneralizedLinearRegressor
+        Prior.
+    P2 : np.array
+        Standard deviation of beta for each feature.
+    fit_intercept : bool
+        Whether to fit an intercept.
+    """
+
+    def __init__(
+        self,
+        prior=None,
+        alpha=None,
+        l1_ratio=0,
+        P1="identity",
+        P2="identity",
+        fit_intercept=True,
+        family="normal",
+        link="auto",
+        solver="auto",
+        max_iter=100,
+        max_inner_iter=100000,
+        gradient_tol=None,
+        step_size_tol=None,
+        hessian_approx=0.0,
+        warm_start=False,
+        alpha_search=False,
+        alphas=None,
+        n_alphas=100,
+        min_alpha_ratio=None,
+        min_alpha=None,
+        start_params=None,
+        selection="cyclic",
+        random_state=None,
+        copy_X=None,
+        check_input=True,
+        verbose=0,
+        scale_predictors=False,
+        lower_bounds=None,
+        upper_bounds=None,
+        A_ineq=None,
+        b_ineq=None,
+        force_all_finite=True,
+        drop_first=False,
+        robust=True,
+        expected_information=False,
+        formula=None,
+        interaction_separator=":",
+        categorical_format="{name}[{category}]",
+        cat_missing_method="fail",
+        cat_missing_name="(MISSING)",
+    ):
+        super().__init__(
+            alpha=alpha,
+            l1_ratio=l1_ratio,
+            P1=P1,
+            P2=P2,
+            fit_intercept=fit_intercept,
+            family=family,
+            link=link,
+            solver=solver,
+            max_iter=max_iter,
+            max_inner_iter=max_inner_iter,
+            gradient_tol=gradient_tol,
+            step_size_tol=step_size_tol,
+            hessian_approx=hessian_approx,
+            warm_start=warm_start,
+            alpha_search=alpha_search,
+            alphas=alphas,
+            n_alphas=n_alphas,
+            min_alpha_ratio=min_alpha_ratio,
+            min_alpha=min_alpha,
+            start_params=start_params,
+            selection=selection,
+            random_state=random_state,
+            copy_X=copy_X,
+            check_input=check_input,
+            verbose=verbose,
+            scale_predictors=scale_predictors,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
+            A_ineq=A_ineq,
+            b_ineq=b_ineq,
+            force_all_finite=force_all_finite,
+            drop_first=drop_first,
+            robust=robust,
+            expected_information=expected_information,
+            formula=formula,
+            interaction_separator=interaction_separator,
+            categorical_format=categorical_format,
+            cat_missing_method=cat_missing_method,
+            cat_missing_name=cat_missing_name,
+        )
+        self.prior = prior
+
+    def refit(self, X, y):  # noqa D
+        offset = self.prior.linear_predictor(X)
+        super().fit(X, y, offset=offset)
+
+        return self
+
+    def predict(self, X, alpha_index=None):  # noqa D
+        offset = self.prior.linear_predictor(X)
+        return super().predict(X, offset=offset, alpha_index=alpha_index)
+
+
+class CVMixin:
+    """Mixin adding a `fit_predict_cv` method."""
+
+    def __init__(self, cv=5, **kwargs):
+        super().__init__(**kwargs)
+        self.cv = cv
+
+    def refit_predict_cv(self, X, y, groups=None, **kwargs):
+        """
+        Fit the model and predict the outcome using grouped cross-validation.
+
+        At the end, this fits the model itself on the whole data.
+        """
+        parameter_grid = ParameterGrid(kwargs) if kwargs is not None else [{}]
+        yhat = np.zeros((len(y), len(parameter_grid)), dtype=np.float64)
+
+        for train_idx, val_idx in GroupKFold(n_splits=self.cv).split(X, y, groups):
+            X_train, y_train, X_val = X[train_idx], y[train_idx], X[val_idx]
+            self.refit(X_train, y_train)
+
+            for idx, params in enumerate(parameter_grid):
+                yhat[val_idx, idx] = self.predict(X_val, **params)
+
+        self.refit(X, y)
+
+        return yhat
+
+
+@gin.configurable
+class EmpiricalBayesRidgeCV(CVMixin, EmpiricalBayes):
+    """
+    Empirical Bayes elastic net Regression with prior around beta_prior.
+
+    Additionally to `EmpiricalBayesRidge`, this class has a `fit_predict_cv` method
+    that performs cross-validation to predict the outcome.
+
+    Parameters
+    ----------
+    alpha : float
+        Regularization parameter.
+    prior : glum.GeneralizedLinearRegressor
+        Prior.
+    P2 : np.array
+        Standard deviation of beta for each feature.
+    fit_intercept : bool
+        Whether to fit an intercept.
+    cv : int
+        Number of folds for cross-validation.
+
+    """
+
+    def __init__(
+        self,
+        prior=None,
+        cv=5,
+        alpha=None,
+        l1_ratio=0,
+        P1="identity",
+        P2="identity",
+        fit_intercept=True,
+        family="normal",
+        link="auto",
+        solver="auto",
+        max_iter=100,
+        max_inner_iter=100000,
+        gradient_tol=None,
+        step_size_tol=None,
+        hessian_approx=0.0,
+        warm_start=False,
+        alpha_search=False,
+        alphas=None,
+        n_alphas=100,
+        min_alpha_ratio=None,
+        min_alpha=None,
+        start_params=None,
+        selection="cyclic",
+        random_state=None,
+        copy_X=None,
+        check_input=True,
+        verbose=0,
+        scale_predictors=False,
+        lower_bounds=None,
+        upper_bounds=None,
+        A_ineq=None,
+        b_ineq=None,
+        force_all_finite=True,
+        drop_first=False,
+        robust=True,
+        expected_information=False,
+        formula=None,
+        interaction_separator=":",
+        categorical_format="{name}[{category}]",
+        cat_missing_method="fail",
+        cat_missing_name="(MISSING)",
+    ):
+        super().__init__(
+            prior=prior,
+            cv=cv,
+            alpha=alpha,
+            l1_ratio=l1_ratio,
+            P1=P1,
+            P2=P2,
+            fit_intercept=fit_intercept,
+            family=family,
+            link=link,
+            solver=solver,
+            max_iter=max_iter,
+            max_inner_iter=max_inner_iter,
+            gradient_tol=gradient_tol,
+            step_size_tol=step_size_tol,
+            hessian_approx=hessian_approx,
+            warm_start=warm_start,
+            alpha_search=alpha_search,
+            alphas=alphas,
+            n_alphas=n_alphas,
+            min_alpha_ratio=min_alpha_ratio,
+            min_alpha=min_alpha,
+            start_params=start_params,
+            selection=selection,
+            random_state=random_state,
+            copy_X=copy_X,
+            check_input=check_input,
+            verbose=verbose,
+            scale_predictors=scale_predictors,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
+            A_ineq=A_ineq,
+            b_ineq=b_ineq,
+            force_all_finite=force_all_finite,
+            drop_first=drop_first,
+            robust=robust,
+            expected_information=expected_information,
+            formula=formula,
+            interaction_separator=interaction_separator,
+            categorical_format=categorical_format,
+            cat_missing_method=cat_missing_method,
+            cat_missing_name=cat_missing_name,
+        )
+
+
+@gin.configurable
+class LGBMAnchorModel(BaseEstimator):  # noqa: D
     def __init__(self, objective, params, num_boost_round=100):
         self.objective = objective
         self.params = params
         self.num_boost_round = num_boost_round
-        self.model = None
+        self.booster = None
 
     def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
         categorical_features = [
@@ -409,7 +672,7 @@ class LGBMAnchorModel:  # noqa: D
 
         self.params["objective"] = self.objective.objective
 
-        self.model = lgb.train(
+        self.booster = lgb.train(
             params=self.params,
             train_set=data,
             num_boost_round=self.num_boost_round,
@@ -417,7 +680,79 @@ class LGBMAnchorModel:  # noqa: D
         return self
 
     def predict(self, X, num_iteration=-1):  # noqa: D
-        if self.model is None:
-            raise ValueError("Model not fitted")
-        scores = self.model.predict(X.to_arrow(), num_iteration=num_iteration)
-        return self.objective.predictions(scores)
+        if self.booster is None:
+            raise ValueError("Booster not fitted")
+
+        if isinstance(X, pl.DataFrame):
+            X = X.to_arrow()
+
+        scores = self.booster.predict(X, num_iteration=num_iteration)
+        if hasattr(self.objective, "predictions"):
+            return self.objective.predictions(scores)
+        else:
+            return scores
+
+
+@gin.configurable
+class RefitLGBMModel(BaseEstimator):
+    """
+    LGBM Model that gets refit on new data.
+
+    Parameters
+    ----------
+    prior : LGBMAnchorModel
+        Prior model with attribute `booster`.
+    decay_rate : float
+        Decay rate for refitting. If `decay_rate=1`, the new data is ignored.
+    """
+
+    def __init__(self, prior=None, decay_rate=0.5):
+        self.prior = prior
+        self.decay_rate = decay_rate
+
+    def refit(self, X, y):  # noqa D
+        self.model = copy.deepcopy(self.prior)
+
+        if self.model.booster.params is None:
+            # self.model.model.params = {"num_threads": 1, "force_col_wise":True}
+            self.model.booster.params = {"force_col_wise": True}
+        else:
+            # self.model.model.params["num_threads"] = 1
+            self.model.booster.params["force_col_wise"] = True
+
+        if self.decay_rate < 1:
+            self.model.booster = self.model.booster.refit(
+                data=X.to_arrow(),
+                label=y,
+                decay_rate=self.decay_rate,
+            )
+        return self
+
+    def predict(self, X, num_iteration=None):  # noqa D
+        if isinstance(X, pl.DataFrame):
+            X = X.to_arrow()
+        if num_iteration is None:
+            return self.model.predict(X)
+        else:
+            yhat = np.empty((X.shape[0], len(num_iteration)), dtype=np.float64)
+            for idx, n in enumerate(num_iteration):
+                yhat[:, idx] = self.model.predict(X, num_iteration=n)
+
+
+@gin.configurable
+class RefitLGBMModelCV(CVMixin, RefitLGBMModel):
+    """
+    LGBM Model that gets refit on new data.
+
+    Parameters
+    ----------
+    prior : LGBMModel
+        Prior model.
+    decay_rate : float
+        Decay rate for refitting. If `decay_rate=0`, the new data is ignored.
+    cv : int
+        Number of folds for cross-validation.
+    """
+
+    def __init__(self, prior=None, decay_rate=0.5, cv=5):
+        super().__init__(prior=prior, decay_rate=decay_rate, cv=cv)

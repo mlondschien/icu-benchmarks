@@ -38,6 +38,7 @@ def load(
     treatment_detail_level=4,
     horizons=None,
     weighting_exponent: float = 0,
+    other_columns: list[str] | None = None,
 ):
     """
     Load data as a pandas DataFrame and a numpy array.
@@ -89,6 +90,8 @@ def load(
         root of the dataset size. If `0`, the weights are all equal and thus each
         dataset has weight proportional to the dataset size. Should be a float between
         `-1` and `0`.
+    other_columns : list of str, optional, default = None
+        Other columns to load. E.g., `["hash"]`.
 
     Returns
     -------
@@ -98,6 +101,7 @@ def load(
         The outcome.
     weights : numpy.ndarray
         The weights.
+    * other_columns : * numpy.ndarray
     """
     if horizons is None:
         horizons = HORIZONS
@@ -125,12 +129,18 @@ def load(
         horizons=horizons,
     )
 
+    if other_columns is None:
+        other_columns = []
+
+    columns_to_load = columns + [outcome, "dataset"]
+    columns_to_load += [c for c in other_columns if c not in columns_to_load]
+
     data_dir = Path(DATA_DIR if data_dir is None else data_dir)
     df = pl.from_arrow(
         ParquetDataset(
             [data_dir / source / "features.parquet" for source in sources],
             filters=filters,
-        ).read(columns=columns + [outcome, "dataset"])
+        ).read(columns=columns_to_load)
     )
     # df = df.filter(pl.col("age") >= 18)
 
@@ -151,7 +161,9 @@ def load(
     y = df[outcome].to_numpy()
     assert np.isnan(y).sum() == 0
 
-    return df.drop([outcome, "dataset"]), y, weights, df["dataset"].to_numpy()
+    return (df.select(columns), y, weights) + tuple(
+        df.select(c).to_series() for c in other_columns
+    )
 
 
 def features(

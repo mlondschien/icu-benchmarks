@@ -20,7 +20,11 @@ class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):  # noqa D
         if isinstance(obj, np.ndarray):
             return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
+
+        try:
+            return json.JSONEncoder.default(self, obj)
+        except TypeError:
+            return str(obj)
 
 
 def log_dict(dict, name):
@@ -33,16 +37,20 @@ def log_dict(dict, name):
         mlflow.log_artifact(path, target_dir)
 
 
-def log_fig(fig, name):
+def log_fig(fig, name, client=None, run_id=None):
     """Log a matplotlib figure to MLflow."""
     target_dir, name = os.path.split(name)
     with tempfile.TemporaryDirectory() as tmpdir:
         path = f"{tmpdir}/{name}"
         fig.savefig(path)
-        mlflow.log_artifact(path, target_dir)
+
+        if client is not None:
+            client.log_artifact(run_id, path, target_dir)
+        else:
+            mlflow.log_artifact(path, target_dir)
 
 
-def log_df(df, name):
+def log_df(df, name, client=None, run_id=None):
     """Log a pandas dataframe to MLflow."""
     target_dir, name = os.path.split(name)
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -59,7 +67,10 @@ def log_df(df, name):
         else:
             raise ValueError(f"Unknown file extension: {name} or type: {type(df)}")
 
-        mlflow.log_artifact(path, target_dir)
+        if client is not None:
+            client.log_artifact(run_id, path, target_dir)
+        else:
+            mlflow.log_artifact(path, target_dir)
 
 
 def log_lgbm_model(model, name):
@@ -103,3 +114,11 @@ def setup_mlflow(
         mlflow.set_tag(key, value)
 
     return run_id
+
+
+@gin.configurable
+def get_run(tracking_uri, run_id):
+    """Set up client with tracking_uri, then get the run with run_id."""
+    client = mlflow.client.MlflowClient(tracking_uri=tracking_uri)
+    run = client.get_run(run_id=run_id)
+    return client, run

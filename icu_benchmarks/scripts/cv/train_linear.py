@@ -71,7 +71,9 @@ def main(config: str):  # noqa D
     _ = setup_mlflow(tags=tags)
 
     tic = perf_counter()
-    df, y, weights, dataset = load(sources=sources(), outcome=outcome(), split="train")
+    df, y, weights, dataset = load(
+        sources=sources(), outcome=outcome(), split="train", other_columns=["dataset"]
+    )
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
@@ -121,18 +123,17 @@ def main(config: str):  # noqa D
 
     results = []
 
+    log_pickle(preprocessor, "models/preprocessor.pkl")
+
     for parameter_idx, parameter in enumerate(parameters()):
         glm = glms[parameter_idx]
+        log_pickle(glm, f"models/model_{parameter_idx}.pkl")
         for alpha_idx, alpha in enumerate(glm._alphas):
             glm.coef_ = glm.coef_path_[alpha_idx]
             glm.intercept_ = glm.intercept_path_[alpha_idx]
             suffix = "_".join(f"{key}={value}" for key, value in parameter.items())
             coef_table_path = f"coefficients/alpha={alpha_idx}_{suffix}.csv"
             log_df(glm.coef_table(), coef_table_path)
-            log_pickle(
-                Pipeline([("preprocessor", preprocessor), ("glm", glm)]),
-                f"model_{suffix}.pkl",
-            )
 
             results.append(
                 {
@@ -151,7 +152,7 @@ def main(config: str):  # noqa D
         for split in ["train", "val", "test"]:
             logger.info(f"Scoring on {target}/{split}")
             tic = perf_counter()
-            df, y, _, _ = load(sources=[target], outcome=outcome(), split=split)
+            df, y, _ = load(sources=[target], outcome=outcome(), split=split)
             toc = perf_counter()
             logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
@@ -166,12 +167,12 @@ def main(config: str):  # noqa D
 
             for result_idx, result in enumerate(results):
                 glm = glms[result["parameter_idx"]]
-                glm.intercept_ = glm.intercept_path_[result["alpha_idx"]]
-                glm.coef_ = glm.coef_path_[result["alpha_idx"]]
-                yhat = glm.predict(df)
+                # glm.intercept_ = glm.intercept_path_[result["alpha_idx"]]
+                # glm.coef_ = glm.coef_path_[result["alpha_idx"]]
+                yhat = glm.predict(df, alpha_index=result["alpha_idx"])
                 results[result_idx] = {
                     **result,
-                    **metrics(y, yhat, f"{target}/{split}", TASKS[outcome()]["task"]),
+                    **metrics(y, yhat, f"{target}/{split}/", TASKS[outcome()]["task"]),
                 }
 
     log_df(pl.DataFrame(results), "results.csv")
