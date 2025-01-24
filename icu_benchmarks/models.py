@@ -404,6 +404,7 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
     def __init__(
         self,
         prior=None,
+        prior_alpha=None,
         alpha=None,
         l1_ratio=0,
         P1="identity",
@@ -486,6 +487,17 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
             cat_missing_name=cat_missing_name,
         )
         self.prior = prior
+        if prior_alpha is not None:
+            # https://github.com/Quantco/glum/blob/b471522c611b263c00ae841fd0f46660c31a\
+            # 6d5f/src/glum/_glm.py#L1297
+            isclose = np.isclose(self.prior._alphas, prior_alpha, atol=1e-12)
+            if np.sum(isclose) == 1:
+                prior_alpha_idx = np.argmax(isclose)  # cf. stackoverflow.com/a/61117770
+            else:
+                raise ValueError(f"Could not get index for prior_alpha {prior_alpha}.")
+        
+            self.prior.intercept_ =  self.prior.intercept_path_[prior_alpha_idx]
+            self.prior.coef_ = self.prior.coef_path_[prior_alpha_idx]
 
     def refit(self, X, y):  # noqa D
         offset = self.prior.linear_predictor(X)
@@ -493,9 +505,41 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
 
         return self
 
-    def predict(self, X, alpha_index=None):  # noqa D
+    def predict(self, X, **kwargs):  # noqa D
         offset = self.prior.linear_predictor(X)
-        return super().predict(X, offset=offset, alpha_index=alpha_index)
+        return super().predict(X, offset=offset, **kwargs)
+
+
+    def predict_with_kwargs(self, X, predict_kwargs=None):
+        """
+        Predict the outcome for each kwargs in predict_kwargs.
+
+        This overwrites the `predict_with_kwargs` method from `CVMixin` to only compute
+        offset once.
+
+        Parameters
+        ----------
+        X : tabmat.BaseMatrix
+            Data to predict on.
+        predict_kwargs : List of dict, optional
+            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
+            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
+            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
+
+        Returns
+        -------
+        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
+            Predictions for each set of arguments in `predict_kwargs`.
+        """
+        if predict_kwargs is None:
+            predict_kwargs = [{}]
+
+        offset = self.prior.linear_predictor(X)
+        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)        
+        for idx, predict_kwarg in enumerate(predict_kwargs):
+            yhat[:, idx] = super().predict(X, offset=offset, **predict_kwarg)
+
+        return yhat
 
 
 class CVMixin:
@@ -505,29 +549,73 @@ class CVMixin:
         super().__init__(**kwargs)
         self.cv = cv
 
-    def refit_predict_cv(self, X, y, groups=None, **kwargs):
+    def refit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
         """
-        Fit the model and predict the outcome using grouped cross-validation.
+        Fit the model on the training data and predict on the validation data.
 
-        At the end, this fits the model itself on the whole data.
+        Parameters
+        ----------
+        X : tabmat.BaseMatrix
+            Data to train and predict on.
+        y : np.ndarray
+            Outcome.
+        groups : np.ndarray, optional
+            Group indicators for cross-validation.
+        predict_kwargs : List of dict, optional
+            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
+            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
+            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
+
+        Returns
+        -------
+        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
+            Predictions for each set of arguments in `predict_kwargs`.
         """
-        parameter_grid = ParameterGrid(kwargs) if kwargs is not None else [{}]
-        yhat = np.zeros((len(y), len(parameter_grid)), dtype=np.float64)
+        if predict_kwargs is None:
+            predict_kwargs = [{}]
+
+        yhat = np.zeros((len(y), len(predict_kwargs)), dtype=np.float64)
 
         for train_idx, val_idx in GroupKFold(n_splits=self.cv).split(X, y, groups):
             X_train, y_train, X_val = X[train_idx], y[train_idx], X[val_idx]
             self.refit(X_train, y_train)
 
-            for idx, params in enumerate(parameter_grid):
-                yhat[val_idx, idx] = self.predict(X_val, **params)
+            yhat[val_idx, :] = self.predict_with_kwargs(X_val, predict_kwargs)
 
         self.refit(X, y)
 
         return yhat
 
+    def predict_with_kwargs(self, X, predict_kwargs=None):
+        """
+        Predict the outcome for each kwargs in predict_kwargs.
+
+        Parameters
+        ----------
+        X : tabmat.BaseMatrix
+            Data to predict on.
+        predict_kwargs : List of dict, optional
+            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
+            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
+            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
+
+        Returns
+        -------
+        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
+            Predictions for each set of arguments in `predict_kwargs`.
+        """
+        if predict_kwargs is None:
+            predict_kwargs = [{}]
+
+        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)        
+        for idx, predict_kwarg in enumerate(predict_kwargs):
+            yhat[:, idx] = self.predict(X, **predict_kwarg)
+
+        return yhat
+
 
 @gin.configurable
-class EmpiricalBayesRidgeCV(CVMixin, EmpiricalBayes):
+class EmpiricalBayesCV(CVMixin, EmpiricalBayes):
     """
     Empirical Bayes elastic net Regression with prior around beta_prior.
 
@@ -552,6 +640,7 @@ class EmpiricalBayesRidgeCV(CVMixin, EmpiricalBayes):
     def __init__(
         self,
         prior=None,
+        prior_alpha=None,
         cv=5,
         alpha=None,
         l1_ratio=0,
@@ -595,6 +684,7 @@ class EmpiricalBayesRidgeCV(CVMixin, EmpiricalBayes):
     ):
         super().__init__(
             prior=prior,
+            prior_alpha=prior_alpha,
             cv=cv,
             alpha=alpha,
             l1_ratio=l1_ratio,
@@ -732,11 +822,7 @@ class RefitLGBMModel(BaseEstimator):
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
         if num_iteration is None:
-            return self.model.predict(X)
-        else:
-            yhat = np.empty((X.shape[0], len(num_iteration)), dtype=np.float64)
-            for idx, n in enumerate(num_iteration):
-                yhat[:, idx] = self.model.predict(X, num_iteration=n)
+            return self.model.predict(X, num_iteration=num_iteration)
 
 
 @gin.configurable
