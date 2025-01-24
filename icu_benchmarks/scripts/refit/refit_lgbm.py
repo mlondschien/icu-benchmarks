@@ -86,7 +86,7 @@ def main(config: str):  # noqa D
             mask = hashes.is_in(sampled_hashes[:n])
             data[n, seed] = (df.filter(mask), y[mask], hashes.filter(mask))
             refit_results: list[dict] = []
-    
+
     for model_idx, model in enumerate(models):
         logger.info(f"Refitting model {model_idx}/{len(models)}")
         for refit_parameter in refit_parameters():

@@ -8,8 +8,6 @@ import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.constants import DATASETS
-
 GREATER_IS_BETTER = ["accuracy", "roc", "auprc", "r2"]
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 logger = logging.getLogger(__name__)
@@ -118,10 +116,15 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                             "n_target": n_target,
                         }
                     )
-    out = pl.DataFrame(out)
+    result = pl.DataFrame(out)
     pl.Config.set_tbl_rows(100)
-    print(out.filter(pl.col("metric")=="mse").group_by([pl.col("target"), pl.col("n_target")]).agg(pl.col("test_value").mean()).sort(["target", "n_target"]))
-    breakpoint()
+    print(
+        result.filter(pl.col("metric") == "mse")
+        .group_by([pl.col("target"), pl.col("n_target")])
+        .agg(pl.col("test_value").mean())
+        .sort(["target", "n_target"])
+    )
+
 
 if __name__ == "__main__":
     main()
