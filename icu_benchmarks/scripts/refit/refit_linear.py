@@ -8,7 +8,6 @@ from pathlib import Path
 import click
 import gin
 import polars as pl
-import tabmat
 from joblib import Parallel, delayed
 from sklearn.model_selection import ParameterGrid
 
@@ -58,13 +57,6 @@ def seeds(seeds=gin.REQUIRED):  # noqa D
 def model(model=gin.REQUIRED):  # noqa D
     return model
 
-@gin.configurable
-def from_df(df, to_tabmat=gin.REQUIRED):
-    if to_tabmat:
-        return tabmat.from_df(df, sparse_threshold=0.05)
-    else:
-        return df
-
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -96,13 +88,13 @@ def main(config: str):  # noqa D
         for n in n_samples():
             mask = hashes.is_in(sampled_hashes[:n])
             data[n, seed] = (
-                from_df(df.filter(mask)),
+                df.filter(mask),
                 y[mask],
                 hashes.filter(mask),
             )
 
     df_test, y_test, _ = load(split="test", outcome=outcome)
-    df_test = from_df(preprocessor.transform(df_test))
+    df_test = preprocessor.transform(df_test)
 
     jobs = []
     for model_idx, prior in enumerate(priors):
@@ -132,30 +124,43 @@ def main(config: str):  # noqa D
 
     with Parallel(n_jobs=-1, prefer="processes") as parallel:
         parallel_results = parallel(jobs)
-    
+
     del df, y
 
-    refit_results = sum(parallel_results, [])
-    log_df(
-        pl.DataFrame(refit_results), "refit_results.csv", client=client, run_id=run_id
-    )
+    results: list[dict] = sum(parallel_results, [])
+    log_df(pl.DataFrame(results), "refit_results.csv", client=client, run_id=run_id)
 
 
-def _refit(refit_model, data_train, df_test, y_test, n_samples, seeds, task, predict_kwargs, details):
+def _refit(
+    refit_model,
+    data_train,
+    df_test,
+    y_test,
+    n_samples,
+    seeds,
+    task,
+    predict_kwargs,
+    details,
+):
     results = {}
     for n_sample in n_samples:
         results[n_sample] = {}
         for seed in seeds:
             results[n_sample][seed] = {}
             df, y, groups = data_train[n_sample, seed]
-            yhat = refit_model.refit_predict_cv(df, y, groups=groups, predict_kwargs=predict_kwargs)
+            yhat = refit_model.refit_predict_cv(
+                df, y, groups=groups, predict_kwargs=predict_kwargs
+            )
             results[n_sample][seed]["scores_cv"] = [
                 metrics(y, yhat[:, idx], "", task) for idx in range(len(predict_kwargs))
             ]
 
-            yhat_test = refit_model.predict_with_kwargs(df_test, predict_kwargs=predict_kwargs)
+            yhat_test = refit_model.predict_with_kwargs(
+                df_test, predict_kwargs=predict_kwargs
+            )
             results[n_sample][seed]["scores_test"] = [
-                metrics(y_test, yhat_test[:, idx], "", task) for idx in range(len(predict_kwargs))
+                metrics(y_test, yhat_test[:, idx], "", task)
+                for idx in range(len(predict_kwargs))
             ]
 
     out = [
@@ -171,7 +176,7 @@ def _refit(refit_model, data_train, df_test, y_test, n_samples, seeds, task, pre
                 for n, seed in product(n_samples, seeds)
                 for k, v in results[n][seed]["scores_test"][idx].items()
             },
-            **predict_kwarg
+            **predict_kwarg,
         }
         for idx, predict_kwarg in enumerate(predict_kwargs)
     ]

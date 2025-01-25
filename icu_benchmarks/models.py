@@ -7,7 +7,7 @@ import polars as pl
 import tabmat
 from glum import GeneralizedLinearRegressor
 from sklearn.base import BaseEstimator
-from sklearn.model_selection import GroupKFold, ParameterGrid
+from sklearn.model_selection import GroupKFold
 
 
 @gin.configurable
@@ -495,8 +495,8 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
                 prior_alpha_idx = np.argmax(isclose)  # cf. stackoverflow.com/a/61117770
             else:
                 raise ValueError(f"Could not get index for prior_alpha {prior_alpha}.")
-        
-            self.prior.intercept_ =  self.prior.intercept_path_[prior_alpha_idx]
+
+            self.prior.intercept_ = self.prior.intercept_path_[prior_alpha_idx]
             self.prior.coef_ = self.prior.coef_path_[prior_alpha_idx]
 
     def refit(self, X, y):  # noqa D
@@ -508,7 +508,6 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
     def predict(self, X, **kwargs):  # noqa D
         offset = self.prior.linear_predictor(X)
         return super().predict(X, offset=offset, **kwargs)
-
 
     def predict_with_kwargs(self, X, predict_kwargs=None):
         """
@@ -535,7 +534,7 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
             predict_kwargs = [{}]
 
         offset = self.prior.linear_predictor(X)
-        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)        
+        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)
         for idx, predict_kwarg in enumerate(predict_kwargs):
             yhat[:, idx] = super().predict(X, offset=offset, **predict_kwarg)
 
@@ -607,7 +606,7 @@ class CVMixin:
         if predict_kwargs is None:
             predict_kwargs = [{}]
 
-        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)        
+        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)
         for idx, predict_kwarg in enumerate(predict_kwargs):
             yhat[:, idx] = self.predict(X, **predict_kwarg)
 
@@ -805,12 +804,15 @@ class RefitLGBMModel(BaseEstimator):
         self.model = copy.deepcopy(self.prior)
 
         if self.model.booster.params is None:
-            self.model.booster.params = {"num_threads": 1, "force_col_wise":True, "objective": self.objective}
+            self.model.booster.params = {
+                "num_threads": 1,
+                "force_col_wise": True,
+                "objective": self.objective,
+            }
         else:
             self.model.booster.params["num_threads"] = 1
             self.model.booster.params["force_col_wise"] = True
             self.model.booster.params["objective"] = self.objective
-
 
         if self.decay_rate < 1:
             self.model.booster = self.model.booster.refit(
@@ -825,7 +827,6 @@ class RefitLGBMModel(BaseEstimator):
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
         return self.model.predict(X, num_iteration=num_iteration)
-
 
 
 @gin.configurable

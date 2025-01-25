@@ -1,8 +1,9 @@
 import json
 import subprocess
 from pathlib import Path
-import numpy as np
+
 import click
+import numpy as np
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import TASKS
