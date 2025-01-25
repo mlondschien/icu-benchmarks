@@ -95,7 +95,8 @@ def main(config: str):  # noqa D
     log_pickle(preprocessor, "models/preprocessor.pkl")
 
     models = []
-    for parameter in parameters():
+    model_dict = {}
+    for parameter_idx, parameter in enumerate(parameters()):
         logger.info(f"Fitting the lgbm model with {parameter}")
         tic = perf_counter()
         objective = parameter.pop("objective")
@@ -104,6 +105,9 @@ def main(config: str):  # noqa D
         toc = perf_counter()
         logger.info(f"Fitting the glm with {parameter} took {toc - tic:.1f} seconds")
         models.append(model)
+        model_dict[parameter_idx] = parameter
+
+    log_dict(model_dict, "models.json")
     results = []
 
     for model_idx, parameter in enumerate(parameters()):

@@ -129,7 +129,7 @@ def main(config: str):  # noqa D
 
         model_dict[parameter_idx] = parameter
 
-    log_dict(model_dict, "models/models_dict.json")
+    log_dict(model_dict, "models.json")
 
     results = []
 
