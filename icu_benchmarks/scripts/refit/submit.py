@@ -33,14 +33,12 @@ SOURCES = [
     type=str,
     default="file:///cluster/work/math/lmalte/mlflow/artifacts",
 )
-@click.option("--script", type=str, default="refit_lgbm.py")
 def main(
     config: str,
     hours: int,
     experiment_name: str,
     tracking_uri: str,
     artifact_location: str,
-    script: str,
 ):  # noqa D
     ip, port = setup_mlflow_server(
         tracking_uri=tracking_uri,
@@ -100,7 +98,7 @@ get_run.tracking_uri = "http://{ip}:{port}"
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir / "refit"}/slurm.out"
 
-python icu_benchmarks/scripts/refit/refit_linear.py --config {refit_config_file.resolve()}"""
+python icu_benchmarks/scripts/refit/refit.py --config {refit_config_file.resolve()}"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])
