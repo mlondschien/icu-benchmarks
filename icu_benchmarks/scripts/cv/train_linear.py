@@ -11,11 +11,12 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
+import tabmat
+from sklearn.preprocessing import FunctionTransformer
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import log_df, log_pickle, setup_mlflow
+from icu_benchmarks.mlflow_utils import log_df, log_pickle, setup_mlflow, log_dict
 from icu_benchmarks.models import AnchorRegression, DataSharedLasso  # noqa F401
 
 logger = logging.getLogger(__name__)
@@ -103,14 +104,19 @@ def main(config: str):  # noqa D
         verbose=1,
     ).set_output(transform="polars")
 
-    tic = perf_counter()
-    df = preprocessor.fit_transform(df)
+    to_tabmat = FunctionTransformer(lambda x: tabmat.from_df(x))
+    pipeline = Pipeline([("preprocessor", preprocessor), ("tabmat", to_tabmat)])
 
+    tic = perf_counter()
+    df = pipeline.fit_transform(df)
     toc = perf_counter()
     logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
 
+    log_pickle(preprocessor, "models/preprocessor.pkl")
+
     glms = []
-    for parameter in parameters():
+    model_dict = {}
+    for parameter_idx, parameter in enumerate(parameters()):
         logger.info(f"Fitting the glm with {parameter}")
         glm = model()(family=task["family"])
         glm.set_params(**parameter)
@@ -121,9 +127,11 @@ def main(config: str):  # noqa D
         logger.info(f"Fitting the glm with {parameter} took {toc - tic:.1f} seconds")
         glms.append(glm)
 
-    results = []
+        model_dict[parameter_idx] = parameter
 
-    log_pickle(preprocessor, "models/preprocessor.pkl")
+    log_dict(model_dict, "models/models_dict.json")
+
+    results = []
 
     for parameter_idx, parameter in enumerate(parameters()):
         glm = glms[parameter_idx]
