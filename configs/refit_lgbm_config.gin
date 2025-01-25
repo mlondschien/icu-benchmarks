@@ -2,8 +2,14 @@ import icu_benchmarks.gin
 
 icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
 
-num_iterations.num_iterations = [100, 200, 300, 400, 500, 600, 700, 800]
-
 seeds.seeds = [0, 1, 2, 3, 4]
 n_samples.n_samples = [5, 10, 20, 40, 80, 160, 320, 640, 1280]
-refit_parameters.refit_parameters = {"decay_rate": [0.0, 0.2, 0.5, 0.8, 1.0]}
+refit_parameters.refit_parameters = {"decay_rate": [0.0, 0.2, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]}
+
+from_df.to_tabmat = False
+
+predict_kwargs.predict_kwargs = {"num_iteration": [100, 200, 300, 400, 500, 600, 700, 800]}
+
+model.model = @RefitLGBMModelCV
+
+RefitLGBMModelCV.objective = "regression"

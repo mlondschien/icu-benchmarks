@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 
 import click
+import numpy as np
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import TASKS
@@ -32,14 +33,12 @@ SOURCES = [
     type=str,
     default="file:///cluster/work/math/lmalte/mlflow/artifacts",
 )
-@click.option("--script", type=str, default="refit_lgbm.py")
 def main(
     config: str,
     hours: int,
     experiment_name: str,
     tracking_uri: str,
     artifact_location: str,
-    script: str,
 ):  # noqa D
     ip, port = setup_mlflow_server(
         tracking_uri=tracking_uri,
@@ -55,6 +54,9 @@ def main(
     config_text = Path(config).read_text()
 
     for run in runs:
+        alpha_max = TASKS[run.data.tags["outcome"]]["alpha_max"]
+        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)
+
         sources = sorted(json.loads(run.data.tags["sources"].replace("'", '"')))
         if len(sources) != len(SOURCES) - 1:
             continue
@@ -71,7 +73,7 @@ def main(
             f.write(
                 f"""{config_text}
 
-# outcome.outcome = "{outcome}"
+ALPHA = {alpha.tolist()}
 
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
@@ -96,7 +98,7 @@ get_run.tracking_uri = "http://{ip}:{port}"
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir / "refit"}/slurm.out"
 
-python icu_benchmarks/scripts/refit/{script} --config {refit_config_file.resolve()} --n_cpus=32"""
+python icu_benchmarks/scripts/refit/refit.py --config {refit_config_file.resolve()}"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])
