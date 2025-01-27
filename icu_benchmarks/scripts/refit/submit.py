@@ -69,7 +69,7 @@ def main(
         log_dir = Path("logs") / experiment_name / outcome / "_".join(sources)
         log_dir = log_dir / f"refit_{stem}"
         log_dir.mkdir(parents=True, exist_ok=True)
-        refit_config_file = log_dir / f"config.gin"
+        refit_config_file = log_dir / "config.gin"
 
         with refit_config_file.open("w") as f:
             f.write(

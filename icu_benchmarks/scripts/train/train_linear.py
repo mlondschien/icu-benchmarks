@@ -7,11 +7,10 @@ import gin
 import mlflow
 import numpy as np
 import polars as pl
-import tabmat
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
@@ -103,7 +102,6 @@ def main(config: str):  # noqa D
         sparse_threshold=0,
         verbose=1,
     ).set_output(transform="polars")
-
 
     tic = perf_counter()
     df = preprocessor.fit_transform(df)

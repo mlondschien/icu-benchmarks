@@ -383,6 +383,100 @@ class AnchorRegression(GeneralizedLinearRegressor):
 
 
 @gin.configurable
+class LGBMAnchorModel(BaseEstimator):
+    """
+    LightGBM Model with Anchor Loss.
+
+    Parameters
+    ----------
+    objective : objective of anchorboost
+        Needs to have an `objective` and a `score` method.
+    params : dict
+        Parameters for the LightGBM model.
+    num_boost_round : int
+        Number of boosting rounds.
+    """
+
+    def __init__(self, objective, params, num_boost_round=100):
+        self.objective = objective
+        self.params = params
+        self.num_boost_round = num_boost_round
+        self.booster = None
+
+    def fit(self, X, y, sample_weight=None, dataset=None):
+        """
+        Fit the model.
+
+        Parameters
+        ----------
+        X : polars.DataFrame
+            The input data.
+        y : np.ndarray
+            The outcome.
+        sample_weight : np.ndarray, optional
+            The sample weights.
+        dataset : np.ndarray
+            Array of dataset indicators. Each unique value is assumed to correspond to a
+            single environment. The anchor then is a one-hot encoding of this.
+        """
+        categorical_features = [
+            c
+            for c, dtype in X.schema.items()
+            if not dtype.is_float() and not dtype == pl.Boolean
+        ]
+
+        if "gamma" in self.params:
+            self.objective = self.objective(
+                self.params.pop("gamma"), categories=np.unique(dataset)
+            )
+        else:
+            self.objective = self.objective()
+
+        data = lgb.Dataset(
+            X.to_arrow(),
+            label=y,
+            weight=sample_weight,
+            categorical_feature=categorical_features,
+            free_raw_data=False,
+            feature_name=X.columns,
+        )
+        data.anchor = dataset
+
+        self.params["objective"] = self.objective.objective
+
+        self.booster = lgb.train(
+            params=self.params,
+            train_set=data,
+            num_boost_round=self.num_boost_round,
+        )
+        return self
+
+    def predict(self, X, num_iteration=-1):
+        """
+        Predict the outcome.
+
+        Parameters
+        ----------
+        X : polars.DataFrame or pyarrow.Table
+            The input data.
+        num_iteration : int
+            Number of boosting iterations to use. If -1, all are used. Else, needs to be
+            in [0, num_boost_round].
+        """
+        if self.booster is None:
+            raise ValueError("Booster not fitted")
+
+        if isinstance(X, pl.DataFrame):
+            X = X.to_arrow()
+
+        scores = self.booster.predict(X, num_iteration=num_iteration)
+        if hasattr(self.objective, "predictions"):
+            return self.objective.predictions(scores)
+        else:
+            return scores
+
+
+@gin.configurable
 class EmpiricalBayes(GeneralizedLinearRegressor):
     """
     Empirical Bayes elastic net Regression with prior around beta_prior.
@@ -502,7 +596,7 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
             self.prior.intercept_ = self.prior.intercept_path_[prior_alpha_idx]
             self.prior.coef_ = self.prior.coef_path_[prior_alpha_idx]
 
-    def refit(self, X, y):  # noqa D
+    def fit(self, X, y):  # noqa D
         offset = self.prior.linear_predictor(X)
         super().fit(X, y, offset=offset)
 
@@ -512,37 +606,6 @@ class EmpiricalBayes(GeneralizedLinearRegressor):
         offset = self.prior.linear_predictor(X)
         return super().predict(X, offset=offset, **kwargs)
 
-    def predict_with_kwargs(self, X, predict_kwargs=None):
-        """
-        Predict the outcome for each kwargs in predict_kwargs.
-
-        This overwrites the `predict_with_kwargs` method from `CVMixin` to only compute
-        offset once.
-
-        Parameters
-        ----------
-        X : tabmat.BaseMatrix
-            Data to predict on.
-        predict_kwargs : List of dict, optional
-            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
-            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
-            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
-
-        Returns
-        -------
-        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
-            Predictions for each set of arguments in `predict_kwargs`.
-        """
-        if predict_kwargs is None:
-            predict_kwargs = [{}]
-
-        offset = self.prior.linear_predictor(X)
-        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)
-        for idx, predict_kwarg in enumerate(predict_kwargs):
-            yhat[:, idx] = super().predict(X, offset=offset, **predict_kwarg)
-
-        return yhat
-
 
 class CVMixin:
     """Mixin adding a `fit_predict_cv` method."""
@@ -550,44 +613,6 @@ class CVMixin:
     def __init__(self, cv=5, **kwargs):
         super().__init__(**kwargs)
         self.cv = cv
-
-    def refit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
-        """
-        Refit the model on the training data and predict on the validation data.
-
-        Parameters
-        ----------
-        X : tabmat.BaseMatrix
-            Data to train and predict on.
-        y : np.ndarray
-            Outcome.
-        groups : np.ndarray, optional
-            Group indicators for cross-validation.
-        predict_kwargs : List of dict, optional
-            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
-            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
-            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
-
-        Returns
-        -------
-        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
-            Predictions for each set of arguments in `predict_kwargs`.
-        """
-        if predict_kwargs is None:
-            predict_kwargs = [{}]
-
-        yhat = np.zeros((len(y), len(predict_kwargs)), dtype=np.float64)
-
-        for train_idx, val_idx in GroupKFold(n_splits=self.cv).split(X, y, groups):
-            X_train, y_train, X_val = X[train_idx], y[train_idx], X[val_idx]
-            self.refit(X_train, y_train)
-
-            yhat[val_idx, :] = self.predict_with_kwargs(X_val, predict_kwargs)
-
-        self.refit(X, y)
-
-        return yhat
-
 
     def fit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
         """
@@ -767,64 +792,40 @@ class EmpiricalBayesCV(CVMixin, EmpiricalBayes):
             cat_missing_name=cat_missing_name,
         )
 
+    def predict_with_kwargs(self, X, predict_kwargs=None):
+        """
+        Predict the outcome for each kwargs in predict_kwargs.
 
-@gin.configurable
-class LGBMAnchorModel(BaseEstimator):  # noqa: D
-    def __init__(self, objective, params, num_boost_round=100):
-        self.objective = objective
-        self.params = params
-        self.num_boost_round = num_boost_round
-        self.booster = None
+        This overwrites the `predict_with_kwargs` method from `CVMixin` to only compute
+        offset once.
 
-    def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
-        categorical_features = [
-            c
-            for c, dtype in X.schema.items()
-            if not dtype.is_float() and not dtype == pl.Boolean
-        ]
+        Parameters
+        ----------
+        X : tabmat.BaseMatrix
+            Data to predict on.
+        predict_kwargs : List of dict, optional
+            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
+            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
+            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
 
-        if "gamma" in self.params:
-            self.objective = self.objective(
-                self.params.pop("gamma"), categories=np.unique(dataset)
-            )
-        else:
-            self.objective = self.objective()
+        Returns
+        -------
+        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
+            Predictions for each set of arguments in `predict_kwargs`.
+        """
+        if predict_kwargs is None:
+            predict_kwargs = [{}]
 
-        data = lgb.Dataset(
-            X.to_arrow(),
-            label=y,
-            weight=sample_weight,
-            categorical_feature=categorical_features,
-            free_raw_data=False,
-            feature_name=X.columns,
-        )
-        data.anchor = dataset
+        offset = self.prior.linear_predictor(X)
+        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)
+        for idx, predict_kwarg in enumerate(predict_kwargs):
+            yhat[:, idx] = super().predict(X, offset=offset, **predict_kwarg)
 
-        self.params["objective"] = self.objective.objective
-
-        self.booster = lgb.train(
-            params=self.params,
-            train_set=data,
-            num_boost_round=self.num_boost_round,
-        )
-        return self
-
-    def predict(self, X, num_iteration=-1):  # noqa: D
-        if self.booster is None:
-            raise ValueError("Booster not fitted")
-
-        if isinstance(X, pl.DataFrame):
-            X = X.to_arrow()
-
-        scores = self.booster.predict(X, num_iteration=num_iteration)
-        if hasattr(self.objective, "predictions"):
-            return self.objective.predictions(scores)
-        else:
-            return scores
+        return yhat
 
 
 @gin.configurable
-class RefitLGBMModel(BaseEstimator):
+class RefitLGBMModel(CVMixin, BaseEstimator):
     """
     LGBM Model that gets refit on new data.
 
@@ -834,14 +835,19 @@ class RefitLGBMModel(BaseEstimator):
         Prior model with attribute `booster`.
     decay_rate : float
         Decay rate for refitting. If `decay_rate=1`, the new data is ignored.
+    objective : str
+        Objective for the refit. Either "regression" or "binary".
+    cv : int
+        Number of folds for cross-validation.
     """
 
-    def __init__(self, prior=None, decay_rate=0.5, objective=None):
+    def __init__(self, prior=None, decay_rate=0.5, objective=None, cv=5):
+        super().__init__(cv=cv)
         self.prior = prior
         self.decay_rate = decay_rate
         self.objective = objective
 
-    def refit(self, X, y):  # noqa D
+    def fit(self, X, y):  # noqa D
         self.model = copy.deepcopy(self.prior)
 
         if self.model.booster.params is None:
@@ -870,64 +876,51 @@ class RefitLGBMModel(BaseEstimator):
         return self.model.predict(X, num_iteration=num_iteration)
 
 
-@gin.configurable
-class RefitLGBMModelCV(CVMixin, RefitLGBMModel):
-    """
-    LGBM Model that gets refit on new data.
-
-    Parameters
-    ----------
-    prior : LGBMModel
-        Prior model.
-    decay_rate : float
-        Decay rate for refitting. If `decay_rate=0`, the new data is ignored.
-    cv : int
-        Number of folds for cross-validation.
-    """
-
-    def __init__(self, prior=None, decay_rate=0.5, objective=None, cv=5):
-        super().__init__(prior=prior, decay_rate=decay_rate, objective=objective, cv=cv)
-
-
 class RefitInterceptModelCV(CVMixin):
+    """Model that refits the intercept on new data."""
+
     def __init__(self, prior=None, cv=None):
         super().__init__(cv=cv)
-        self.prior=prior
+        self.prior = prior
         self.offset = 0
 
-    def refit(self, X, y, sample_weight=None):
+    def fit(self, X, y, sample_weight=None):
+        """Compute by how much the prior's intercept needs to be adjusted."""
         self.offset = y.mean() - self.prior.predict(X)
         return self
-    
-    def predict(self, X):
-        return self.prior.predict(X) + self.offset
 
+    def predict(self, X, **kwargs):
+        """Return prior's predictions, adjusted by the offset."""
+        return self.prior.predict(X, **kwargs) + self.offset
 
 
 class PriorPassthroughCV(CVMixin):
+    """Model that simply uses the prior for predictions."""
+
     def __init__(self, prior, cv=None):
         super().__init__(cv=cv)
         self.prior = prior
 
-    def refit(self, X, y, sample_weight=None):
+    def fit(self, X, y, sample_weight=None):
+        """Do nothing."""
         return self
-    
+
     def predict(self, X, **kwargs):
+        """Predict using the prior."""
         return self.prior.predict(X, **kwargs)
 
-    
-    def refit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
+    def fit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
         """
-        Fit the model on the training data and predict on the validation data.
+        Return predictions of `prior` for X.
 
         Parameters
         ----------
         X : tabmat.BaseMatrix
             Data to train and predict on.
         y : np.ndarray
-            Outcome.
+            Not used.
         groups : np.ndarray, optional
-            Group indicators for cross-validation.
+            Not used.
         predict_kwargs : List of dict, optional
             Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
             be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.

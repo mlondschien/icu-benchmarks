@@ -3,7 +3,6 @@ from itertools import product
 from pathlib import Path
 
 import click
-import numpy as np
 
 from icu_benchmarks.constants import DATASETS, OBSERVATIONS_PER_GB, TASKS
 from icu_benchmarks.slurm_utils import setup_mlflow_server

@@ -1,44 +1,28 @@
 import logging
+import os
 from itertools import product
 from time import perf_counter
 
 import click
 import gin
-import mlflow
 import numpy as np
 import polars as pl
-import tabmat
+from joblib import Parallel, delayed
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
+from sklearn.model_selection import ParameterGrid
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
-from sklearn.model_selection import ParameterGrid
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import log_df, log_dict, log_pickle, setup_mlflow
-from icu_benchmarks.models import AnchorRegression, DataSharedLasso  # noqa F401
-
-import logging
-import os
-import pickle
-import tempfile
-from itertools import product
-from pathlib import Path
-
-import click
-import gin
-import polars as pl
-from joblib import Parallel, delayed
-from sklearn.model_selection import ParameterGrid
-
-from icu_benchmarks.constants import TASKS
-from icu_benchmarks.load import load
-from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import get_run, log_df
-from icu_benchmarks.models import EmpiricalBayesCV  # noqa F401
-
+from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
+from icu_benchmarks.models import (  # noqa F401
+    AnchorRegression,
+    DataSharedLasso,
+    EmpiricalBayesCV,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -65,6 +49,7 @@ def parameters(parameters=gin.REQUIRED):
         return ParameterGrid(parameters)
     else:
         return parameters
+
 
 @gin.configurable
 def n_samples(n_samples=gin.REQUIRED):  # noqa D
@@ -105,7 +90,7 @@ def main(config: str):  # noqa D
     _ = setup_mlflow(tags=tags)
 
     tic = perf_counter()
-    df, y, _, hashes = load(outcome=outcome(), split="train",  other_columns=["hash"])
+    df, y, _, hashes = load(outcome=outcome(), split="train", other_columns=["hash"])
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
