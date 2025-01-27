@@ -148,7 +148,7 @@ def _refit(
         for seed in seeds:
             results[n_sample][seed] = {}
             df, y, groups = data_train[n_sample, seed]
-            yhat = refit_model.refit_predict_cv(
+            yhat = refit_model.fit_predict_cv(
                 df, y, groups=groups, predict_kwargs=predict_kwargs
             )
             results[n_sample][seed]["scores_cv"] = [
