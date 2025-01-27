@@ -31,7 +31,7 @@ def outcome(outcome=gin.REQUIRED):  # noqa D
 
 @gin.configurable
 def sources(sources=gin.REQUIRED):  # noqa D
-    return sources
+    return sorted(sources)
 
 
 @gin.configurable

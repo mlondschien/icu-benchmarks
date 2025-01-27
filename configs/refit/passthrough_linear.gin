@@ -1,0 +1,3 @@
+predict_kwargs.predict_kwargs = {"alpha": %ALPHA}
+
+model.model = @PriorPassthroughCV

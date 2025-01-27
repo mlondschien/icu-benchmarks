@@ -553,7 +553,7 @@ class CVMixin:
 
     def refit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
         """
-        Fit the model on the training data and predict on the validation data.
+        Refit the model on the training data and predict on the validation data.
 
         Parameters
         ----------
@@ -585,6 +585,44 @@ class CVMixin:
             yhat[val_idx, :] = self.predict_with_kwargs(X_val, predict_kwargs)
 
         self.refit(X, y)
+
+        return yhat
+
+
+    def fit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
+        """
+        Fit the model on the training data and predict on the validation data.
+
+        Parameters
+        ----------
+        X : tabmat.BaseMatrix
+            Data to train and predict on.
+        y : np.ndarray
+            Outcome.
+        groups : np.ndarray, optional
+            Group indicators for cross-validation.
+        predict_kwargs : List of dict, optional
+            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
+            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
+            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
+
+        Returns
+        -------
+        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
+            Predictions for each set of arguments in `predict_kwargs`.
+        """
+        if predict_kwargs is None:
+            predict_kwargs = [{}]
+
+        yhat = np.zeros((len(y), len(predict_kwargs)), dtype=np.float64)
+
+        for train_idx, val_idx in GroupKFold(n_splits=self.cv).split(X, y, groups):
+            X_train, y_train, X_val = X[train_idx], y[train_idx], X[val_idx]
+            self.fit(X_train, y_train)
+
+            yhat[val_idx, :] = self.predict_with_kwargs(X_val, predict_kwargs)
+
+        self.fit(X, y)
 
         return yhat
 
