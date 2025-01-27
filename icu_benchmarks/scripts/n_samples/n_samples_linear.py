@@ -22,6 +22,7 @@ from icu_benchmarks.models import (  # noqa F401
     AnchorRegression,
     DataSharedLasso,
     EmpiricalBayesCV,
+    PipelineCV,
 )
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ def main(config: str):  # noqa D
     jobs = []
     for parameter_idx, parameter in parameters():
         glm = model()(**parameters)
-        pipeline = Pipeline([("preprocessor", preprocessor), ("model", glm)])
+        pipeline = PipelineCV(steps=[("preprocessor", preprocessor), ("model", glm)])
         details = {
             "model_idx": parameter_idx,
             **parameter,

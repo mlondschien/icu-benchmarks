@@ -8,6 +8,7 @@ import tabmat
 from glum import GeneralizedLinearRegressor
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
+from sklearn.pipeline import Pipeline
 
 
 @gin.configurable
@@ -935,3 +936,8 @@ class PriorPassthroughCV(CVMixin):
             predict_kwargs = [{}]
 
         return self.predict_with_kwargs(X, predict_kwargs)
+
+
+class PipelineCV(CVMixin, Pipeline):  # noqa D
+    def __init__(self, steps, cv=None):
+        super().__init__(cv=cv, steps=steps)
