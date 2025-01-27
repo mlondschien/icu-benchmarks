@@ -51,7 +51,9 @@ def main(
     experiment_id = client.get_experiment_by_name(experiment_name).experiment_id
     runs = client.search_runs(experiment_ids=[experiment_id], max_results=10_000)
 
+    refit_config = Path(__file__).parents[3] / "configs" / "refit" / "refit.gin"
     config_text = Path(config).read_text()
+    stem = Path(config).stem
 
     for run in runs:
         alpha_max = TASKS[run.data.tags["outcome"]]["alpha_max"]
@@ -65,13 +67,15 @@ def main(
 
         outcome = run.data.tags["outcome"]
         log_dir = Path("logs") / experiment_name / outcome / "_".join(sources)
-        (log_dir / "refit").mkdir(parents=True, exist_ok=True)
-        refit_config_file = log_dir / "refit" / "config.gin"
-        # train_config_text = (log_dir / "config.gin").read_text()
+        log_dir = log_dir / f"refit_{stem}"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        refit_config_file = log_dir / f"config.gin"
 
         with refit_config_file.open("w") as f:
             f.write(
-                f"""{config_text}
+                f"""{refit_config.read_text()}
+
+{config_text}
 
 ALPHA = {alpha.tolist()}
 
@@ -86,7 +90,7 @@ get_run.tracking_uri = "http://{ip}:{port}"
 """
             )
 
-        command_file = log_dir / "refit" / "command.sh"
+        command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(
                 f"""#!/bin/bash
@@ -96,7 +100,7 @@ get_run.tracking_uri = "http://{ip}:{port}"
 #SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=4G
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
-#SBATCH --output="{log_dir / "refit"}/slurm.out"
+#SBATCH --output="{log_dir}/slurm.out"
 
 python icu_benchmarks/scripts/refit/refit.py --config {refit_config_file.resolve()}"""
             )

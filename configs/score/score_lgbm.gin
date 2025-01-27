@@ -1,0 +1,23 @@
+import icu_benchmarks.gin
+
+icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
+
+predict_kwargs.predict_kwargs = {"num_iteration": [100, 200, 300, 400, 500, 600, 700, 800]}
+
+targets.targets = [
+    "mimic",
+    "mimic-metavision",
+    "mimic-carevue",
+    "miived",
+    "miiv",
+    "miiv-late",
+    "eicu",
+    "hirid",
+    "aumc",
+    "aumc-early",
+    "aumc-late",
+    "sic",
+    "zigong",
+    "picdb",
+    "nwicu",
+]

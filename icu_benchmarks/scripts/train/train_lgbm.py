@@ -84,7 +84,7 @@ def main(config: str):  # noqa D
     preprocessor = ColumnTransformer(
         transformers=[
             ("continuous", "passthrough", continuous_variables),
-            ("categorical", OrdinalEncoder(), other),
+            ("categorical", OrdinalEncoder(handle_unknown="nan"), other),
         ]
     ).set_output(transform="polars")
 

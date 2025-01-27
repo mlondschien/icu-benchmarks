@@ -7,8 +7,10 @@ num_iterations.num_iterations = [100, 200, 300, 400, 500, 600, 700, 800]
 LGBMAnchorModel.num_boost_round = 800
 
 parameters.parameters = {
-    "objective": [@AnchorKookClassificationObjective],
+    "objective": [@AnchorRegressionObjective],
     "num_leaves": [31, 10],
     "learning_rate": [0.1, 0.05],
-    "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8, 11.2, 16],
+    "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8, 11.2, 16, 22.4, 32],
+    "seed": [0],
+    "deterministic": [True],
 }

@@ -104,11 +104,9 @@ def main(config: str):  # noqa D
         verbose=1,
     ).set_output(transform="polars")
 
-    to_tabmat = FunctionTransformer(lambda x: tabmat.from_df(x))
-    pipeline = Pipeline([("preprocessor", preprocessor), ("tabmat", to_tabmat)])
 
     tic = perf_counter()
-    df = pipeline.fit_transform(df)
+    df = preprocessor.fit_transform(df)
     toc = perf_counter()
     logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
 

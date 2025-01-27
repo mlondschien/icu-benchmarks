@@ -79,7 +79,8 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "ins_ind",
             "map",
             "mgcs",
-            "o2sat",
+            "sao2",
+            "spo2",
             "pco2",
             "peak",
             "peep",
@@ -89,7 +90,10 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "supp_o2_vent",
             "temp",
             "tgcs",
+            "vent_ind",
+            "airway",
         ],
+        "horizons": [8, 24],
     },
     "remaining_los": {
         "task": "regression",
@@ -226,7 +230,6 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "supp_o2_vent",
             "temp",
             "tgcs",
-            # "airway_ind",
         ],
     },
     "circulatory_failure_at_8h": {

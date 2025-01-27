@@ -71,6 +71,7 @@ def main(
 
     outcomes = [outcome]
 
+    train_config = Path(__file__).parents[3] / "configs" / "train" / "train.gin"
     config_text = Path(config).read_text()
 
     for sources, outcome in product(list_of_sources, outcomes):
@@ -85,7 +86,9 @@ def main(
 
         with config_file.open("w") as f:
             f.write(
-                f"""{config_text}
+                f"""{train_config.read_text()}
+
+{config_text}
 
 sources.sources = {sources}
 outcome.outcome = '{outcome}'
@@ -98,6 +101,7 @@ ALPHA = {alpha.tolist()}
 
 icu_benchmarks.load.load.weighting_exponent = -0.5
 icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
+icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 """
             )
 
@@ -116,7 +120,7 @@ icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
 
-python icu_benchmarks/scripts/cv/{script} --config {config_file.resolve()}"""
+python icu_benchmarks/scripts/train/{script} --config {config_file.resolve()}"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])
