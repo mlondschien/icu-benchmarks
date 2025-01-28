@@ -15,7 +15,7 @@ from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import get_run, log_df
-from icu_benchmarks.models import EmpiricalBayesCV  # noqa F401
+from icu_benchmarks.models import EmpiricalBayesCV, PriorPassthroughCV, RefitInterceptModelCV  # noqa F401
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -57,6 +57,9 @@ def seeds(seeds=gin.REQUIRED):  # noqa D
 def model(model=gin.REQUIRED):  # noqa D
     return model
 
+@gin.configurable
+def name(name="refit"):  # noqa D
+    return name
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -122,13 +125,13 @@ def main(config: str):  # noqa D
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-    with Parallel(n_jobs=-1, prefer="processes") as parallel:
+    with Parallel(n_jobs=1, prefer="processes") as parallel:
         parallel_results = parallel(jobs)
 
     del df, y
 
     results: list[dict] = sum(parallel_results, [])
-    log_df(pl.DataFrame(results), "refit_results.csv", client=client, run_id=run_id)
+    log_df(pl.DataFrame(results), f"{name()}_results.csv", client=client, run_id=run_id)
 
 
 def _refit(

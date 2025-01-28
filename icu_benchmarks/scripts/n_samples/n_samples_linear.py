@@ -81,7 +81,7 @@ def predict_kwargs(predict_kwargs=gin.REQUIRED):
 def main(config: str):  # noqa D
     gin.parse_config_file(config)
 
-    task = TASKS[outcome()]
+    task = TASKS[outcome()]["task"]
     tags = {
         "outcome": outcome(),
         "target": target(),
@@ -136,8 +136,8 @@ def main(config: str):  # noqa D
     df_test, y_test, _ = load(split="test", outcome=outcome())
 
     jobs = []
-    for parameter_idx, parameter in parameters():
-        glm = model()(**parameters)
+    for parameter_idx, parameter in enumerate(parameters()):
+        glm = model()(**parameter)
         pipeline = PipelineCV(steps=[("preprocessor", preprocessor), ("model", glm)])
         details = {
             "model_idx": parameter_idx,

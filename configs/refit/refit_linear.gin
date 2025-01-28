@@ -11,4 +11,5 @@ predict_kwargs.predict_kwargs = {"alpha": %REFIT_ALPHA}
 EmpiricalBayesCV.alpha_search = True
 EmpiricalBayesCV.solver = "irls-cd"
 
+name.name = "refit_emp_bayes"
 model.model = @EmpiricalBayesCV

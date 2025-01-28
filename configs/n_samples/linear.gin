@@ -5,6 +5,11 @@ parameters.parameters = {
     "gamma": [1],
 }
 
+predict_kwargs.predict_kwargs = {
+    "alpha": %ALPHA,
+}
+
+
 AnchorRegression.alpha = %ALPHA
 AnchorRegression.family = "gaussian"
 AnchorRegression.max_iter = 100
