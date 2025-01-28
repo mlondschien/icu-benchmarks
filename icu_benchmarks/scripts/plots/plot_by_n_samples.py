@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import tempfile
@@ -7,9 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-import json
+
 from icu_benchmarks.mlflow_utils import log_fig
-from icu_benchmarks.plotting import PARAMETER_NAMES, plot_by_x
+from icu_benchmarks.plotting import PARAMETER_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -17,21 +18,6 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-
-PARAMETER_NAMES = [
-    "alpha_idx",
-    "alpha",
-    "refit_alpha_idx",
-    "refit_alpha",
-    "l1_ratio",
-    "gamma",
-    "num_boost_round",
-    "num_iteration",
-    "learning_rate",
-    "num_leaves",
-    "ratio",
-    "decay_rate",
-]
 
 SOURCES = [
     "aumc",
@@ -43,6 +29,7 @@ SOURCES = [
 ]
 
 GREATER_IS_BETTER = ["accuracy", "roc", "auprc", "r2"]
+
 
 @click.command()
 @click.option("--target_experiment", type=str)
@@ -57,12 +44,15 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
 
     target_experiment = client.get_experiment_by_name(target_experiment)
     target_run = client.search_runs(
-        experiment_ids=[target_experiment.experiment_id], filter_string="tags.sources = ''"
+        experiment_ids=[target_experiment.experiment_id],
+        filter_string="tags.sources = ''",
     )
     if len(target_run) > 0:
         target_run = target_run[0]
     else:
-        target_run = client.create_run(experiment_id=experiment_id, tags={"sources": ""})
+        target_run = client.create_run(
+            experiment_id=target_experiment.experiment_id, tags={"sources": ""}
+        )
 
     print(f"logging to {target_run.info.run_id}")
 
@@ -78,7 +68,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
 
         experiment_id = experiment.experiment_id
 
-        runs = client.search_runs(          experiment_ids=[experiment_id]       )
+        runs = client.search_runs(experiment_ids=[experiment_id])
 
         all_results = []
         for run in runs:
@@ -104,7 +94,6 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                 client.download_artifacts(run_id, result_file, f)
                 results = pl.read_csv(f"{f}/{result_file}")
 
-
             results = results.with_columns(
                 pl.lit(run_id).alias("run_id"),
                 pl.lit(sources).alias("sources"),
@@ -126,16 +115,22 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                 for n_target in [5, 10, 20, 40, 80, 160, 320, 640, 1280]:
                     for seed in [0, 1, 2, 3, 4]:
                         if metric in GREATER_IS_BETTER:
-                            df = result[result[f"cv_{n_target}_{seed}/{metric}"].arg_max()]
+                            df = result[
+                                result[f"cv_{n_target}_{seed}/{metric}"].arg_max()
+                            ]
                         else:
-                            df = result[result[f"cv_{n_target}_{seed}/{metric}"].arg_min()]
+                            df = result[
+                                result[f"cv_{n_target}_{seed}/{metric}"].arg_min()
+                            ]
 
                         summarized.append(
                             {
                                 "target": target,
                                 "metric": metric,
                                 "cv_value": df[f"cv_{n_target}_{seed}/{metric}"].item(),
-                                "test_value": df[f"test_{n_target}_{seed}/{metric}"].item(),
+                                "test_value": df[
+                                    f"test_{n_target}_{seed}/{metric}"
+                                ].item(),
                                 **{p: df[p].item() for p in parameter_names},
                                 "seed": seed,
                                 "n_target": n_target,
@@ -148,12 +143,29 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
     for metric in metrics:
         fig, axes = plt.subplots(2, 3, figsize=(18, 12))
         for dataset, ax in zip(SOURCES, axes.flat):
-            data = summary.filter((pl.col("target") == dataset) & (pl.col("metric") == metric))
+            data = summary.filter(
+                (pl.col("target") == dataset) & (pl.col("metric") == metric)
+            )
             for result_name in data["result_name"].unique():
                 data_ = data.filter(pl.col("result_name") == result_name)
-                data_ = data_.group_by("n_target").agg([pl.col("test_value").mean().alias("score"), pl.col("test_value").std().alias("std")]).sort("n_target")
+                data_ = (
+                    data_.group_by("n_target")
+                    .agg(
+                        [
+                            pl.col("test_value").mean().alias("score"),
+                            pl.col("test_value").std().alias("std"),
+                        ]
+                    )
+                    .sort("n_target")
+                )
                 ax.plot(data_["n_target"], data_["score"], label=result_name)
-                ax.fill_between(data_["n_target"], data_["score"] - data_["std"], data_["score"] + data_["std"], color="grey", alpha=0.2)
+                ax.fill_between(
+                    data_["n_target"],
+                    data_["score"] - data_["std"],
+                    data_["score"] + data_["std"],
+                    color="grey",
+                    alpha=0.2,
+                )
             ax.set_xscale("log")
             ax.legend()
             ax.set_title(dataset)
@@ -161,5 +173,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
         log_fig(fig, f"n_samples_{metric}.png", client, run_id=target_run.info.run_id)
 
     #  summary.filter(pl.col("metric") == "r2").group_by(["target", "result_name", "n_target"]).agg(pl.col("test_value").mean()).sort(["target", "result_name", "n_target"])
+
+
 if __name__ == "__main__":
     main()

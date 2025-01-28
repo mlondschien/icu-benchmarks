@@ -10,6 +10,7 @@ from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
 
+
 @gin.configurable
 class DataSharedLasso(GeneralizedLinearRegressor):
     """Data Shared Lasso Estimator from S. Gross and R. Tibshirani."""
@@ -476,7 +477,6 @@ class LGBMAnchorModel(BaseEstimator):
             return scores
 
 
-
 class CVMixin:
     """Mixin adding a `fit_predict_cv` method."""
 
@@ -686,7 +686,6 @@ class EmpiricalBayesCV(CVMixin, GeneralizedLinearRegressor):
 
         return super().predict(X, **kwargs)
 
-
     def predict_with_kwargs(self, X, predict_kwargs=None):
         """
         Predict the outcome for each kwarg in predict_kwargs.
@@ -770,6 +769,7 @@ class RefitLGBMModel(CVMixin, BaseEstimator):
             X = X.to_arrow()
         return self.model.predict(X, num_iteration=num_iteration)
 
+
 @gin.configurable
 class RefitInterceptModelCV(CVMixin):
     """Model that refits the intercept on new data."""
@@ -787,6 +787,7 @@ class RefitInterceptModelCV(CVMixin):
     def predict(self, X, **kwargs):
         """Return prior's predictions, adjusted by the offset."""
         return self.prior.predict(X, **kwargs) + self.offset
+
 
 @gin.configurable
 class PriorPassthroughCV(CVMixin):

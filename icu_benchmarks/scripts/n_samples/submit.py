@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from icu_benchmarks.constants import DATASETS, OBSERVATIONS_PER_GB, TASKS
+from icu_benchmarks.constants import OBSERVATIONS_PER_GB, TASKS
 from icu_benchmarks.slurm_utils import setup_mlflow_server
 
 SOURCES = [
