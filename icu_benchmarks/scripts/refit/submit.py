@@ -56,6 +56,9 @@ def main(
     stem = Path(config).stem
 
     for run in runs:
+        if run.data.tags["sources"] == "":
+            continue
+
         alpha_max = TASKS[run.data.tags["outcome"]]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)
 
@@ -99,7 +102,7 @@ get_run.tracking_uri = "http://{ip}:{port}"
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --time={hours}:00:00
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem-per-cpu=8G
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
 

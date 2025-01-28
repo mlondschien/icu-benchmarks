@@ -10,7 +10,6 @@ from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
 
-
 @gin.configurable
 class DataSharedLasso(GeneralizedLinearRegressor):
     """Data Shared Lasso Estimator from S. Gross and R. Tibshirani."""
@@ -477,136 +476,6 @@ class LGBMAnchorModel(BaseEstimator):
             return scores
 
 
-@gin.configurable
-class EmpiricalBayes(GeneralizedLinearRegressor):
-    """
-    Empirical Bayes elastic net Regression with prior around beta_prior.
-
-    This optimizes
-    1 / n_train ||y - X beta||^2 + l1_ratio * alpha || beta - beta_prior ||_2^2 +
-    (1 - l1_ratio) * alpha || beta - beta_prior ||_1
-    over `beta`.
-
-    Parameters
-    ----------
-    alpha : float
-        Regularization parameter.
-    prior : glum.GeneralizedLinearRegressor
-        Prior.
-    P2 : np.array
-        Standard deviation of beta for each feature.
-    fit_intercept : bool
-        Whether to fit an intercept.
-    """
-
-    def __init__(
-        self,
-        prior=None,
-        prior_alpha=None,
-        alpha=None,
-        l1_ratio=0,
-        P1="identity",
-        P2="identity",
-        fit_intercept=True,
-        family="normal",
-        link="auto",
-        solver="auto",
-        max_iter=100,
-        max_inner_iter=100000,
-        gradient_tol=None,
-        step_size_tol=None,
-        hessian_approx=0.0,
-        warm_start=False,
-        alpha_search=False,
-        alphas=None,
-        n_alphas=100,
-        min_alpha_ratio=None,
-        min_alpha=None,
-        start_params=None,
-        selection="cyclic",
-        random_state=None,
-        copy_X=None,
-        check_input=True,
-        verbose=0,
-        scale_predictors=False,
-        lower_bounds=None,
-        upper_bounds=None,
-        A_ineq=None,
-        b_ineq=None,
-        force_all_finite=True,
-        drop_first=False,
-        robust=True,
-        expected_information=False,
-        formula=None,
-        interaction_separator=":",
-        categorical_format="{name}[{category}]",
-        cat_missing_method="fail",
-        cat_missing_name="(MISSING)",
-    ):
-        super().__init__(
-            alpha=alpha,
-            l1_ratio=l1_ratio,
-            P1=P1,
-            P2=P2,
-            fit_intercept=fit_intercept,
-            family=family,
-            link=link,
-            solver=solver,
-            max_iter=max_iter,
-            max_inner_iter=max_inner_iter,
-            gradient_tol=gradient_tol,
-            step_size_tol=step_size_tol,
-            hessian_approx=hessian_approx,
-            warm_start=warm_start,
-            alpha_search=alpha_search,
-            alphas=alphas,
-            n_alphas=n_alphas,
-            min_alpha_ratio=min_alpha_ratio,
-            min_alpha=min_alpha,
-            start_params=start_params,
-            selection=selection,
-            random_state=random_state,
-            copy_X=copy_X,
-            check_input=check_input,
-            verbose=verbose,
-            scale_predictors=scale_predictors,
-            lower_bounds=lower_bounds,
-            upper_bounds=upper_bounds,
-            A_ineq=A_ineq,
-            b_ineq=b_ineq,
-            force_all_finite=force_all_finite,
-            drop_first=drop_first,
-            robust=robust,
-            expected_information=expected_information,
-            formula=formula,
-            interaction_separator=interaction_separator,
-            categorical_format=categorical_format,
-            cat_missing_method=cat_missing_method,
-            cat_missing_name=cat_missing_name,
-        )
-        self.prior = prior
-        if prior_alpha is not None:
-            # https://github.com/Quantco/glum/blob/b471522c611b263c00ae841fd0f46660c31a\
-            # 6d5f/src/glum/_glm.py#L1297
-            isclose = np.isclose(self.prior._alphas, prior_alpha, atol=1e-12)
-            if np.sum(isclose) == 1:
-                prior_alpha_idx = np.argmax(isclose)  # cf. stackoverflow.com/a/61117770
-            else:
-                raise ValueError(f"Could not get index for prior_alpha {prior_alpha}.")
-
-            self.prior.intercept_ = self.prior.intercept_path_[prior_alpha_idx]
-            self.prior.coef_ = self.prior.coef_path_[prior_alpha_idx]
-
-    def fit(self, X, y):  # noqa D
-        offset = self.prior.linear_predictor(X)
-        super().fit(X, y, offset=offset)
-
-        return self
-
-    def predict(self, X, **kwargs):  # noqa D
-        offset = self.prior.linear_predictor(X)
-        return super().predict(X, offset=offset, **kwargs)
-
 
 class CVMixin:
     """Mixin adding a `fit_predict_cv` method."""
@@ -681,12 +550,14 @@ class CVMixin:
 
 
 @gin.configurable
-class EmpiricalBayesCV(CVMixin, EmpiricalBayes):
+class EmpiricalBayesCV(CVMixin, GeneralizedLinearRegressor):
     """
     Empirical Bayes elastic net Regression with prior around beta_prior.
 
-    Additionally to `EmpiricalBayesRidge`, this class has a `fit_predict_cv` method
-    that performs cross-validation to predict the outcome.
+    This optimizes
+    1 / n_train ||y - X beta||^2 + l1_ratio * alpha || beta - beta_prior ||_2^2 +
+    (1 - l1_ratio) * alpha || beta - beta_prior ||_1
+    over `beta`.
 
     Parameters
     ----------
@@ -749,8 +620,6 @@ class EmpiricalBayesCV(CVMixin, EmpiricalBayes):
         cat_missing_name="(MISSING)",
     ):
         super().__init__(
-            prior=prior,
-            prior_alpha=prior_alpha,
             cv=cv,
             alpha=alpha,
             l1_ratio=l1_ratio,
@@ -792,10 +661,35 @@ class EmpiricalBayesCV(CVMixin, EmpiricalBayes):
             cat_missing_method=cat_missing_method,
             cat_missing_name=cat_missing_name,
         )
+        self.prior = prior
+        if prior_alpha is not None:
+            # https://github.com/Quantco/glum/blob/b471522c611b263c00ae841fd0f46660c31a\
+            # 6d5f/src/glum/_glm.py#L1297
+            isclose = np.isclose(self.prior._alphas, prior_alpha, atol=1e-12)
+            if np.sum(isclose) == 1:
+                prior_alpha_idx = np.argmax(isclose)  # cf. stackoverflow.com/a/61117770
+            else:
+                raise ValueError(f"Could not get index for prior_alpha {prior_alpha}.")
+
+            self.prior.intercept_ = self.prior.intercept_path_[prior_alpha_idx]
+            self.prior.coef_ = self.prior.coef_path_[prior_alpha_idx]
+
+    def fit(self, X, y):  # noqa D
+        offset = self.prior.linear_predictor(X)
+        super().fit(X, y, offset=offset)
+
+        return self
+
+    def predict(self, X, **kwargs):  # noqa D
+        if "offset" not in kwargs:
+            kwargs["offset"] = self.prior.linear_predictor(X)
+
+        return super().predict(X, **kwargs)
+
 
     def predict_with_kwargs(self, X, predict_kwargs=None):
         """
-        Predict the outcome for each kwargs in predict_kwargs.
+        Predict the outcome for each kwarg in predict_kwargs.
 
         This overwrites the `predict_with_kwargs` method from `CVMixin` to only compute
         offset once.
@@ -820,7 +714,7 @@ class EmpiricalBayesCV(CVMixin, EmpiricalBayes):
         offset = self.prior.linear_predictor(X)
         yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)
         for idx, predict_kwarg in enumerate(predict_kwargs):
-            yhat[:, idx] = super().predict(X, offset=offset, **predict_kwarg)
+            yhat[:, idx] = self.predict(X, offset=offset, **predict_kwarg)
 
         return yhat
 
@@ -876,29 +770,29 @@ class RefitLGBMModel(CVMixin, BaseEstimator):
             X = X.to_arrow()
         return self.model.predict(X, num_iteration=num_iteration)
 
-
+@gin.configurable
 class RefitInterceptModelCV(CVMixin):
     """Model that refits the intercept on new data."""
 
-    def __init__(self, prior=None, cv=None):
+    def __init__(self, prior=None, cv=5):
         super().__init__(cv=cv)
         self.prior = prior
         self.offset = 0
 
     def fit(self, X, y, sample_weight=None):
         """Compute by how much the prior's intercept needs to be adjusted."""
-        self.offset = y.mean() - self.prior.predict(X)
+        self.offset = y.mean() - self.prior.predict(X).mean()
         return self
 
     def predict(self, X, **kwargs):
         """Return prior's predictions, adjusted by the offset."""
         return self.prior.predict(X, **kwargs) + self.offset
 
-
+@gin.configurable
 class PriorPassthroughCV(CVMixin):
     """Model that simply uses the prior for predictions."""
 
-    def __init__(self, prior, cv=None):
+    def __init__(self, prior, cv=5):
         super().__init__(cv=cv)
         self.prior = prior
 
@@ -938,6 +832,7 @@ class PriorPassthroughCV(CVMixin):
         return self.predict_with_kwargs(X, predict_kwargs)
 
 
+@gin.configurable
 class PipelineCV(CVMixin, Pipeline):  # noqa D
-    def __init__(self, steps, cv=None):
+    def __init__(self, steps, cv=5):
         super().__init__(cv=cv, steps=steps)

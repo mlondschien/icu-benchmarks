@@ -72,7 +72,7 @@ def main(
 {config_text}
 
 outcome.outcome = '{outcome}'
-target.target = {DATASETS}
+target.target = '{source}'
 
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"

@@ -125,14 +125,13 @@ def main(config: str):  # noqa D
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-    with Parallel(n_jobs=1, prefer="processes") as parallel:
+    with Parallel(n_jobs=-1, prefer="processes") as parallel:
         parallel_results = parallel(jobs)
 
     del df, y
 
     results: list[dict] = sum(parallel_results, [])
     log_df(pl.DataFrame(results), f"{name()}_results.csv", client=client, run_id=run_id)
-
 
 def _refit(
     refit_model,
@@ -166,7 +165,7 @@ def _refit(
                 for idx in range(len(predict_kwargs))
             ]
 
-    out = [
+    return [
         {
             **details,
             **{
@@ -183,7 +182,6 @@ def _refit(
         }
         for idx, predict_kwarg in enumerate(predict_kwargs)
     ]
-    return out
 
 
 if __name__ == "__main__":
