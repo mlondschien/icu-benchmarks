@@ -33,7 +33,7 @@ SOURCES = [
     type=str,
     default="file:///cluster/work/math/lmalte/mlflow/artifacts",
 )
-@click.option("--script", type=str, default="n_samples_linear.py")
+@click.option("--script", type=str, default="n_samples.py")
 def main(
     config: str,
     hours: int,

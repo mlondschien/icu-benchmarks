@@ -18,13 +18,8 @@ from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
-from icu_benchmarks.models import (  # noqa F401
-    AnchorRegression,
-    DataSharedLasso,
-    EmpiricalBayesCV,
-    PipelineCV,
-)
-
+from icu_benchmarks.models import PipelineCV
+from icu_benchmarks.preprocessing import get_preprocessing
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -95,31 +90,7 @@ def main(config: str):  # noqa D
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
-    continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float()]
-    bool_variables = [col for col in df.columns if df[col].dtype == pl.Boolean]
-    other = [
-        col for col in df.columns if col not in continuous_variables + bool_variables
-    ]
-
-    scaler = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
-    imputer = StandardScaler(copy=False)
-    preprocessor = ColumnTransformer(
-        transformers=[
-            (
-                "continuous",
-                Pipeline([("impute", imputer), ("scale", scaler)]),
-                continuous_variables,
-            ),
-            ("bool", "passthrough", bool_variables),
-            (
-                "other",
-                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-                other,
-            ),
-        ],
-        sparse_threshold=0,
-        verbose=1,
-    ).set_output(transform="polars")
+    preprocessor = get_preprocessing(model(), df)
 
     hashes = hashes.sort()
     data = {}
@@ -202,7 +173,7 @@ def _fit(
                 for idx in range(len(predict_kwargs))
             ]
 
-    out = [
+    return [
         {
             **details,
             **{
@@ -219,7 +190,6 @@ def _fit(
         }
         for idx, predict_kwarg in enumerate(predict_kwargs)
     ]
-    return out
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import click
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-
+from icu_benchmarks.mlflow_utils import log_df
 from icu_benchmarks.constants import DATASETS
 
 GREATER_IS_BETTER = ["accuracy", "roc", "auprc", "r2"]
@@ -57,6 +57,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
             pl.lit(run.data.tags["sources"]).alias("sources"),
             pl.lit(run.data.tags["outcome"]).alias("outcome"),
         )
+        results = results.drop(pl.col(c) for c in results.columns if "/r2" in c)
         all_results.append(results)
 
     parameter_names = [
@@ -65,6 +66,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
             "alpha_idx",
             "l1_ratio",
             "gamma",
+            "ratio",
             "num_boost_round",
             "num_iteration",
             "learning_rate",
@@ -139,6 +141,22 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                 .filter(pl.col("metric").eq(metric))
                 .sort("target")
             )
+    
+    target_run = client.search_runs(
+        experiment_ids=[experiment_id], filter_string="tags.sources = ''"
+    )
+    if len(target_run) > 0:
+        target_run = target_run[0]
+    else:
+        target_run = client.create_run(experiment_id=experiment_id, tags={"sources": ""})
+    
+    print(f"logging to {target_run.info.run_id}")
+    log_df(
+        pl.DataFrame(cv_results),
+        "cv_results.csv",
+        client,
+        target_run.info.run_id,
+    )
 
 
 if __name__ == "__main__":

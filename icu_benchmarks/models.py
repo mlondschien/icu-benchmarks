@@ -197,7 +197,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
 
         return self
 
-    def predict(self, X, **kwargs):  # noqa: D
+    def linear_predictor(self, X, **kwargs):
         if isinstance(X, np.ndarray):
             X_interacted = np.hstack(
                 [X, np.zeros((X.shape[0], len(self.fit_datasets_) * (X.shape[1] + 1)))]
@@ -218,8 +218,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
         if isinstance(X_interacted, pl.DataFrame):
             X_interacted = tabmat.from_df(X_interacted)
 
-        return super().predict(X_interacted, **kwargs)
-
+        return super().linear_predictor(X_interacted, **kwargs)
 
 @gin.configurable
 class AnchorRegression(GeneralizedLinearRegressor):
@@ -398,9 +397,15 @@ class LGBMAnchorModel(BaseEstimator):
         Number of boosting rounds.
     """
 
-    def __init__(self, objective, params, num_boost_round=100):
+    def __init__(self, objective, num_leaves=31, learning_rate=0.1, gamma=1, seed=0, deterministic=True, num_boost_round=100):
         self.objective = objective
-        self.params = params
+        self.gamma = gamma
+        self.params = {
+            "num_leaves": num_leaves,
+            "learning_rate": learning_rate,
+            "seed": seed,
+            "deterministic": deterministic
+        }
         self.num_boost_round = num_boost_round
         self.booster = None
 
@@ -426,12 +431,11 @@ class LGBMAnchorModel(BaseEstimator):
             if not dtype.is_float() and not dtype == pl.Boolean
         ]
 
-        if "gamma" in self.params:
-            self.objective = self.objective(
-                self.params.pop("gamma"), categories=np.unique(dataset)
-            )
+        if not isinstance(self.objective, str):
+            self.objective = self.objective(self.gamma, categories=np.unique(dataset))
+            self.params["objective"] = self.objective.objective
         else:
-            self.objective = self.objective()
+            self.params["objective"] = self.objective
 
         data = lgb.Dataset(
             X.to_arrow(),
@@ -442,8 +446,6 @@ class LGBMAnchorModel(BaseEstimator):
             feature_name=X.columns,
         )
         data.anchor = dataset
-
-        self.params["objective"] = self.objective.objective
 
         self.booster = lgb.train(
             params=self.params,
@@ -719,7 +721,7 @@ class EmpiricalBayesCV(CVMixin, GeneralizedLinearRegressor):
 
 
 @gin.configurable
-class RefitLGBMModel(CVMixin, BaseEstimator):
+class RefitLGBMModelCV(CVMixin, BaseEstimator):
     """
     LGBM Model that gets refit on new data.
 

@@ -9,6 +9,7 @@ from icu_benchmarks.benchmarks import severinghaus_spo2_to_po2
 from icu_benchmarks.constants import DATASETS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
+from icu_benchmarks.mlflow_utils import log_df
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -61,13 +62,22 @@ def main(target_experiment, tracking_uri, data_dir):  # noqa D
 
 
         yhat = np.log(severinghaus_spo2_to_po2(sao2 / 100))
-        results.append(
+        results += [
             {
                 "target": target,
-                **metrics(y, yhat, "", "regression"),
-            }
+                "target_value": value,
+                "metric": key
+
+            } for key, value in metrics(y, yhat, "", "regression").items()
+        ]
+
+        print(f"logging to {target_run.info.run_id}")
+        log_df(
+            pl.DataFrame(results),
+            "benchmark_results.csv",
+            client,
+            target_run.info.run_id,
         )
-        print(results[-1])
 
 
 if __name__ == "__main__":

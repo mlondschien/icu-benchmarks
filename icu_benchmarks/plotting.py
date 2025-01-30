@@ -194,9 +194,6 @@ def plot_by_x(results, x, metric, aggregation="mean"):
 
     sources = results["sources"].explode().unique().to_list()
 
-    metrics = map(re.compile(r"^[a-z]+\/train\/(.+)$").match, results.columns)
-    metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
-
     results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
     results_n1 = results.filter(pl.col("sources").list.len() == len(sources) - 1)
 
@@ -305,7 +302,7 @@ def plot_by_x(results, x, metric, aggregation="mean"):
         # )
 
         ymin, ymax = ax.get_ylim()
-        variable = "num_iteration"
+        variable = "alpha"
         if metric in GREATER_IS_BETTER:
             ymax = max(cur_results_n1[f"{target}/test/{metric}"].max(), ymax)
             var_min = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") >= ymin)[variable].min()
