@@ -1,5 +1,3 @@
-import re
-
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
@@ -201,7 +199,6 @@ def plot_by_x(results, x, metric, aggregation="mean"):
 
     fig, axes = plt.subplots(2, len(sources) // 2, figsize=(2.5 * len(sources), 10))
 
-
     for target, ax in zip(sorted(sources), axes.flat[: len(sources)]):
         # cv_results are results where the current target and one additional dataset
         # were held out. For these, we will aggregate the value of `metric` on the
@@ -245,7 +242,9 @@ def plot_by_x(results, x, metric, aggregation="mean"):
         cv_grouped = cv_results.group_by(param_names + [x]).agg(agg.alias(cv_col))
 
         # cv_best is the row in cv_grouped with the best value of `metric`.
-        cv_top_5 = cv_grouped.top_k(5, by=cv_col, reverse=cv_col not in GREATER_IS_BETTER).sort(cv_col, descending=cv_col in GREATER_IS_BETTER)
+        cv_top_5 = cv_grouped.top_k(
+            5, by=cv_col, reverse=cv_col not in GREATER_IS_BETTER
+        ).sort(cv_col, descending=cv_col in GREATER_IS_BETTER)
 
         # cur_results_n1 are results where only target was held out (cur for this loop)
         cur_results_n1 = results_n1.filter(~pl.col("sources").list.contains(target))
@@ -305,20 +304,33 @@ def plot_by_x(results, x, metric, aggregation="mean"):
         variable = "alpha"
         if metric in GREATER_IS_BETTER:
             ymax = max(cur_results_n1[f"{target}/test/{metric}"].max(), ymax)
-            var_min = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") >= ymin)[variable].min()
-            var_max = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") >= ymin)[variable].max()
+            var_min = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") >= ymin)[
+                variable
+            ].min()
+            var_max = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") >= ymin)[
+                variable
+            ].max()
         else:
             ymin = min(cur_results_n1[f"{target}/test/{metric}"].min(), ymin)
-            var_min = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") <= ymax)[variable].min()
-            var_max = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") <= ymax)[variable].max()
+            var_min = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") <= ymax)[
+                variable
+            ].min()
+            var_max = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") <= ymax)[
+                variable
+            ].max()
 
         for _, group in cur_results_n1.group_by(param_names):
             group = group.sort(x)
             var = group[variable].first() / cur_results_n1[variable].max()
             color = np.clip((var - var_min) / (var_max - var_min), 0, 1)
-            if 0 <= color <=1:
-                ax.plot(group[x], group[f"{target}/test/{metric}"], color=(color, 1 - color, 0), alpha=0.1)
-        
+            if 0 <= color <= 1:
+                ax.plot(
+                    group[x],
+                    group[f"{target}/test/{metric}"],
+                    color=(color, 1 - color, 0),
+                    alpha=0.1,
+                )
+
         ax.set_title(target)
         ax.set_ylim(ymin, ymax)
         if x in ["gamma", "alpha", "ratio", "learning_rate"]:

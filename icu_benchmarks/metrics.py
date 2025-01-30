@@ -3,7 +3,6 @@ from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
     log_loss,
-    r2_score,
     roc_auc_score,
 )
 
@@ -33,8 +32,7 @@ def metrics(y, yhat, prefix, task):  # noqa D
         abs_residuals = np.abs(y - yhat)
         quantiles = np.quantile(abs_residuals, [0.8, 0.9, 0.95])
         return {
-            # f"{prefix}r2": r2_score(y, yhat),
-            f"{prefix}mse": np.mean(abs_residuals ** 2),
+            f"{prefix}mse": np.mean(abs_residuals**2),
             f"{prefix}mae": np.mean(abs_residuals),
             f"{prefix}quantile_0.8": quantiles[0],
             f"{prefix}quantile_0.9": quantiles[1],

@@ -9,9 +9,7 @@ import polars as pl
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.mlflow_utils import log_fig
-from icu_benchmarks.plotting import PARAMETER_NAMES, plot_by_x
-import json
-from icu_benchmarks.constants import TASKS
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -21,6 +19,7 @@ logging.basicConfig(
 
 GREATER_IS_BETTER = ["auc", "auprc", "accuracy", "prc", "r2"]
 SOURCES = sorted(["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"])
+
 
 @click.command()
 @click.option("--target_experiment", type=str)
@@ -52,7 +51,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
         experiment_name, name = result_name.split("/")
         experiment = client.get_experiment_by_name(experiment_name)
         runs = client.search_runs(
-           experiment_ids=[experiment_id], filter_string="tags.sources != ''"
+            experiment_ids=[experiment_id], filter_string="tags.sources != ''"
         )
         if len(runs) != 1:
             raise ValueError(f"Expected exactly one run. Got {runs:}")
@@ -82,7 +81,12 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
             for result_name in sorted(data["name"].unique()):
                 data_ = data.filter(pl.col("result_name") == result_name)
                 if len(data_) == 1:
-                    ax.hline(data_["test_value"].first(), xmin=data["n_samples"].min(), xmax=data["n_samples"].max(), label=result_name)
+                    ax.hline(
+                        data_["test_value"].first(),
+                        xmin=data["n_samples"].min(),
+                        xmax=data["n_samples"].max(),
+                        label=result_name,
+                    )
                     continue
 
                 data_ = (

@@ -60,15 +60,10 @@ def main(target_experiment, tracking_uri, data_dir):  # noqa D
             .fill_null(pl.col("sao2_ffilled").mean())
         ).to_numpy()
 
-
         yhat = np.log(severinghaus_spo2_to_po2(sao2 / 100))
         results += [
-            {
-                "target": target,
-                "target_value": value,
-                "metric": key
-
-            } for key, value in metrics(y, yhat, "", "regression").items()
+            {"target": target, "target_value": value, "metric": key}
+            for key, value in metrics(y, yhat, "", "regression").items()
         ]
 
         print(f"logging to {target_run.info.run_id}")

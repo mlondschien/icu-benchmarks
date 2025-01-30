@@ -1,12 +1,13 @@
+import numpy as np
+import polars as pl
+from glum import GeneralizedLinearRegressor
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler,OrdinalEncoder 
-import polars as pl
-import numpy as np
-from glum import GeneralizedLinearRegressor
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 
-def get_preprocessing(model, df):
+
+def get_preprocessing(model, df):  # noqa D
     continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float()]
     bool_variables = [col for col in df.columns if df[col].dtype == pl.Boolean]
     other = [
@@ -16,7 +17,7 @@ def get_preprocessing(model, df):
     if isinstance(model, GeneralizedLinearRegressor):
         scaler = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
         imputer = StandardScaler(copy=False)
-        preprocessor =  ColumnTransformer(
+        preprocessor = ColumnTransformer(
             transformers=[
                 (
                     "continuous",
@@ -37,9 +38,14 @@ def get_preprocessing(model, df):
         preprocessor = ColumnTransformer(
             transformers=[
                 ("continuous", "passthrough", continuous_variables),
-                ("categorical", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=np.nan), other),
+                (
+                    "categorical",
+                    OrdinalEncoder(
+                        handle_unknown="use_encoded_value", unknown_value=np.nan
+                    ),
+                    other,
+                ),
             ]
         ).set_output(transform="polars")
 
     return preprocessor
-        

@@ -7,8 +7,10 @@ import click
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-from icu_benchmarks.plotting import PARAMETER_NAMES
+
 from icu_benchmarks.mlflow_utils import log_df
+from icu_benchmarks.plotting import PARAMETER_NAMES
+
 GREATER_IS_BETTER = ["accuracy", "roc", "auprc", "r2"]
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 
@@ -28,7 +30,7 @@ logging.basicConfig(
     type=str,
     default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
 )
-def main(experiment_name: str, result_name:str, tracking_uri: str):  # noqa D
+def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
 
     experiment = client.get_experiment_by_name(experiment_name)
@@ -40,7 +42,8 @@ def main(experiment_name: str, result_name:str, tracking_uri: str):  # noqa D
         target_run = target_run[0]
     else:
         target_run = client.create_run(
-            experiment_id=experiment.experiment_id, tags={"sources": "", "summary_run": True}
+            experiment_id=experiment.experiment_id,
+            tags={"sources": "", "summary_run": True},
         )
 
     logger.info(f"logging to {target_run.info.run_id}")
@@ -118,7 +121,7 @@ def main(experiment_name: str, result_name:str, tracking_uri: str):  # noqa D
                                 "result_name": result_name,
                             }
                         )
-            
+
     result = pl.DataFrame(summarized)
     log_df(result, f"{result_name}_results.csv", client, run_id=target_run.info.run_id)
 

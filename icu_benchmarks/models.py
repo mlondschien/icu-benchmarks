@@ -197,7 +197,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
 
         return self
 
-    def linear_predictor(self, X, **kwargs):
+    def linear_predictor(self, X, **kwargs):  # noqa D
         if isinstance(X, np.ndarray):
             X_interacted = np.hstack(
                 [X, np.zeros((X.shape[0], len(self.fit_datasets_) * (X.shape[1] + 1)))]
@@ -219,6 +219,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
             X_interacted = tabmat.from_df(X_interacted)
 
         return super().linear_predictor(X_interacted, **kwargs)
+
 
 @gin.configurable
 class AnchorRegression(GeneralizedLinearRegressor):
@@ -397,14 +398,23 @@ class LGBMAnchorModel(BaseEstimator):
         Number of boosting rounds.
     """
 
-    def __init__(self, objective, num_leaves=31, learning_rate=0.1, gamma=1, seed=0, deterministic=True, num_boost_round=100):
+    def __init__(
+        self,
+        objective,
+        num_leaves=31,
+        learning_rate=0.1,
+        gamma=1,
+        seed=0,
+        deterministic=True,
+        num_boost_round=100,
+    ):
         self.objective = objective
         self.gamma = gamma
         self.params = {
             "num_leaves": num_leaves,
             "learning_rate": learning_rate,
             "seed": seed,
-            "deterministic": deterministic
+            "deterministic": deterministic,
         }
         self.num_boost_round = num_boost_round
         self.booster = None

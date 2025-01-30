@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 import numpy as np
 
-from icu_benchmarks.constants import DATASETS, OBSERVATIONS_PER_GB, TASKS
+from icu_benchmarks.constants import DATASETS, TASKS
 from icu_benchmarks.slurm_utils import setup_mlflow_server
 
 SOURCES = [
@@ -75,7 +75,7 @@ def main(
     config_text = Path(config).read_text()
 
     for sources, outcome in product(list_of_sources, outcomes):
-        n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
+        # n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
 
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)[:-4:2]
@@ -105,8 +105,8 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 """
             )
 
-        required_memory = n_samples / OBSERVATIONS_PER_GB
-        n_cpus = min(64, max(4, required_memory))
+        # required_memory = n_samples / OBSERVATIONS_PER_GB
+        # n_cpus = min(64, max(4, required_memory))
 
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:

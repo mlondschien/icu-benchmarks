@@ -6,8 +6,9 @@ import click
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-from icu_benchmarks.mlflow_utils import log_df
+
 from icu_benchmarks.constants import DATASETS
+from icu_benchmarks.mlflow_utils import log_df
 
 GREATER_IS_BETTER = ["accuracy", "roc", "auprc", "r2"]
 
@@ -141,15 +142,17 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                 .filter(pl.col("metric").eq(metric))
                 .sort("target")
             )
-    
+
     target_run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"
     )
     if len(target_run) > 0:
         target_run = target_run[0]
     else:
-        target_run = client.create_run(experiment_id=experiment_id, tags={"sources": ""})
-    
+        target_run = client.create_run(
+            experiment_id=experiment_id, tags={"sources": ""}
+        )
+
     print(f"logging to {target_run.info.run_id}")
     log_df(
         pl.DataFrame(cv_results),

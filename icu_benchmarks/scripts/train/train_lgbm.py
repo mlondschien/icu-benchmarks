@@ -84,7 +84,13 @@ def main(config: str):  # noqa D
     preprocessor = ColumnTransformer(
         transformers=[
             ("continuous", "passthrough", continuous_variables),
-            ("categorical", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=np.nan), other),
+            (
+                "categorical",
+                OrdinalEncoder(
+                    handle_unknown="use_encoded_value", unknown_value=np.nan
+                ),
+                other,
+            ),
         ]
     ).set_output(transform="polars")
 
@@ -99,8 +105,7 @@ def main(config: str):  # noqa D
     for parameter_idx, parameter in enumerate(parameters()):
         logger.info(f"Fitting the lgbm model with {parameter}")
         tic = perf_counter()
-        objective = parameter.pop("objective")
-        model = LGBMAnchorModel(params=parameter, objective=objective)
+        model = LGBMAnchorModel(**parameter)
         model.fit(df, y, sample_weight=weights, dataset=dataset.to_numpy())
         toc = perf_counter()
         logger.info(f"Fitting the glm with {parameter} took {toc - tic:.1f} seconds")

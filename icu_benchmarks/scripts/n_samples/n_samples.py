@@ -8,11 +8,7 @@ import gin
 import numpy as np
 import polars as pl
 from joblib import Parallel, delayed
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
 from sklearn.model_selection import ParameterGrid
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
@@ -20,6 +16,7 @@ from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
 from icu_benchmarks.models import PipelineCV
 from icu_benchmarks.preprocessing import get_preprocessing
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
