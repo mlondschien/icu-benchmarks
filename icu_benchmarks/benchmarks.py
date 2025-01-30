@@ -59,6 +59,7 @@ def severinghaus_spo2_to_po2(spo2, temp=None, ph=None):
     30 57.54 70 94.06 400 99.65
     32 61.69 75 95.10 500 99.72
     """
+    spo2 = np.minimum(spo2, 0.997)
     inner = spo2 * 11_700 / (1 - spo2)
     po2 = np.pow(inner + np.sqrt(125_000 + inner**2), 1 / 3) - np.pow(
         -inner + np.sqrt(125_000 + inner**2), 1 / 3

@@ -204,10 +204,6 @@ def plot_by_x(results, x, metric, aggregation="mean"):
 
     fig, axes = plt.subplots(2, len(sources) // 2, figsize=(2.5 * len(sources), 10))
 
-    def argbest(df, col, metric):
-        if metric in GREATER_IS_BETTER:
-            return df[df[col].arg_max()]
-        return df[df[col].arg_min()]
 
     for target, ax in zip(sorted(sources), axes.flat[: len(sources)]):
         # cv_results are results where the current target and one additional dataset
@@ -250,56 +246,82 @@ def plot_by_x(results, x, metric, aggregation="mean"):
             raise ValueError(f"Unknown aggregation {aggregation}")
 
         cv_grouped = cv_results.group_by(param_names + [x]).agg(agg.alias(cv_col))
+
         # cv_best is the row in cv_grouped with the best value of `metric`.
-        cv_best = argbest(cv_grouped, cv_col, metric)
+        cv_top_5 = cv_grouped.top_k(5, by=cv_col, reverse=cv_col not in GREATER_IS_BETTER).sort(cv_col, descending=cv_col in GREATER_IS_BETTER)
 
         # cur_results_n1 are results where only target was held out (cur for this loop)
         cur_results_n1 = results_n1.filter(~pl.col("sources").list.contains(target))
-        # We filter cur_results_n1 to only include rows with the best parameters
-        # (according to cv), except for x, along which we plot. sort by x for plotting.
-        _filter = pl.all_horizontal(pl.col(p).eq(cv_best[p]) for p in param_names)
-        cur_results_n1_cv = cur_results_n1.filter(_filter).sort(x)
 
-        ax.plot(
-            cur_results_n1_cv[x],
-            cur_results_n1_cv[f"{target}/test/{metric}"],
-            label="model chosen by cv",
-            color="blue",
-            zorder=3,
-        )
-        _filter = pl.col(x) == cv_best[x].item()
-        ax.scatter(
-            cur_results_n1_cv.filter(_filter)[x],
-            cur_results_n1_cv.filter(_filter)[f"{target}/test/{metric}"],
-            color="blue",
-            zorder=3,
-            marker="*",
-        )
+        for k in range(5):
+            cv_best = cv_top_5[k]
 
-        oracle_best = argbest(cur_results_n1, f"{target}/train/{metric}", metric)
-        _filter = pl.all_horizontal(pl.col(p).eq(oracle_best[p]) for p in param_names)
-        oracle_results = cur_results_n1.filter(_filter).sort(x)
+            # We filter cur_results_n1 to only include rows with the best parameters
+            # (according to cv), except for x, along which we plot. sort by x for plotting.
+            _filter = pl.all_horizontal(pl.col(p).eq(cv_best[p]) for p in param_names)
+            cur_results_n1_cv = cur_results_n1.filter(_filter).sort(x)
 
-        ax.plot(
-            oracle_results[x],
-            oracle_results[f"{target}/test/{metric}"],
-            label="oracle model",
-            color="black",
-            zorder=2,
-        )
-        ax.scatter(
-            oracle_best[x],
-            oracle_best[f"{target}/test/{metric}"],
-            color="black",
-            zorder=2,
-            marker="*",
-        )
+            if k == 0:
+                ax.plot(
+                    cur_results_n1_cv[x],
+                    cur_results_n1_cv[f"{target}/test/{metric}"],
+                    label="model chosen by cv",
+                    color="blue",
+                    zorder=3,
+                )
+            _filter = pl.col(x) == cv_best[x].item()
+            ax.scatter(
+                cur_results_n1_cv.filter(_filter)[x],
+                cur_results_n1_cv.filter(_filter)[f"{target}/test/{metric}"],
+                color="blue",
+                zorder=3,
+                marker="*",
+            )
+            ax.text(
+                cur_results_n1_cv.filter(_filter)[x].item(),
+                cur_results_n1_cv.filter(_filter)[f"{target}/test/{metric}"].item(),
+                str(k + 1),
+                color="black",
+                zorder=2,
+            )
+
+        # oracle_best = argbest(cur_results_n1, f"{target}/train/{metric}", metric)
+        # _filter = pl.all_horizontal(pl.col(p).eq(oracle_best[p]) for p in param_names)
+        # oracle_results = cur_results_n1.filter(_filter).sort(x)
+
+        # ax.plot(
+        #     oracle_results[x],
+        #     oracle_results[f"{target}/test/{metric}"],
+        #     label="oracle model",
+        #     color="black",
+        #     zorder=2,
+        # )
+        # ax.scatter(
+        #     oracle_best[x],
+        #     oracle_best[f"{target}/test/{metric}"],
+        #     color="black",
+        #     zorder=2,
+        #     marker="*",
+        # )
 
         ymin, ymax = ax.get_ylim()
+        variable = "num_iteration"
+        if metric in GREATER_IS_BETTER:
+            ymax = max(cur_results_n1[f"{target}/test/{metric}"].max(), ymax)
+            var_min = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") >= ymin)[variable].min()
+            var_max = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") >= ymin)[variable].max()
+        else:
+            ymin = min(cur_results_n1[f"{target}/test/{metric}"].min(), ymin)
+            var_min = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") <= ymax)[variable].min()
+            var_max = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") <= ymax)[variable].max()
+
         for _, group in cur_results_n1.group_by(param_names):
             group = group.sort(x)
-            ax.plot(group[x], group[f"{target}/test/{metric}"], color="gray", alpha=0.1)
-
+            var = group[variable].first() / cur_results_n1[variable].max()
+            color = np.clip((var - var_min) / (var_max - var_min), 0, 1)
+            if 0 <= color <=1:
+                ax.plot(group[x], group[f"{target}/test/{metric}"], color=(color, 1 - color, 0), alpha=0.1)
+        
         ax.set_title(target)
         ax.set_ylim(ymin, ymax)
         if x in ["gamma", "alpha", "ratio", "learning_rate"]:

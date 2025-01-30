@@ -19,6 +19,7 @@ from icu_benchmarks.models import (  # noqa F401
     EmpiricalBayesCV,
     PriorPassthroughCV,
     RefitInterceptModelCV,
+    RefitLGBMModelCV,
 )
 
 logger = logging.getLogger(__name__)

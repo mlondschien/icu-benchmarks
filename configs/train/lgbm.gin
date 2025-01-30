@@ -10,7 +10,7 @@ parameters.parameters = {
     "objective": [@AnchorRegressionObjective],
     "num_leaves": [31, 10],
     "learning_rate": [0.1, 0.05],
-    "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8, 11.2, 16, 22.4, 32],
+    "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8, 11.2, 16, 22.4, 32, 44.8, 64, 89.6, 128],
     "seed": [0],
     "deterministic": [True],
 }

@@ -121,7 +121,7 @@ mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --
     cmd = [
         "sbatch",
         "--ntasks=1",
-        "--cpus-per-task=4",
+        "--cpus-per-task=2",
         f"--time={hours}:00:00",
         "--mem-per-cpu=4G",
         "--job-name=mlflow_server",

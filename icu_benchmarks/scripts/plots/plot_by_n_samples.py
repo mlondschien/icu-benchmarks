@@ -88,7 +88,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
             result_file = f"{result_name}_results.csv"
             with tempfile.TemporaryDirectory() as f:
                 if result_file not in [x.path for x in client.list_artifacts(run_id)]:
-                    logger.warning(f"Run {run_id} has no results.csv")
+                    logger.warning(f"Run {run_id} has no {result_file}")
                     continue
 
                 client.download_artifacts(run_id, result_file, f)
@@ -139,14 +139,13 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                         )
     summary = pl.DataFrame(summarized)
     pl.Config.set_tbl_rows(100)
-
     for metric in metrics:
         fig, axes = plt.subplots(2, 3, figsize=(18, 12))
         for dataset, ax in zip(SOURCES, axes.flat):
             data = summary.filter(
                 (pl.col("target") == dataset) & (pl.col("metric") == metric)
             )
-            for result_name in data["result_name"].unique():
+            for result_name in sorted(data["result_name"].unique()):
                 data_ = data.filter(pl.col("result_name") == result_name)
                 data_ = (
                     data_.group_by("n_target")

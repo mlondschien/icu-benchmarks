@@ -5,7 +5,7 @@ import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.benchmarks import severinghaus_po2_to_spo2
+from icu_benchmarks.benchmarks import severinghaus_spo2_to_po2
 from icu_benchmarks.constants import DATASETS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
@@ -50,14 +50,17 @@ def main(target_experiment, tracking_uri, data_dir):  # noqa D
             variables=["spo2", "sao2"],
             data_dir=data_dir,
         )
-
+        if len(y) == 0:
+            continue
         sao2 = df.select(
             pl.when(pl.col("sao2_all_missing_h8"))
             .then(pl.col("spo2_mean_h8"))
             .otherwise(pl.col("sao2_ffilled"))
             .fill_null(pl.col("sao2_ffilled").mean())
         ).to_numpy()
-        yhat = np.log(severinghaus_po2_to_spo2(sao2 / 100))
+
+
+        yhat = np.log(severinghaus_spo2_to_po2(sao2 / 100))
         results.append(
             {
                 "target": target,

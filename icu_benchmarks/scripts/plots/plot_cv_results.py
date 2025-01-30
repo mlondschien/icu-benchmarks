@@ -58,6 +58,7 @@ def main(experiment_name, tracking_uri):  # noqa D
             pl.lit(run.data.tags["sources"]).alias("sources"),
             pl.lit(run.data.tags["outcome"]).alias("outcome"),
         )
+        results = results.drop(pl.col(col) for col in results.columns if "/r2" in col)
         all_results.append(results)
 
     results = pl.concat(all_results)

@@ -78,7 +78,7 @@ def main(
         n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
 
         alpha_max = TASKS[outcome]["alpha_max"]
-        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)
+        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)[:-4:2]
 
         log_dir = Path("logs") / experiment_name / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -114,7 +114,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
                 f"""#!/bin/bash
 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task={int(n_cpus)}
+#SBATCH --cpus-per-task={32}
 #SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
