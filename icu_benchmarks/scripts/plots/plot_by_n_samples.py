@@ -39,7 +39,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
     experiment_id = experiment.experiment_id
 
     target_runs = client.search_runs(
-        experiment_ids=[experiment_id], filter_string="tags.sources != ''"
+        experiment_ids=[experiment_id], filter_string="tags.sources = ''"
     )
 
     if len(target_runs) != 1:
@@ -51,7 +51,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
         experiment_name, name = result_name.split("/")
         experiment = client.get_experiment_by_name(experiment_name)
         runs = client.search_runs(
-            experiment_ids=[experiment_id], filter_string="tags.sources != ''"
+            experiment_ids=[experiment.experiment_id], filter_string="tags.sources = ''"
         )
         if len(runs) != 1:
             raise ValueError(f"Expected exactly one run. Got {runs:}")
@@ -63,15 +63,13 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
 
         df = df.with_columns(
             pl.lit(name).alias("name"),
-            pl.lit(run.data.tags["outcome"]).alias("outcome"),
+            # pl.lit(run.data.tags["outcome"]).alias("outcome"),
         )
         results.append(df)
 
-    results = pl.concat(results, how="diagonal")
+    results = pl.concat(results, how="diagonal_relaxed")
 
-    metrics = map(re.compile(r"^[a-z]+\/train\/(.+)$").match, results.columns)
-    metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
-
+    metrics = results["metric"].unique()
     for metric in metrics:
         fig, axes = plt.subplots(2, 3, figsize=(18, 12))
         for dataset, ax in zip(SOURCES, axes.flat):
@@ -79,12 +77,12 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                 (pl.col("target") == dataset) & (pl.col("metric") == metric)
             )
             for result_name in sorted(data["name"].unique()):
-                data_ = data.filter(pl.col("result_name") == result_name)
+                data_ = data.filter(pl.col("name") == result_name)
                 if len(data_) == 1:
-                    ax.hline(
-                        data_["test_value"].first(),
-                        xmin=data["n_samples"].min(),
-                        xmax=data["n_samples"].max(),
+                    ax.hlines(
+                        data_["target_value"].first(),
+                        xmin=data["n_target"].min(),
+                        xmax=data["n_target"].max(),
                         label=result_name,
                     )
                     continue

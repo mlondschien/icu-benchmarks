@@ -56,18 +56,21 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
 
     all_results = []
     for run in runs:
-        sources = run.data.tags.get("sources", "")
+        if "target" in run.data.tags:
+            target = run.data.tags.get("target")
+            if target == "":
+                continue
+        else:
+            sources = run.data.tags.get("sources", "")
+            if sources == "":
+                continue
 
-        if sources != "":
             sources = json.loads(run.data.tags["sources"].replace("'", '"'))
             if len(sources) != 5:
                 continue
-
-        if "target" in run.data.tags:
-            target = run.data.tags["target"]
-        else:
             target = [t for t in SOURCES if t not in sources][0]
-
+        
+    
         run_id = run.info.run_id
         result_file = f"{result_name}_results.csv"
         with tempfile.TemporaryDirectory() as f:
@@ -81,11 +84,10 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
         results = results.with_columns(
             pl.lit(run_id).alias("run_id"),
             pl.lit(sources).alias("sources"),
-            pl.lit(run.data.tags["outcome"]).alias("outcome"),
+            #   pl.lit(run.data.tags["outcome"]).alias("outcome"),
             pl.lit(result_name).alias("result_name"),
             pl.lit(target).alias("target"),
         )
-
         all_results.append(results)
 
         parameter_names = [p for p in PARAMETER_NAMES if p in results.columns]
