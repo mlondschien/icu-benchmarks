@@ -4,4 +4,4 @@ get_predict_kwargs.predict_kwargs = {"num_iteration": [100, 200, 300, 400, 500, 
 
 get_model.model = @RefitLGBMModelCV
 
-RefitLGBMModelCV.objective = "regression"
+RefitLGBMModelCV.objective = %TASK

@@ -9,7 +9,7 @@ get_parameters.parameters = {
 }
 
 GeneralizedLinearModel.alpha = %ALPHA
-GeneralizedLinearModel.family = "binomial"
+GeneralizedLinearModel.family = %FAMILY
 GeneralizedLinearModel.max_iter = 100
 GeneralizedLinearModel.verbose = 1
 GeneralizedLinearModel.scale_predictors = False

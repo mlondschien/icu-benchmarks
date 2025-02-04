@@ -35,7 +35,6 @@ SOURCES = [
     type=str,
     default="file:///cluster/work/math/lmalte/mlflow/artifacts",
 )
-@click.option("--script", type=str, default="train_linear.py")
 def main(
     config: str,
     hours: int,
@@ -90,9 +89,9 @@ def main(
 
 {config_text}
 
-sources.sources = {sources}
-outcome.outcome = '{outcome}'
-targets.targets = {DATASETS}
+get_sources.sources = {sources}
+get_outcome.outcome = '{outcome}'
+get_targets.targets = {DATASETS}
 
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
@@ -120,7 +119,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
 
-python icu_benchmarks/scripts/train/{script} --config {config_file.resolve()}"""
+python icu_benchmarks/scripts/train/train.py --config {config_file.resolve()}"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])

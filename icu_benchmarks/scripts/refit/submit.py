@@ -82,6 +82,7 @@ def main(
 
 ALPHA = {alpha.tolist()}
 FAMILY = "{TASKS[outcome]["family"]}"
+TASK = "{TASKS[outcome]["task"]}"
 
 get_name.name = "{stem}"
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"

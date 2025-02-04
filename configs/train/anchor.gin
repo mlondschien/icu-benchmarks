@@ -10,7 +10,7 @@ get_parameters.parameters = {
 }
 
 AnchorRegression.alpha = %ALPHA
-AnchorRegression.family = "gaussian"
+AnchorRegression.family = %FAMILY
 AnchorRegression.max_iter = 100
 AnchorRegression.verbose = 1
 AnchorRegression.scale_predictors = False
