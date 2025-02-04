@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 import numpy as np
 
-from icu_benchmarks.constants import DATASETS, OBSERVATIONS_PER_GB, TASKS
+from icu_benchmarks.constants import DATASETS, TASKS
 from icu_benchmarks.slurm_utils import setup_mlflow_server
 
 SOURCES = [
@@ -35,7 +35,6 @@ SOURCES = [
     type=str,
     default="file:///cluster/work/math/lmalte/mlflow/artifacts",
 )
-@click.option("--script", type=str, default="train_linear.py")
 def main(
     config: str,
     hours: int,
@@ -71,13 +70,14 @@ def main(
 
     outcomes = [outcome]
 
+    train_config = Path(__file__).parents[3] / "configs" / "train" / "train.gin"
     config_text = Path(config).read_text()
 
     for sources, outcome in product(list_of_sources, outcomes):
-        n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
+        # n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
 
         alpha_max = TASKS[outcome]["alpha_max"]
-        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)
+        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)[:-4:2]
 
         log_dir = Path("logs") / experiment_name / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -85,24 +85,27 @@ def main(
 
         with config_file.open("w") as f:
             f.write(
-                f"""{config_text}
+                f"""{train_config.read_text()}
 
-sources.sources = {sources}
-outcome.outcome = '{outcome}'
-targets.targets = {DATASETS}
+{config_text}
+
+get_sources.sources = {sources}
+get_outcome.outcome = '{outcome}'
+get_targets.targets = {DATASETS}
 
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
+FAMILY = "{TASKS[outcome]["family"]}"
 ALPHA = {alpha.tolist()}
 
-icu_benchmarks.load.load.weighting_exponent = -0.5
 icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
+icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 """
             )
 
-        required_memory = n_samples / OBSERVATIONS_PER_GB
-        n_cpus = min(64, max(4, required_memory))
+        # required_memory = n_samples / OBSERVATIONS_PER_GB
+        # n_cpus = min(64, max(4, required_memory))
 
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
@@ -110,13 +113,13 @@ icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
                 f"""#!/bin/bash
 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task={int(n_cpus)}
+#SBATCH --cpus-per-task={16}
 #SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
 
-python icu_benchmarks/scripts/cv/{script} --config {config_file.resolve()}"""
+python icu_benchmarks/scripts/train/train.py --config {config_file.resolve()}"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])

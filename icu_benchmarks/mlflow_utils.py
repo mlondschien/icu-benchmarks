@@ -122,3 +122,28 @@ def get_run(tracking_uri, run_id):
     client = mlflow.client.MlflowClient(tracking_uri=tracking_uri)
     run = client.get_run(run_id=run_id)
     return client, run
+
+
+def get_target_run(tracking_uri, experiment_name):
+    """
+    Get run with sources tag equal '' in experiment.
+
+    If such a run does not exist, create it.
+    """
+    client = mlflow.client.MlflowClient(tracking_uri=tracking_uri)
+    experiment = client.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        raise ValueError(f"No experiment {experiment_name}.")
+
+    target_run = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        filter_string="tags.sources = ''",
+    )
+    if len(target_run) > 0:
+        target_run = target_run[0]
+    else:
+        target_run = client.create_run(
+            experiment_id=experiment.experiment_id,
+            tags={"sources": "", "summary_run": True},
+        )
+    return client, experiment, target_run

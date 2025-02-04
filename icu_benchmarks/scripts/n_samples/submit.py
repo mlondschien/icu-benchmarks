@@ -1,10 +1,8 @@
-import json
 import subprocess
+from itertools import product
 from pathlib import Path
 
 import click
-import numpy as np
-from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.slurm_utils import setup_mlflow_server
@@ -23,6 +21,8 @@ SOURCES = [
 @click.option("--config", type=click.Path(exists=True))
 @click.option("--hours", type=int, default=24)
 @click.option("--experiment_name", type=str, default=None)
+@click.option("--experiment_note", type=str, default=None)
+@click.option("--outcome", type=str, default=None)
 @click.option(
     "--tracking_uri",
     type=str,
@@ -37,6 +37,8 @@ def main(
     config: str,
     hours: int,
     experiment_name: str,
+    experiment_note: str,
+    outcome: str,
     tracking_uri: str,
     artifact_location: str,
 ):  # noqa D
@@ -46,69 +48,53 @@ def main(
         artifact_location=artifact_location,
         hours=hours,
         verbose=True,
+        experiment_note=experiment_note,
     )
-    client = MlflowClient(tracking_uri=tracking_uri)
-    experiment_id = client.get_experiment_by_name(experiment_name).experiment_id
-    runs = client.search_runs(experiment_ids=[experiment_id], max_results=10_000)
+
+    outcomes = [outcome]
 
     refit_config = Path(__file__).parents[3] / "configs" / "refit" / "refit.gin"
     config_text = Path(config).read_text()
-    stem = Path(config).stem
 
-    for run in runs:
-        if run.data.tags["sources"] == "":
-            continue
-
-        alpha_max = TASKS[run.data.tags["outcome"]]["alpha_max"]
-        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)[:-4:2]
-
-        sources = sorted(json.loads(run.data.tags["sources"].replace("'", '"')))
-        if len(sources) != len(SOURCES) - 1:
-            continue
-
-        target = [d for d in SOURCES if d not in sources][0]
-
-        outcome = run.data.tags["outcome"]
-        log_dir = Path("logs") / experiment_name / outcome / "_".join(sources)
-        log_dir = log_dir / f"refit_{stem}"
+    for source, outcome in product(SOURCES, outcomes):
+        log_dir = Path("logs") / experiment_name / outcome / source
         log_dir.mkdir(parents=True, exist_ok=True)
-        refit_config_file = log_dir / "config.gin"
+        config_file = log_dir / "config.gin"
 
-        with refit_config_file.open("w") as f:
+        with config_file.open("w") as f:
             f.write(
                 f"""{refit_config.read_text()}
 
 {config_text}
 
-ALPHA = {alpha.tolist()}
-FAMILY = "{TASKS[outcome]["family"]}"
-TASK = "{TASKS[outcome]["task"]}"
+get_outcome.outcome = '{outcome}'
+get_target.target = '{source}'
 
-get_name.name = "{stem}"
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
-icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
-icu_benchmarks.load.load.sources = ["{target}"]
+FAMILY = "{TASKS[outcome]["family"]}"
 
-get_run.run_id = "{run.info.run_id}"
-get_run.tracking_uri = "http://{ip}:{port}"
+icu_benchmarks.load.load.sources = ["{source}"]
+icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
+icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 """
             )
 
+        n_cpus = 32
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(
                 f"""#!/bin/bash
 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task={int(n_cpus)}
 #SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=8G
-#SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
+#SBATCH --job-name="{outcome}_{source}"
 #SBATCH --output="{log_dir}/slurm.out"
 
-python icu_benchmarks/scripts/refit/refit.py --config {refit_config_file.resolve()}"""
+python icu_benchmarks/scripts/n_samples/n_samples.py --config {config_file.resolve()}"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])

@@ -1,8 +1,6 @@
 import logging
 import os
-import pickle
-import tempfile
-from pathlib import Path
+from time import perf_counter
 
 import click
 import gin
@@ -14,13 +12,9 @@ from sklearn.model_selection import ParameterGrid
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import get_run, log_df
-from icu_benchmarks.models import (  # noqa F401
-    EmpiricalBayesCV,
-    PriorPassthroughCV,
-    RefitInterceptModelCV,
-    RefitLGBMModelCV,
-)
+from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
+from icu_benchmarks.models import PipelineCV
+from icu_benchmarks.preprocessing import get_preprocessing
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -31,21 +25,22 @@ logging.basicConfig(
 
 
 @gin.configurable
-def get_refit_parameters(refit_parameters=gin.REQUIRED):
-    """If parameters is a dictionary, create list of records with all combinations."""
-    if isinstance(refit_parameters, dict):
-        return ParameterGrid(refit_parameters)
-    else:
-        return refit_parameters
+def get_outcome(outcome=gin.REQUIRED):  # noqa D
+    return outcome
 
 
 @gin.configurable
-def get_predict_kwargs(predict_kwargs=gin.REQUIRED):
-    """If kwargs is a dictionary, create list of records with all combinations."""
-    if isinstance(predict_kwargs, dict):
-        return ParameterGrid(predict_kwargs)
+def get_target(target=gin.REQUIRED):  # noqa D
+    return target
+
+
+@gin.configurable
+def get_parameters(parameters=gin.REQUIRED):
+    """If parameters is a dictionary, create list of records with all combinations."""
+    if isinstance(parameters, dict):
+        return ParameterGrid(parameters)
     else:
-        return predict_kwargs
+        return parameters
 
 
 @gin.configurable
@@ -64,8 +59,12 @@ def get_model(model=gin.REQUIRED):  # noqa D
 
 
 @gin.configurable
-def get_name(name="refit"):  # noqa D
-    return name
+def get_predict_kwargs(predict_kwargs=gin.REQUIRED):
+    """If kwargs is a dictionary, create list of records with all combinations."""
+    if isinstance(predict_kwargs, dict):
+        return ParameterGrid(predict_kwargs)
+    else:
+        return predict_kwargs
 
 
 @click.command()
@@ -73,25 +72,23 @@ def get_name(name="refit"):  # noqa D
 def main(config: str):  # noqa D
     gin.parse_config_file(config)
 
-    client, run = get_run()
-    run_id = run.info.run_id
+    task = TASKS[get_outcome()]["task"]
+    tags = {
+        "outcome": get_outcome(),
+        "parameter_names": np.unique([k for p in get_parameters() for k in p.keys()]),
+        "target": get_target(),
+    }
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        model_dir = Path(client.download_artifacts(run_id, "models", tmpdir))
-        with open(model_dir / "preprocessor.pkl", "rb") as f:
-            preprocessor = pickle.load(f)
+    _ = setup_mlflow(tags=tags)
 
-        priors = []
-        for model_idx in range(len(list(model_dir.glob("model_*.pkl")))):
-            with open(model_dir / f"model_{model_idx}.pkl", "rb") as f:
-                priors.append(pickle.load(f))
-
-    outcome = run.data.tags["outcome"]
-
+    tic = perf_counter()
     df, y, _, hashes = load(
-        split="train", outcome=outcome, other_columns=["stay_id_hash"]
+        outcome=get_outcome(), split="train_val", other_columns=["stay_id_hash"]
     )
-    df = preprocessor.transform(df)
+    toc = perf_counter()
+    logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
+
+    preprocessor = get_preprocessing(get_model()(), df, get_outcome())
 
     hashes = hashes.sort()
     data = {}
@@ -106,28 +103,27 @@ def main(config: str):  # noqa D
                 hashes.filter(mask),
             )
 
-    df_test, y_test, _ = load(split="test", outcome=outcome)
-    df_test = preprocessor.transform(df_test)
+    df_test, y_test, _ = load(split="test", outcome=get_outcome())
 
     jobs = []
-    for model_idx, prior in enumerate(priors):
-        for refit_parameter in get_refit_parameters():
-            model = get_model()(prior=prior, **refit_parameter)
-            details = {
-                "model_idx": model_idx,
-                **refit_parameter,
-            }
-            jobs.append(
-                delayed(_fit)(
-                    model,
-                    data,
-                    df_test,
-                    y_test,
-                    TASKS[outcome]["task"],
-                    get_predict_kwargs(),
-                    details,
-                )
+    for parameter_idx, parameter in enumerate(get_parameters()):
+        glm = get_model()(**parameter)
+        pipeline = PipelineCV(steps=[("preprocessor", preprocessor), ("model", glm)])
+        details = {
+            "model_idx": parameter_idx,
+            **parameter,
+        }
+        jobs.append(
+            delayed(_fit)(
+                pipeline,
+                data,
+                df_test,
+                y_test,
+                task,
+                get_predict_kwargs(),
+                details,
             )
+        )
 
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
@@ -139,9 +135,7 @@ def main(config: str):  # noqa D
     del df, y
 
     results: list[dict] = sum(parallel_results, [])
-    log_df(
-        pl.DataFrame(results), f"{get_name()}_results.csv", client=client, run_id=run_id
-    )
+    log_df(pl.DataFrame(results), "n_samples_results.csv")
 
 
 def _fit(
@@ -164,7 +158,7 @@ def _fit(
         ]
         results += [
             {
-                "n_samples": n_samples,
+                "n_target": n_samples,
                 "seed": seed,
                 "metric": metric,
                 "cv_value": cv_scores[idx][metric],

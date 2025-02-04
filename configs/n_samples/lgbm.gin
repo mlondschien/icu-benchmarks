@@ -1,0 +1,24 @@
+import icu_benchmarks.gin
+
+icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
+icu_benchmarks.load.load.weighting_exponent = -0.5
+
+LGBMAnchorModel.num_boost_round = 800
+
+get_predict_kwargs.predict_kwargs = {
+    "num_iteration": [100, 200, 300, 400, 500, 600, 700, 800],
+}
+
+get_parameters.parameters = {
+    "objective": ["regression"],
+    "num_leaves": [31, 10],
+    "learning_rate": [0.1, 0.05],
+    "gamma": [1],
+    "seed": [0],
+    "deterministic": [True],
+    "num_boost_round": [800],
+    "num_threads": [1],
+    "force_col_wise": [True],
+}
+
+get_model.model = @LGBMAnchorModel

@@ -59,6 +59,7 @@ def severinghaus_spo2_to_po2(spo2, temp=None, ph=None):
     30 57.54 70 94.06 400 99.65
     32 61.69 75 95.10 500 99.72
     """
+    spo2 = np.minimum(spo2, 0.997)
     inner = spo2 * 11_700 / (1 - spo2)
     po2 = np.pow(inner + np.sqrt(125_000 + inner**2), 1 / 3) - np.pow(
         -inner + np.sqrt(125_000 + inner**2), 1 / 3
@@ -75,3 +76,34 @@ def severinghaus_spo2_to_po2(spo2, temp=None, ph=None):
 def severinghaus_po2_to_spo2(po2):
     """SpO2 imputation from pO2 using the equation of Severinghaus (1979)."""
     return 1 / (23_400 / (po2**3 + 150 * po2) + 1)
+
+
+def mortality_from_apache_ii(apache_ii, adm):
+    """
+    Return apache II based mortality probability from Knaus et al 1985.
+
+    0-4 	4% 	1%
+    5-9 	8% 	3%
+    10-14 	15% 	7%
+    15-19 	25% 	12%
+    20-24 	40% 	30%
+    25-29 	55% 	35%
+    30-34 	73% 	73%
+    >34 	85% 	88%
+    """
+    surg_mask = adm == "surg"
+    med_mask = (adm == "med") | (adm == "other")
+    na_mask = ~surg_mask & ~med_mask
+
+    p = np.zeros_like(apache_ii)
+
+    apache_grid = np.array([0, 2, 7, 12, 17, 22, 27, 32, 34, 100])
+    surg_probabilites = np.array([0, 1, 3, 7, 12, 30, 35, 73, 88, 89])
+    med_probabilities = np.array([0, 4, 8, 15, 25, 40, 55, 73, 85, 86])
+    na_probabilites = (surg_probabilites + med_probabilities) / 2
+
+    p[surg_mask] = np.interp(apache_ii[surg_mask], apache_grid, surg_probabilites)
+    p[na_mask] = np.interp(apache_ii[na_mask], apache_grid, na_probabilites)
+    p[med_mask] = np.interp(apache_ii[med_mask], apache_grid, med_probabilities)
+
+    return p / 100

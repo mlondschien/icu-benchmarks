@@ -8,6 +8,130 @@ import tabmat
 from glum import GeneralizedLinearRegressor
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
+from sklearn.pipeline import Pipeline
+
+
+@gin.configurable
+class GeneralizedLinearModel(GeneralizedLinearRegressor):
+    """GeneralizedLinearRegressor that can be fit on pl.DataFrames and constant y's."""
+
+    # All parameters are copied from the GLR estimator. They need to be explicit to
+    # adhere to sklearn's API. GLR inherits from BaseEstimator.
+    def __init__(
+        self,
+        alpha=None,
+        l1_ratio=0,
+        P1="identity",
+        P2="identity",
+        fit_intercept=True,
+        family="normal",
+        link="auto",
+        solver="auto",
+        max_iter=100,
+        max_inner_iter=100000,
+        gradient_tol=None,
+        step_size_tol=None,
+        hessian_approx=0.0,
+        warm_start=False,
+        alpha_search=False,
+        alphas=None,
+        n_alphas=100,
+        min_alpha_ratio=None,
+        min_alpha=None,
+        start_params=None,
+        selection="cyclic",
+        random_state=None,
+        copy_X=None,
+        check_input=True,
+        verbose=0,
+        scale_predictors=False,
+        lower_bounds=None,
+        upper_bounds=None,
+        A_ineq=None,
+        b_ineq=None,
+        force_all_finite=True,
+        drop_first=False,
+        robust=True,
+        expected_information=False,
+        formula=None,
+        interaction_separator=":",
+        categorical_format="{name}[{category}]",
+        cat_missing_method="fail",
+        cat_missing_name="(MISSING)",
+    ):
+        super().__init__(
+            alpha=alpha,
+            l1_ratio=l1_ratio,
+            P1=P1,
+            P2=P2,
+            fit_intercept=fit_intercept,
+            family=family,
+            link=link,
+            solver=solver,
+            max_iter=max_iter,
+            max_inner_iter=max_inner_iter,
+            gradient_tol=gradient_tol,
+            step_size_tol=step_size_tol,
+            hessian_approx=hessian_approx,
+            warm_start=warm_start,
+            alpha_search=alpha_search,
+            alphas=alphas,
+            n_alphas=n_alphas,
+            min_alpha_ratio=min_alpha_ratio,
+            min_alpha=min_alpha,
+            start_params=start_params,
+            selection=selection,
+            random_state=random_state,
+            copy_X=copy_X,
+            check_input=check_input,
+            verbose=verbose,
+            scale_predictors=scale_predictors,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
+            A_ineq=A_ineq,
+            b_ineq=b_ineq,
+            force_all_finite=force_all_finite,
+            drop_first=drop_first,
+            robust=robust,
+            expected_information=expected_information,
+            formula=formula,
+            interaction_separator=interaction_separator,
+            categorical_format=categorical_format,
+            cat_missing_method=cat_missing_method,
+            cat_missing_name=cat_missing_name,
+        )
+
+    def fit(self, X, y, sample_weight=None, dataset=None):
+        """
+        Fit method that can handle constant y's.
+
+        If y is constant and self.family='binomial', the "optimal" parameters would be
+        given via intercept=+-inf. Instead, we treat this problem as if there was an
+        additional observation with the opposite label.
+        """
+        if isinstance(X, pl.DataFrame):
+            X = tabmat.from_df(X)
+
+        if self.family == "binomial" and len(np.unique(y)) == 1:
+            # If there is no variation in y, "fit" intercept as if there were len(y)
+            # observations with label y[0] and 1 observation with opposite label.
+            # The model then predicts the probability len(y) / (len(y) + 1) for label
+            # y[0] and 1 / (len(y) + 1) for the opposite label.
+            self.intercept_ = -(1 - 2 * y[0]) * np.log(len(y))
+            self.intercept_path_ = [self.intercept_] * len(self.alpha)
+            self.coef_path_ = [np.zeros(X.shape[1]) for _ in range(len(self.alpha))]
+            self.coef_ = self.coef_path_[-1]  # coef_ is checked for by _is_fitted
+            self._alphas = self.alpha  # for when using predict(alpha=...)
+            self.n_features_in_ = X.shape[1]  # this is used in GLR.linear_predictor
+            return self
+
+        return super().fit(X, y, sample_weight=sample_weight)
+
+    def predict(self, X, **kwargs):
+        """Predict, allowing for a polars.DataFrame as `X` input."""
+        if isinstance(X, pl.DataFrame):
+            X = tabmat.from_df(X)
+        return super().predict(X, **kwargs)
 
 
 @gin.configurable
@@ -103,6 +227,9 @@ class DataSharedLasso(GeneralizedLinearRegressor):
         self.ratio = ratio
 
     def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
+        if isinstance(dataset, pl.Series):
+            dataset = dataset.to_numpy()
+
         self.fit_datasets_ = np.sort(np.unique(dataset))
 
         if isinstance(X, np.ndarray):
@@ -193,7 +320,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
 
         return self
 
-    def predict(self, X):  # noqa: D
+    def linear_predictor(self, X, **kwargs):  # noqa D
         if isinstance(X, np.ndarray):
             X_interacted = np.hstack(
                 [X, np.zeros((X.shape[0], len(self.fit_datasets_) * (X.shape[1] + 1)))]
@@ -214,7 +341,7 @@ class DataSharedLasso(GeneralizedLinearRegressor):
         if isinstance(X_interacted, pl.DataFrame):
             X_interacted = tabmat.from_df(X_interacted)
 
-        return super().predict(X_interacted)
+        return super().linear_predictor(X_interacted, **kwargs)
 
 
 @gin.configurable
@@ -380,165 +507,109 @@ class AnchorRegression(GeneralizedLinearRegressor):
 
 
 @gin.configurable
-class EmpiricalBayes(GeneralizedLinearRegressor):
+class LGBMAnchorModel(BaseEstimator):
     """
-    Empirical Bayes elastic net Regression with prior around beta_prior.
-
-    This optimizes
-    1 / n_train ||y - X beta||^2 + l1_ratio * alpha || beta - beta_prior ||_2^2 +
-    (1 - l1_ratio) * alpha || beta - beta_prior ||_1
-    over `beta`.
+    LightGBM Model with Anchor Loss.
 
     Parameters
     ----------
-    alpha : float
-        Regularization parameter.
-    prior : glum.GeneralizedLinearRegressor
-        Prior.
-    P2 : np.array
-        Standard deviation of beta for each feature.
-    fit_intercept : bool
-        Whether to fit an intercept.
+    objective : objective of anchorboost
+        Needs to have an `objective` and a `score` method.
+    params : dict
+        Parameters for the LightGBM model.
+    num_boost_round : int
+        Number of boosting rounds.
     """
 
     def __init__(
         self,
-        prior=None,
-        prior_alpha=None,
-        alpha=None,
-        l1_ratio=0,
-        P1="identity",
-        P2="identity",
-        fit_intercept=True,
-        family="normal",
-        link="auto",
-        solver="auto",
-        max_iter=100,
-        max_inner_iter=100000,
-        gradient_tol=None,
-        step_size_tol=None,
-        hessian_approx=0.0,
-        warm_start=False,
-        alpha_search=False,
-        alphas=None,
-        n_alphas=100,
-        min_alpha_ratio=None,
-        min_alpha=None,
-        start_params=None,
-        selection="cyclic",
-        random_state=None,
-        copy_X=None,
-        check_input=True,
-        verbose=0,
-        scale_predictors=False,
-        lower_bounds=None,
-        upper_bounds=None,
-        A_ineq=None,
-        b_ineq=None,
-        force_all_finite=True,
-        drop_first=False,
-        robust=True,
-        expected_information=False,
-        formula=None,
-        interaction_separator=":",
-        categorical_format="{name}[{category}]",
-        cat_missing_method="fail",
-        cat_missing_name="(MISSING)",
+        objective,
+        num_leaves=31,
+        learning_rate=0.1,
+        gamma=1,
+        seed=0,
+        deterministic=True,
+        num_boost_round=100,
     ):
-        super().__init__(
-            alpha=alpha,
-            l1_ratio=l1_ratio,
-            P1=P1,
-            P2=P2,
-            fit_intercept=fit_intercept,
-            family=family,
-            link=link,
-            solver=solver,
-            max_iter=max_iter,
-            max_inner_iter=max_inner_iter,
-            gradient_tol=gradient_tol,
-            step_size_tol=step_size_tol,
-            hessian_approx=hessian_approx,
-            warm_start=warm_start,
-            alpha_search=alpha_search,
-            alphas=alphas,
-            n_alphas=n_alphas,
-            min_alpha_ratio=min_alpha_ratio,
-            min_alpha=min_alpha,
-            start_params=start_params,
-            selection=selection,
-            random_state=random_state,
-            copy_X=copy_X,
-            check_input=check_input,
-            verbose=verbose,
-            scale_predictors=scale_predictors,
-            lower_bounds=lower_bounds,
-            upper_bounds=upper_bounds,
-            A_ineq=A_ineq,
-            b_ineq=b_ineq,
-            force_all_finite=force_all_finite,
-            drop_first=drop_first,
-            robust=robust,
-            expected_information=expected_information,
-            formula=formula,
-            interaction_separator=interaction_separator,
-            categorical_format=categorical_format,
-            cat_missing_method=cat_missing_method,
-            cat_missing_name=cat_missing_name,
-        )
-        self.prior = prior
-        if prior_alpha is not None:
-            # https://github.com/Quantco/glum/blob/b471522c611b263c00ae841fd0f46660c31a\
-            # 6d5f/src/glum/_glm.py#L1297
-            isclose = np.isclose(self.prior._alphas, prior_alpha, atol=1e-12)
-            if np.sum(isclose) == 1:
-                prior_alpha_idx = np.argmax(isclose)  # cf. stackoverflow.com/a/61117770
-            else:
-                raise ValueError(f"Could not get index for prior_alpha {prior_alpha}.")
+        self.objective = objective
+        self.gamma = gamma
+        self.params = {
+            "num_leaves": num_leaves,
+            "learning_rate": learning_rate,
+            "seed": seed,
+            "deterministic": deterministic,
+        }
+        self.num_boost_round = num_boost_round
+        self.booster = None
 
-            self.prior.intercept_ = self.prior.intercept_path_[prior_alpha_idx]
-            self.prior.coef_ = self.prior.coef_path_[prior_alpha_idx]
-
-    def refit(self, X, y):  # noqa D
-        offset = self.prior.linear_predictor(X)
-        super().fit(X, y, offset=offset)
-
-        return self
-
-    def predict(self, X, **kwargs):  # noqa D
-        offset = self.prior.linear_predictor(X)
-        return super().predict(X, offset=offset, **kwargs)
-
-    def predict_with_kwargs(self, X, predict_kwargs=None):
+    def fit(self, X, y, sample_weight=None, dataset=None):
         """
-        Predict the outcome for each kwargs in predict_kwargs.
-
-        This overwrites the `predict_with_kwargs` method from `CVMixin` to only compute
-        offset once.
+        Fit the model.
 
         Parameters
         ----------
-        X : tabmat.BaseMatrix
-            Data to predict on.
-        predict_kwargs : List of dict, optional
-            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
-            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
-            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
-
-        Returns
-        -------
-        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
-            Predictions for each set of arguments in `predict_kwargs`.
+        X : polars.DataFrame
+            The input data.
+        y : np.ndarray
+            The outcome.
+        sample_weight : np.ndarray, optional
+            The sample weights.
+        dataset : np.ndarray
+            Array of dataset indicators. Each unique value is assumed to correspond to a
+            single environment. The anchor then is a one-hot encoding of this.
         """
-        if predict_kwargs is None:
-            predict_kwargs = [{}]
+        categorical_features = [
+            c
+            for c, dtype in X.schema.items()
+            if not dtype.is_float() and not dtype == pl.Boolean
+        ]
 
-        offset = self.prior.linear_predictor(X)
-        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)
-        for idx, predict_kwarg in enumerate(predict_kwargs):
-            yhat[:, idx] = super().predict(X, offset=offset, **predict_kwarg)
+        if not isinstance(self.objective, str):
+            self.objective = self.objective(self.gamma, categories=np.unique(dataset))
+            self.params["objective"] = self.objective.objective
+        else:
+            self.params["objective"] = self.objective
 
-        return yhat
+        data = lgb.Dataset(
+            X.to_arrow(),
+            label=y,
+            weight=sample_weight,
+            categorical_feature=categorical_features,
+            free_raw_data=False,
+            feature_name=X.columns,
+        )
+        data.anchor = dataset
+
+        self.booster = lgb.train(
+            params=self.params,
+            train_set=data,
+            num_boost_round=self.num_boost_round,
+        )
+        return self
+
+    def predict(self, X, num_iteration=-1):
+        """
+        Predict the outcome.
+
+        Parameters
+        ----------
+        X : polars.DataFrame or pyarrow.Table
+            The input data.
+        num_iteration : int
+            Number of boosting iterations to use. If -1, all are used. Else, needs to be
+            in [0, num_boost_round].
+        """
+        if self.booster is None:
+            raise ValueError("Booster not fitted")
+
+        if isinstance(X, pl.DataFrame):
+            X = X.to_arrow()
+
+        scores = self.booster.predict(X, num_iteration=num_iteration)
+        if hasattr(self.objective, "predictions"):
+            return self.objective.predictions(scores)
+        else:
+            return scores
 
 
 class CVMixin:
@@ -548,7 +619,7 @@ class CVMixin:
         super().__init__(**kwargs)
         self.cv = cv
 
-    def refit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
+    def fit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
         """
         Fit the model on the training data and predict on the validation data.
 
@@ -577,11 +648,11 @@ class CVMixin:
 
         for train_idx, val_idx in GroupKFold(n_splits=self.cv).split(X, y, groups):
             X_train, y_train, X_val = X[train_idx], y[train_idx], X[val_idx]
-            self.refit(X_train, y_train)
+            self.fit(X_train, y_train)
 
             yhat[val_idx, :] = self.predict_with_kwargs(X_val, predict_kwargs)
 
-        self.refit(X, y)
+        self.fit(X, y)
 
         return yhat
 
@@ -614,12 +685,14 @@ class CVMixin:
 
 
 @gin.configurable
-class EmpiricalBayesCV(CVMixin, EmpiricalBayes):
+class EmpiricalBayesCV(CVMixin, GeneralizedLinearRegressor):
     """
     Empirical Bayes elastic net Regression with prior around beta_prior.
 
-    Additionally to `EmpiricalBayesRidge`, this class has a `fit_predict_cv` method
-    that performs cross-validation to predict the outcome.
+    This optimizes
+    1 / n_train ||y - X beta||^2 + l1_ratio * alpha || beta - beta_prior ||_2^2 +
+    (1 - l1_ratio) * alpha || beta - beta_prior ||_1
+    over `beta`.
 
     Parameters
     ----------
@@ -682,8 +755,6 @@ class EmpiricalBayesCV(CVMixin, EmpiricalBayes):
         cat_missing_name="(MISSING)",
     ):
         super().__init__(
-            prior=prior,
-            prior_alpha=prior_alpha,
             cv=cv,
             alpha=alpha,
             l1_ratio=l1_ratio,
@@ -725,65 +796,66 @@ class EmpiricalBayesCV(CVMixin, EmpiricalBayes):
             cat_missing_method=cat_missing_method,
             cat_missing_name=cat_missing_name,
         )
+        self.prior = prior
+        if prior_alpha is not None:
+            # https://github.com/Quantco/glum/blob/b471522c611b263c00ae841fd0f46660c31a\
+            # 6d5f/src/glum/_glm.py#L1297
+            isclose = np.isclose(self.prior._alphas, prior_alpha, atol=1e-12)
+            if np.sum(isclose) == 1:
+                prior_alpha_idx = np.argmax(isclose)  # cf. stackoverflow.com/a/61117770
+            else:
+                raise ValueError(f"Could not get index for prior_alpha {prior_alpha}.")
 
+            self.prior.intercept_ = self.prior.intercept_path_[prior_alpha_idx]
+            self.prior.coef_ = self.prior.coef_path_[prior_alpha_idx]
 
-@gin.configurable
-class LGBMAnchorModel(BaseEstimator):  # noqa: D
-    def __init__(self, objective, params, num_boost_round=100):
-        self.objective = objective
-        self.params = params
-        self.num_boost_round = num_boost_round
-        self.booster = None
+    def fit(self, X, y, sample_weights=None, dataset=None):  # noqa D
+        offset = self.prior.linear_predictor(X)
 
-    def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
-        categorical_features = [
-            c
-            for c, dtype in X.schema.items()
-            if not dtype.is_float() and not dtype == pl.Boolean
-        ]
+        super().fit(X, y, offset=offset)
 
-        if "gamma" in self.params:
-            self.objective = self.objective(
-                self.params.pop("gamma"), categories=np.unique(dataset)
-            )
-        else:
-            self.objective = self.objective()
-
-        data = lgb.Dataset(
-            X.to_arrow(),
-            label=y,
-            weight=sample_weight,
-            categorical_feature=categorical_features,
-            free_raw_data=False,
-            feature_name=X.columns,
-        )
-        data.anchor = dataset
-
-        self.params["objective"] = self.objective.objective
-
-        self.booster = lgb.train(
-            params=self.params,
-            train_set=data,
-            num_boost_round=self.num_boost_round,
-        )
         return self
 
-    def predict(self, X, num_iteration=-1):  # noqa: D
-        if self.booster is None:
-            raise ValueError("Booster not fitted")
+    def predict(self, X, **kwargs):  # noqa D
+        if "offset" not in kwargs:
+            kwargs["offset"] = self.prior.linear_predictor(X)
 
-        if isinstance(X, pl.DataFrame):
-            X = X.to_arrow()
+        return super().predict(X, **kwargs)
 
-        scores = self.booster.predict(X, num_iteration=num_iteration)
-        if hasattr(self.objective, "predictions"):
-            return self.objective.predictions(scores)
-        else:
-            return scores
+    def predict_with_kwargs(self, X, predict_kwargs=None):
+        """
+        Predict the outcome for each kwarg in predict_kwargs.
+
+        This overwrites the `predict_with_kwargs` method from `CVMixin` to only compute
+        offset once.
+
+        Parameters
+        ----------
+        X : tabmat.BaseMatrix
+            Data to predict on.
+        predict_kwargs : List of dict, optional
+            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
+            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
+            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
+
+        Returns
+        -------
+        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
+            Predictions for each set of arguments in `predict_kwargs`.
+        """
+        if predict_kwargs is None:
+            predict_kwargs = [{}]
+
+        offset = self.prior.linear_predictor(X)
+        yhat = np.zeros((X.shape[0], len(predict_kwargs)), dtype=np.float64)
+        for idx, predict_kwarg in enumerate(predict_kwargs):
+            yhat[:, idx] = self.predict(X, offset=offset, **predict_kwarg)
+
+        return yhat
 
 
 @gin.configurable
-class RefitLGBMModel(BaseEstimator):
+class RefitLGBMModelCV(CVMixin, BaseEstimator):
     """
     LGBM Model that gets refit on new data.
 
@@ -793,14 +865,19 @@ class RefitLGBMModel(BaseEstimator):
         Prior model with attribute `booster`.
     decay_rate : float
         Decay rate for refitting. If `decay_rate=1`, the new data is ignored.
+    objective : str
+        Objective for the refit. Either "regression" or "binary".
+    cv : int
+        Number of folds for cross-validation.
     """
 
-    def __init__(self, prior=None, decay_rate=0.5, objective=None):
+    def __init__(self, prior=None, decay_rate=0.5, objective=None, cv=5):
+        super().__init__(cv=cv)
         self.prior = prior
         self.decay_rate = decay_rate
         self.objective = objective
 
-    def refit(self, X, y):  # noqa D
+    def fit(self, X, y):  # noqa D
         self.model = copy.deepcopy(self.prior)
 
         if self.model.booster.params is None:
@@ -830,19 +907,69 @@ class RefitLGBMModel(BaseEstimator):
 
 
 @gin.configurable
-class RefitLGBMModelCV(CVMixin, RefitLGBMModel):
-    """
-    LGBM Model that gets refit on new data.
+class RefitInterceptModelCV(CVMixin):
+    """Model that refits the intercept on new data."""
 
-    Parameters
-    ----------
-    prior : LGBMModel
-        Prior model.
-    decay_rate : float
-        Decay rate for refitting. If `decay_rate=0`, the new data is ignored.
-    cv : int
-        Number of folds for cross-validation.
-    """
+    def __init__(self, prior=None, cv=5):
+        super().__init__(cv=cv)
+        self.prior = prior
+        self.offset = 0
 
-    def __init__(self, prior=None, decay_rate=0.5, objective=None, cv=5):
-        super().__init__(prior=prior, decay_rate=decay_rate, objective=objective, cv=cv)
+    def fit(self, X, y, sample_weight=None):
+        """Compute by how much the prior's intercept needs to be adjusted."""
+        self.offset = y.mean() - self.prior.predict(X).mean()
+        return self
+
+    def predict(self, X, **kwargs):
+        """Return prior's predictions, adjusted by the offset."""
+        return self.prior.predict(X, **kwargs) + self.offset
+
+
+@gin.configurable
+class PriorPassthroughCV(CVMixin):
+    """Model that simply uses the prior for predictions."""
+
+    def __init__(self, prior, cv=5):
+        super().__init__(cv=cv)
+        self.prior = prior
+
+    def fit(self, X, y, sample_weight=None):
+        """Do nothing."""
+        return self
+
+    def predict(self, X, **kwargs):
+        """Predict using the prior."""
+        return self.prior.predict(X, **kwargs)
+
+    def fit_predict_cv(self, X, y, groups=None, predict_kwargs=None):
+        """
+        Return predictions of `prior` for X.
+
+        Parameters
+        ----------
+        X : tabmat.BaseMatrix
+            Data to train and predict on.
+        y : np.ndarray
+            Not used.
+        groups : np.ndarray, optional
+            Not used.
+        predict_kwargs : List of dict, optional
+            Additional arguments for the prediction. `predict(X, key1=value1, ...)` will
+            be called for each dict `{key1: value1, ...}` in the list `predict_kwargs`.
+            `predict_kwargs=None` is thus equivalent to `predict_kwargs=[{}]`.
+
+        Returns
+        -------
+        yhat : np.ndarray of shape n_samples, len(predict_kwargs)
+            Predictions for each set of arguments in `predict_kwargs`.
+        """
+        if predict_kwargs is None:
+            predict_kwargs = [{}]
+
+        return self.predict_with_kwargs(X, predict_kwargs)
+
+
+@gin.configurable
+class PipelineCV(CVMixin, Pipeline):  # noqa D
+    def __init__(self, steps, cv=5):
+        super().__init__(cv=cv, steps=steps)

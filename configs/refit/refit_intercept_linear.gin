@@ -1,0 +1,5 @@
+get_predict_kwargs.predict_kwargs = {"alpha": %ALPHA}
+
+get_model.model = @RefitInterceptModelCV
+
+get_refit_parameters.refit_parameters = [{}]

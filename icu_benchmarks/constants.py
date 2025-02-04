@@ -27,6 +27,7 @@ DATASETS = [
     "nwicu",
 ]
 
+CAT_MISSING_NAME = "(MISSING)"
 
 OUTCOMES = [
     "remaining_los",
@@ -79,7 +80,8 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "ins_ind",
             "map",
             "mgcs",
-            "o2sat",
+            "sao2",
+            "spo2",
             "pco2",
             "peak",
             "peep",
@@ -89,7 +91,11 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "supp_o2_vent",
             "temp",
             "tgcs",
+            "vent_ind",
+            "airway",
+            "ph",
         ],
+        "horizons": [8, 24],
     },
     "remaining_los": {
         "task": "regression",
@@ -136,6 +142,22 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "aumc-late": 7218,
             "nwicu": 21566,
         },
+        "variables": [
+            "age",
+            "crea",
+            "fio2",
+            "hct",
+            "hr",
+            "k",
+            "na",
+            "pco2",
+            "po2",
+            "resp",
+            "temp",
+            "tgcs",
+            "wbc",
+        ],
+        "horizons": [24],
     },
     "los_at_24h": {
         "task": "regression",
@@ -226,7 +248,6 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "supp_o2_vent",
             "temp",
             "tgcs",
-            # "airway_ind",
         ],
     },
     "circulatory_failure_at_8h": {
@@ -426,3 +447,5 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "alpha_max": 0.8,
     },
 }
+
+GREATER_IS_BETTER = ["roc", "auc", "auprc", "accuracy", "prc", "r2"]
