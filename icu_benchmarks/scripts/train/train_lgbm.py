@@ -70,7 +70,10 @@ def main(config: str):  # noqa D
 
     tic = perf_counter()
     df, y, weights, dataset = load(
-        sources=sources(), outcome=outcome(), split="train_val", other_columns=["dataset"]
+        sources=sources(),
+        outcome=outcome(),
+        split="train_val",
+        other_columns=["dataset"],
     )
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")

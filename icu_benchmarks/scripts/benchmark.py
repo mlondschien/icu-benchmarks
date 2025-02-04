@@ -5,12 +5,12 @@ import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.benchmarks import severinghaus_spo2_to_po2, mortality_from_apache_ii
+from icu_benchmarks.benchmarks import mortality_from_apache_ii, severinghaus_spo2_to_po2
 from icu_benchmarks.constants import DATASETS, TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df
-import mlflow
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -28,13 +28,19 @@ logging.basicConfig(
 )
 @click.option("--data_dir", type=str, default="/cluster/work/math/lmalte/data")
 @click.option("--outcome", type=str, default=None)
-@click.option("--artifact_location", type=str, default="file:///cluster/work/math/lmalte/mlflow/artifacts")
+@click.option(
+    "--artifact_location",
+    type=str,
+    default="file:///cluster/work/math/lmalte/mlflow/artifacts",
+)
 def main(experiment_name, tracking_uri, data_dir, outcome, artifact_location):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
 
     experiment = client.get_experiment_by_name(experiment_name)
     if experiment is None:
-        experiment_id = client.create_experiment(experiment_name, artifact_location=artifact_location)
+        experiment_id = client.create_experiment(
+            experiment_name, artifact_location=artifact_location
+        )
     else:
         experiment_id = experiment.experiment_id
 
@@ -62,7 +68,7 @@ def main(experiment_name, tracking_uri, data_dir, outcome, artifact_location):  
 
             if len(y) == 0:
                 continue
-        
+
             sao2 = df.select(
                 pl.when(pl.col("sao2_all_missing_h8"))
                 .then(pl.col("spo2_mean_h8"))
@@ -80,7 +86,7 @@ def main(experiment_name, tracking_uri, data_dir, outcome, artifact_location):  
                 split="test",
                 variables=["adm"],
                 data_dir=data_dir,
-                other_columns=["apache_ii"]
+                other_columns=["apache_ii"],
             )
             adm = df["adm"].to_numpy()
             apache_ii = apache_ii.to_numpy().copy()
@@ -88,7 +94,7 @@ def main(experiment_name, tracking_uri, data_dir, outcome, artifact_location):  
             yhat = mortality_from_apache_ii(apache_ii, adm)
         else:
             raise ValueError(f"No benchmark for outcome {outcome}.")
-    
+
         results += [
             {"target": target, "target_value": value, "metric": key}
             for key, value in metrics(y, yhat, "", TASKS[outcome]["task"]).items()

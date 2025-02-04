@@ -1,6 +1,5 @@
 import logging
 import os
-from itertools import product
 from time import perf_counter
 
 import click
@@ -14,7 +13,7 @@ from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
-from icu_benchmarks.models import PipelineCV, GeneralizedLinearModel
+from icu_benchmarks.models import PipelineCV
 from icu_benchmarks.preprocessing import get_preprocessing
 
 logger = logging.getLogger(__name__)
@@ -83,7 +82,9 @@ def main(config: str):  # noqa D
     _ = setup_mlflow(tags=tags)
 
     tic = perf_counter()
-    df, y, _, hashes = load(outcome=get_outcome(), split="train_val", other_columns=["stay_id_hash"])
+    df, y, _, hashes = load(
+        outcome=get_outcome(), split="train_val", other_columns=["stay_id_hash"]
+    )
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
@@ -101,7 +102,7 @@ def main(config: str):  # noqa D
                 y[mask],
                 hashes.filter(mask),
             )
-    
+
     df_test, y_test, _ = load(split="test", outcome=get_outcome())
 
     jobs = []
@@ -152,7 +153,9 @@ def _fit(
         cv_scores = [metrics(y, yhat[:, idx], "", task) for idx in range(len(kwargs))]
 
         yhat_test = model.predict_with_kwargs(df_test, predict_kwargs=kwargs)
-        test_scores = [metrics(y_test, yhat_test[:, idx], "", task) for idx in range(len(kwargs))]
+        test_scores = [
+            metrics(y_test, yhat_test[:, idx], "", task) for idx in range(len(kwargs))
+        ]
         results += [
             {
                 "n_target": n_samples,
@@ -167,6 +170,7 @@ def _fit(
             for idx, kwarg in enumerate(kwargs)
         ]
     return results
+
 
 if __name__ == "__main__":
     main()

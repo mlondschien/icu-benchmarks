@@ -10,8 +10,6 @@ from mlflow.tracking import MlflowClient
 from icu_benchmarks.constants import DATASETS, GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import log_df
 
-
-
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -59,7 +57,13 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
         )
         results = results.drop(pl.col(c) for c in results.columns if "/r2" in c)
         results = results.drop(pl.col(c) for c in results.columns if "/val/" in c)
-        results = results.rename({c: c.replace("/train/", "/train_val/") for c in results.columns if "/train/" in c})
+        results = results.rename(
+            {
+                c: c.replace("/train/", "/train_val/")
+                for c in results.columns
+                if "/train/" in c
+            }
+        )
         all_results.append(results)
 
     parameter_names = [
@@ -127,7 +131,9 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                     },
                     **{p: best[p].item() for p in parameter_names},
                     **{
-                        f"{source}/train_val/": model[f"{source}/train_val/{metric}"].item()
+                        f"{source}/train_val/": model[
+                            f"{source}/train_val/{metric}"
+                        ].item()
                         for source in sorted(DATASETS)
                         if f"{source}/train_val/{metric}" in model.columns
                     },

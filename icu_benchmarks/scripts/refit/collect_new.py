@@ -1,15 +1,12 @@
 import json
 import logging
-import re
 import tempfile
 
 import click
-import numpy as np
 import polars as pl
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
-from icu_benchmarks.mlflow_utils import log_df, get_target_run
-from icu_benchmarks.plotting import PARAMETER_NAMES
+from icu_benchmarks.mlflow_utils import get_target_run, log_df
 
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 
@@ -76,7 +73,11 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
     results = pl.concat(all_results)
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
     group_by = ["target", "result_name", "metric", "n_samples", "seed"]
-    summary = results.group_by(group_by).agg(pl.all().top_k_by(k=1, by=pl.col("scores_cv") * mult)).explode([x for x in results.columns if x not in group_by])
+    summary = (
+        results.group_by(group_by)
+        .agg(pl.all().top_k_by(k=1, by=pl.col("scores_cv") * mult))
+        .explode([x for x in results.columns if x not in group_by])
+    )
 
     log_df(summary, f"{result_name}_results.csv", client, run_id=target_run.info.run_id)
 

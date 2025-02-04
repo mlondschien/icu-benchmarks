@@ -10,8 +10,11 @@ from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
 
+
 @gin.configurable
 class GeneralizedLinearModel(GeneralizedLinearRegressor):
+    """GeneralizedLinearRegressor that can be fit on pl.DataFrames and constant y's."""
+
     # All parameters are copied from the GLR estimator. They need to be explicit to
     # adhere to sklearn's API. GLR inherits from BaseEstimator.
     def __init__(
@@ -99,15 +102,22 @@ class GeneralizedLinearModel(GeneralizedLinearRegressor):
         )
 
     def fit(self, X, y, sample_weight=None, dataset=None):
+        """
+        Fit method that can handle constant y's.
+
+        If y is constant and self.family='binomial', the "optimal" parameters would be
+        given via intercept=+-inf. Instead, we treat this problem as if there was an
+        additional observation with the opposite label.
+        """
         if isinstance(X, pl.DataFrame):
             X = tabmat.from_df(X)
-        
+
         if self.family == "binomial" and len(np.unique(y)) == 1:
             # If there is no variation in y, "fit" intercept as if there were len(y)
             # observations with label y[0] and 1 observation with opposite label.
             # The model then predicts the probability len(y) / (len(y) + 1) for label
             # y[0] and 1 / (len(y) + 1) for the opposite label.
-            self.intercept_ = - (1 - 2 * y[0]) * np.log(len(y))
+            self.intercept_ = -(1 - 2 * y[0]) * np.log(len(y))
             self.intercept_path_ = [self.intercept_] * len(self.alpha)
             self.coef_path_ = [np.zeros(X.shape[1]) for _ in range(len(self.alpha))]
             self.coef_ = self.coef_path_[-1]  # coef_ is checked for by _is_fitted
@@ -116,8 +126,9 @@ class GeneralizedLinearModel(GeneralizedLinearRegressor):
             return self
 
         return super().fit(X, y, sample_weight=sample_weight)
-    
+
     def predict(self, X, **kwargs):
+        """Predict, allowing for a polars.DataFrame as `X` input."""
         if isinstance(X, pl.DataFrame):
             X = tabmat.from_df(X)
         return super().predict(X, **kwargs)

@@ -80,8 +80,8 @@ def severinghaus_po2_to_spo2(po2):
 
 def mortality_from_apache_ii(apache_ii, adm):
     """
-    Return apache II depdendent mortality probability from Knaus et al 1985.
-    
+    Return apache II based mortality probability from Knaus et al 1985.
+
     0-4 	4% 	1%
     5-9 	8% 	3%
     10-14 	15% 	7%
@@ -94,7 +94,7 @@ def mortality_from_apache_ii(apache_ii, adm):
     surg_mask = adm == "surg"
     med_mask = (adm == "med") | (adm == "other")
     na_mask = ~surg_mask & ~med_mask
-    
+
     p = np.zeros_like(apache_ii)
 
     apache_grid = np.array([0, 2, 7, 12, 17, 22, 27, 32, 34, 100])

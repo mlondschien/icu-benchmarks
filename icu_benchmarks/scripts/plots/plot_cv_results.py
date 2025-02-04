@@ -60,7 +60,13 @@ def main(experiment_name, tracking_uri):  # noqa D
         )
         results = results.drop(pl.col(col) for col in results.columns if "/r2" in col)
         results = results.drop(pl.col(c) for c in results.columns if "/val/" in c)
-        results = results.rename({c: c.replace("/train/", "/train_val/") for c in results.columns if "/train/" in c})
+        results = results.rename(
+            {
+                c: c.replace("/train/", "/train_val/")
+                for c in results.columns
+                if "/train/" in c
+            }
+        )
         all_results.append(results)
 
     results = pl.concat(all_results)

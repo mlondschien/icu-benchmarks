@@ -69,8 +69,7 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
             if len(sources) != 5:
                 continue
             target = [t for t in SOURCES if t not in sources][0]
-        
-    
+
         run_id = run.info.run_id
         result_file = f"{result_name}_results.csv"
         with tempfile.TemporaryDirectory() as f:

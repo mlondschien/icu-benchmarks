@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from icu_benchmarks.constants import OBSERVATIONS_PER_GB, TASKS
+from icu_benchmarks.constants import TASKS
 from icu_benchmarks.slurm_utils import setup_mlflow_server
 
 SOURCES = [
@@ -57,8 +57,6 @@ def main(
     config_text = Path(config).read_text()
 
     for source, outcome in product(SOURCES, outcomes):
-        n_samples = TASKS[outcome]["n_samples"][source]
-
         log_dir = Path("logs") / experiment_name / outcome / source
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
@@ -83,8 +81,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 """
             )
 
-        required_memory = n_samples / OBSERVATIONS_PER_GB
-        n_cpus = 32 # min(64, max(4, required_memory))
+        n_cpus = 32
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(

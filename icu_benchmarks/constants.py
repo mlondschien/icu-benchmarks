@@ -157,7 +157,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "tgcs",
             "wbc",
         ],
-        "horizons": [24]
+        "horizons": [24],
     },
     "los_at_24h": {
         "task": "regression",

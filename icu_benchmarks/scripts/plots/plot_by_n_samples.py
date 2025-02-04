@@ -1,16 +1,14 @@
 import logging
-import re
 import tempfile
 
 import click
 import matplotlib.pyplot as plt
-import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.mlflow_utils import log_fig
 from icu_benchmarks.plotting import COLORS
-from icu_benchmarks.constants import GREATER_IS_BETTER
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -32,6 +30,7 @@ colors = {
     "refit_intercept_lgbm": COLORS["purple"],
     "n_samples": COLORS["green"],
 }
+
 
 @click.command()
 @click.option("--target_experiment", type=str)
@@ -77,7 +76,14 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
             pl.lit(name).alias("name"),
             # pl.lit(run.data.tags["outcome"]).alias("outcome"),
         )
-        df = df.rename({"n_samples": "n_target", "scores_cv": "cv_value", "scores_test": "test_value"}, strict=False)
+        df = df.rename(
+            {
+                "n_samples": "n_target",
+                "scores_cv": "cv_value",
+                "scores_test": "test_value",
+            },
+            strict=False,
+        )
         results.append(df)
 
     results = pl.concat(results, how="diagonal_relaxed")
@@ -112,7 +118,12 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                     )
                     .sort("n_target")
                 )
-                ax.plot(data_["n_target"], data_["score"], label=result_name, color=colors[result_name])
+                ax.plot(
+                    data_["n_target"],
+                    data_["score"],
+                    label=result_name,
+                    color=colors[result_name],
+                )
                 ax.fill_between(
                     data_["n_target"],
                     data_["min"],

@@ -7,3 +7,4 @@ slurm-*.out
 logs/
 mlruns/
 logs_*/
+/data/

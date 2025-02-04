@@ -113,7 +113,9 @@ def load(
     if split == "train":
         filters &= ds.field("patient_id_hash") < 0.7
     elif split == "val":
-        filters &= (ds.field("patient_id_hash") >= 0.7) & (ds.field("patient_id_hash") < 0.85)
+        filters &= (ds.field("patient_id_hash") >= 0.7) & (
+            ds.field("patient_id_hash") < 0.85
+        )
     elif split == "test":
         filters &= ds.field("patient_id_hash") >= 0.85
     elif split == "train_val":
@@ -259,7 +261,9 @@ def features(
             features += [variable]
         elif row["DataType"] == "continuous":
             features += [
-                f"{variable}_ffilled", f"{variable}_missing", f"{variable}_sq_ffilled"
+                f"{variable}_ffilled",
+                f"{variable}_missing",
+                f"{variable}_sq_ffilled",
             ]
             features += [
                 f"{variable}_{feature}_h{horizon}"

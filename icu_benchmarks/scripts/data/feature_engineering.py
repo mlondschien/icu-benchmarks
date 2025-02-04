@@ -7,7 +7,8 @@ import numpy as np
 import polars as pl
 
 from icu_benchmarks.constants import (
-    DATA_DIR, CAT_MISSING_NAME,
+    CAT_MISSING_NAME,
+    DATA_DIR,
     HORIZONS,
     OUTCOMES,
     VARIABLE_REFERENCE_PATH,
@@ -361,8 +362,10 @@ def switch(col, bounds, values):
         col = pl.col(col)
 
     return pl.coalesce(
-        pl.when(col.gt(lw1) & col.le(lw2)).then(val) for lw1, lw2, val in zip(bounds[:-1], bounds[1:], values)
+        pl.when(col.gt(lw1) & col.le(lw2)).then(val)
+        for lw1, lw2, val in zip(bounds[:-1], bounds[1:], values)
     ).fill_null(0)
+
 
 def outcomes():
     """
@@ -564,16 +567,20 @@ def outcomes():
     aado2 = fio2_ffilled * 7.10 - pco2_ffilled * 1.25 - po2_ffilled
 
     apache_ii_scores = [
-        switch("temp", [0, 30, 32, 34, 36, 38.5, 39, 41, 100], [4, 3, 2, 1, 0, 1, 3, 4]),
+        switch(
+            "temp", [0, 30, 32, 34, 36, 38.5, 39, 41, 100], [4, 3, 2, 1, 0, 1, 3, 4]
+        ),
         switch("map", [0, 50, 70, 110, 130, 160, 1e4], [4, 2, 0, 2, 3, 4]),
         switch("hr", [0, 40, 55, 70, 110, 140, 180, 500], [4, 3, 2, 0, 2, 3, 4]),
         switch("resp", [0, 6, 10, 12, 25, 35, 50, 100], [4, 2, 1, 0, 1, 3, 4]),
-        pl.when(fio2_ffilled.lt(50)).then(
-            switch("po2", [np.inf, 70, 60, 55, 0], [0, 1, 3, 4])
-        ).otherwise(
-            switch(aado2, [np.inf, 500, 350, 200, 0], [4, 3, 2, 0])
+        pl.when(fio2_ffilled.lt(50))
+        .then(switch("po2", [np.inf, 70, 60, 55, 0], [0, 1, 3, 4]))
+        .otherwise(switch(aado2, [np.inf, 500, 350, 200, 0], [4, 3, 2, 0])),
+        switch(
+            "na",
+            [np.inf, 180, 160, 155, 150, 130, 120, 110, 0],
+            [4, 3, 2, 1, 0, 2, 3, 4],
         ),
-        switch("na", [np.inf, 180, 160, 155, 150, 130, 120, 110, 0], [4, 3, 2, 1, 0, 2, 3, 4]),
         switch("k", [np.inf, 7, 6, 5.5, 3.5, 3, 2.5, 0], [4, 3, 1, 0, 1, 2, 4]),
         # the thresholds for creatinine are in umol/l, crea is in mg/dl
         switch(pl.col("crea") * 88.42, [np.inf, 305, 170, 130, 53, 0], [4, 3, 2, 0, 2]),
@@ -582,7 +589,9 @@ def outcomes():
         switch("wbc", [np.inf, 40, 20, 15, 3, 1, 0], [4, 2, 1, 0, 2, 4]),
         15 - pl.col("tgcs").fill_null(3),
     ]
-    apache_ii = pl.sum_horizontal(x.rolling_max(24, min_samples=1, center=False) for x in apache_ii_scores)
+    apache_ii = pl.sum_horizontal(
+        x.rolling_max(24, min_samples=1, center=False) for x in apache_ii_scores
+    )
     apache_ii += switch("age", [0, 45, 55, 65, 75, np.inf], [0, 2, 3, 5, 6])
 
     return [
@@ -601,6 +610,7 @@ def outcomes():
         pl.col("log_po2"),
         apache_ii.alias("apache_ii"),
     ]
+
 
 @click.command()
 @click.option("--dataset", type=str, required=True)
@@ -680,7 +690,9 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
             expressions += continuous_features(tag, "time_hours", horizons=None)
 
         elif row["DataType"] == "treatment_ind":
-            expressions += treatment_indicator_features(tag, "time_hours", horizons=None)
+            expressions += treatment_indicator_features(
+                tag, "time_hours", horizons=None
+            )
 
         elif row["DataType"] == "treatment_cont":
             expressions += treatment_continuous_features(
@@ -699,7 +711,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
     q = dyn.group_by("stay_id").agg(expressions).explode(pl.exclude("stay_id"))
 
-    q = q.with_columns(  # these hashs are useful for subsetting
+    q = q.with_columns(  # these hashes are useful for subsetting
         (pl.col("stay_id").hash() / 2.0**64).alias("stay_id_hash"),
         (pl.col("patient_id").hash() / 2.0**64).alias("patient_id_hash"),
     ).with_columns(
@@ -733,7 +745,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         "carevue",
         "metavision",
         "log_time_hours",
-        "apache_ii"
+        "apache_ii",
     }
     extra_features = schema_names - feature_names - other_variables - set(OUTCOMES)
     if extra_features:

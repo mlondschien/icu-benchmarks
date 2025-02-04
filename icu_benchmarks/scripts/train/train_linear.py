@@ -7,16 +7,16 @@ import gin
 import mlflow
 import numpy as np
 import polars as pl
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-import sklearn
+
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, log_dict, log_pickle, setup_mlflow
-from icu_benchmarks.models import AnchorRegression, DataSharedLasso, GeneralizedLinearModel  # noqa F401
+from icu_benchmarks.models import (  # noqa F401
+    AnchorRegression,
+    DataSharedLasso,
+    GeneralizedLinearModel,
+)
 from icu_benchmarks.preprocessing import get_preprocessing
 
 logger = logging.getLogger(__name__)
@@ -73,13 +73,16 @@ def main(config: str):  # noqa D
 
     tic = perf_counter()
     df, y, weights, dataset = load(
-        sources=sources(), outcome=outcome(), split="train_val", other_columns=["dataset"]
+        sources=sources(),
+        outcome=outcome(),
+        split="train_val",
+        other_columns=["dataset"],
     )
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
     preprocessor = get_preprocessing(model()(), df, outcome())
-    
+
     tic = perf_counter()
     df = preprocessor.fit_transform(df)
     toc = perf_counter()

@@ -3,7 +3,7 @@ import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 
-from icu_benchmarks.constants import TASKS, GREATER_IS_BETTER
+from icu_benchmarks.constants import GREATER_IS_BETTER, TASKS
 
 SOURCE_COLORS = {
     "eicu": "black",
@@ -55,7 +55,6 @@ PARAMETER_NAMES = [
     "learning_rate",
     "num_leaves",
 ]
-
 
 
 def plot_discrete(ax, data, name, missings=True):

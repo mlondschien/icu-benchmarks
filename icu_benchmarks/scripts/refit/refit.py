@@ -2,11 +2,11 @@ import logging
 import os
 import pickle
 import tempfile
-from itertools import product
 from pathlib import Path
 
 import click
 import gin
+import numpy as np
 import polars as pl
 from joblib import Parallel, delayed
 from sklearn.model_selection import ParameterGrid
@@ -21,7 +21,6 @@ from icu_benchmarks.models import (  # noqa F401
     RefitInterceptModelCV,
     RefitLGBMModelCV,
 )
-import numpy as np
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -89,7 +88,9 @@ def main(config: str):  # noqa D
 
     outcome = run.data.tags["outcome"]
 
-    df, y, _, hashes = load(split="train", outcome=outcome, other_columns=["stay_id_hash"])
+    df, y, _, hashes = load(
+        split="train", outcome=outcome, other_columns=["stay_id_hash"]
+    )
     df = preprocessor.transform(df)
 
     hashes = hashes.sort()
@@ -104,7 +105,7 @@ def main(config: str):  # noqa D
                 y[mask],
                 hashes.filter(mask),
             )
-    
+
     df_test, y_test, _ = load(split="test", outcome=outcome)
     df_test = preprocessor.transform(df_test)
 
@@ -138,8 +139,9 @@ def main(config: str):  # noqa D
     del df, y
 
     results: list[dict] = sum(parallel_results, [])
-    log_df(pl.DataFrame(results), f"{get_name()}_results.csv", client=client, run_id=run_id)
-
+    log_df(
+        pl.DataFrame(results), f"{get_name()}_results.csv", client=client, run_id=run_id
+    )
 
 
 def _fit(
@@ -157,7 +159,9 @@ def _fit(
         cv_scores = [metrics(y, yhat[:, idx], "", task) for idx in range(len(kwargs))]
 
         yhat_test = model.predict_with_kwargs(df_test, predict_kwargs=kwargs)
-        test_scores = [metrics(y_test, yhat_test[:, idx], "", task) for idx in range(len(kwargs))]
+        test_scores = [
+            metrics(y_test, yhat_test[:, idx], "", task) for idx in range(len(kwargs))
+        ]
         results += [
             {
                 "n_samples": n_samples,
