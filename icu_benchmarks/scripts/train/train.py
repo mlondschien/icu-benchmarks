@@ -7,6 +7,7 @@ import gin
 import mlflow
 import numpy as np
 import polars as pl
+from sklearn.model_selection import ParameterGrid
 
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
@@ -19,7 +20,6 @@ from icu_benchmarks.models import (  # noqa F401
     LGBMAnchorModel,
 )
 from icu_benchmarks.preprocessing import get_preprocessing
-from sklearn.model_selection import ParameterGrid
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -72,7 +72,7 @@ def get_predict_kwargs(predict_kwargs=gin.REQUIRED):
 @click.option("--config", type=click.Path(exists=True))
 def main(config: str):  # noqa D
     gin.parse_config_file(config)
-    
+
     outcome, sources, targets = get_outcome(), get_sources(), get_targets()
 
     task = TASKS[outcome]
@@ -84,7 +84,7 @@ def main(config: str):  # noqa D
     }
 
     _ = setup_mlflow(tags=tags)
-    
+
     log_dict(get_parameters(), "parameters.json")
     log_dict(get_predict_kwargs(), "predict_kwargs.json")
 
@@ -132,7 +132,7 @@ def main(config: str):  # noqa D
                     **predict_kwarg,
                 }
             )
-    
+
     log_dict(model_dict, "models.json")
 
     for target in targets:
@@ -160,7 +160,7 @@ def main(config: str):  # noqa D
                     **result,
                     **metrics(y, yhat, f"{target}/{split}/", task),
                 }
-    
+
     for result_idx in range(len(results)):
         del results[result_idx]["predict_kwargs"]
 
