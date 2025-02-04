@@ -1,0 +1,19 @@
+import icu_benchmarks.gin
+
+icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
+icu_benchmarks.load.load.weighting_exponent = -0.5
+
+get_parameters.parameters = {
+    "l1_ratio": [0.2, 0.5, 1],
+    # "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8, 11.2, 16, 22.4, 32, 44.8, 64, 89.6, 128, 179.2, 256, 358.4, 512, 716.8, 1024],
+}
+
+GeneralizedLinearModel.alpha = %ALPHA
+GeneralizedLinearModel.family = "binomial"
+GeneralizedLinearModel.max_iter = 100
+GeneralizedLinearModel.verbose = 1
+GeneralizedLinearModel.scale_predictors = False
+GeneralizedLinearModel.solver = "irls-cd"
+GeneralizedLinearModel.alpha_search = True
+
+get_model.model = @GeneralizedLinearModel

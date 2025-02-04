@@ -10,6 +10,118 @@ from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
 
+@gin.configurable
+class GeneralizedLinearModel(GeneralizedLinearRegressor):
+    # All parameters are copied from the GLR estimator. They need to be explicit to
+    # adhere to sklearn's API. GLR inherits from BaseEstimator.
+    def __init__(
+        self,
+        alpha=None,
+        l1_ratio=0,
+        P1="identity",
+        P2="identity",
+        fit_intercept=True,
+        family="normal",
+        link="auto",
+        solver="auto",
+        max_iter=100,
+        max_inner_iter=100000,
+        gradient_tol=None,
+        step_size_tol=None,
+        hessian_approx=0.0,
+        warm_start=False,
+        alpha_search=False,
+        alphas=None,
+        n_alphas=100,
+        min_alpha_ratio=None,
+        min_alpha=None,
+        start_params=None,
+        selection="cyclic",
+        random_state=None,
+        copy_X=None,
+        check_input=True,
+        verbose=0,
+        scale_predictors=False,
+        lower_bounds=None,
+        upper_bounds=None,
+        A_ineq=None,
+        b_ineq=None,
+        force_all_finite=True,
+        drop_first=False,
+        robust=True,
+        expected_information=False,
+        formula=None,
+        interaction_separator=":",
+        categorical_format="{name}[{category}]",
+        cat_missing_method="fail",
+        cat_missing_name="(MISSING)",
+    ):
+        super().__init__(
+            alpha=alpha,
+            l1_ratio=l1_ratio,
+            P1=P1,
+            P2=P2,
+            fit_intercept=fit_intercept,
+            family=family,
+            link=link,
+            solver=solver,
+            max_iter=max_iter,
+            max_inner_iter=max_inner_iter,
+            gradient_tol=gradient_tol,
+            step_size_tol=step_size_tol,
+            hessian_approx=hessian_approx,
+            warm_start=warm_start,
+            alpha_search=alpha_search,
+            alphas=alphas,
+            n_alphas=n_alphas,
+            min_alpha_ratio=min_alpha_ratio,
+            min_alpha=min_alpha,
+            start_params=start_params,
+            selection=selection,
+            random_state=random_state,
+            copy_X=copy_X,
+            check_input=check_input,
+            verbose=verbose,
+            scale_predictors=scale_predictors,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
+            A_ineq=A_ineq,
+            b_ineq=b_ineq,
+            force_all_finite=force_all_finite,
+            drop_first=drop_first,
+            robust=robust,
+            expected_information=expected_information,
+            formula=formula,
+            interaction_separator=interaction_separator,
+            categorical_format=categorical_format,
+            cat_missing_method=cat_missing_method,
+            cat_missing_name=cat_missing_name,
+        )
+
+    def fit(self, X, y, sample_weight=None, dataset=None):
+        if isinstance(X, pl.DataFrame):
+            X = tabmat.from_df(X)
+        
+        if self.family == "binomial" and len(np.unique(y)) == 1:
+            # If there is no variation in y, "fit" intercept as if there were len(y)
+            # observations with label y[0] and 1 observation with opposite label.
+            # The model then predicts the probability len(y) / (len(y) + 1) for label
+            # y[0] and 1 / (len(y) + 1) for the opposite label.
+            self.intercept_ = - (1 - 2 * y[0]) * np.log(len(y))
+            self.intercept_path_ = [self.intercept_] * len(self.alpha)
+            self.coef_path_ = [np.zeros(X.shape[1]) for _ in range(len(self.alpha))]
+            self.coef_ = self.coef_path_[-1]  # coef_ is checked for by _is_fitted
+            self._alphas = self.alpha  # for when using predict(alpha=...)
+            self.n_features_in_ = X.shape[1]  # this is used in GLR.linear_predictor
+            return self
+
+        return super().fit(X, y, sample_weight=sample_weight)
+    
+    def predict(self, X, **kwargs):
+        if isinstance(X, pl.DataFrame):
+            X = tabmat.from_df(X)
+        return super().predict(X, **kwargs)
+
 
 @gin.configurable
 class DataSharedLasso(GeneralizedLinearRegressor):
@@ -686,8 +798,9 @@ class EmpiricalBayesCV(CVMixin, GeneralizedLinearRegressor):
             self.prior.intercept_ = self.prior.intercept_path_[prior_alpha_idx]
             self.prior.coef_ = self.prior.coef_path_[prior_alpha_idx]
 
-    def fit(self, X, y):  # noqa D
+    def fit(self, X, y, sample_weights=None, dataset=None):  # noqa D
         offset = self.prior.linear_predictor(X)
+
         super().fit(X, y, offset=offset)
 
         return self

@@ -3,7 +3,7 @@ import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 
-from icu_benchmarks.constants import TASKS
+from icu_benchmarks.constants import TASKS, GREATER_IS_BETTER
 
 SOURCE_COLORS = {
     "eicu": "black",
@@ -22,6 +22,19 @@ SOURCE_COLORS = {
     "ehrshot": "gray",
     "miived": "cyan",
     "nwicu": "yellow",
+}
+
+# https://personal.sron.nl/~pault/#sec:qualitative
+COLORS = {
+    "blue": "#4477AA",
+    "cyan": "#66CCEE",
+    "green": "#228833",
+    "yellow": "#CCBB44",
+    "red": "#EE6677",
+    "purple": "#AA3377",
+    "grey": "#BBBBBB",
+    "black": "#000000",
+    "indigo": "#332288",
 }
 
 LINESTYLES = {
@@ -43,7 +56,6 @@ PARAMETER_NAMES = [
     "num_leaves",
 ]
 
-GREATER_IS_BETTER = ["auc", "auprc", "accuracy", "prc", "r2"]
 
 
 def plot_discrete(ax, data, name, missings=True):
@@ -209,11 +221,11 @@ def plot_by_x(results, x, metric, aggregation="mean"):
         # target/train/{metric} is the value of `metric` for the held-out-dataset
         expr = pl.coalesce(
             pl.when(~pl.col("sources").list.contains(t)).then(
-                pl.col(f"{t}/train/{metric}")
+                pl.col(f"{t}/train_val/{metric}")
             )
             for t in cv_sources
         )
-        cv_col = f"cv/train/{metric}"
+        cv_col = f"cv/train_val/{metric}"
         cv_results = cv_results.with_columns(expr.alias(cv_col))
 
         expr = pl.coalesce(
@@ -243,8 +255,8 @@ def plot_by_x(results, x, metric, aggregation="mean"):
 
         # cv_best is the row in cv_grouped with the best value of `metric`.
         cv_top_5 = cv_grouped.top_k(
-            5, by=cv_col, reverse=cv_col not in GREATER_IS_BETTER
-        ).sort(cv_col, descending=cv_col in GREATER_IS_BETTER)
+            5, by=cv_col, reverse=metric not in GREATER_IS_BETTER
+        ).sort(cv_col, descending=metric in GREATER_IS_BETTER)
 
         # cur_results_n1 are results where only target was held out (cur for this loop)
         cur_results_n1 = results_n1.filter(~pl.col("sources").list.contains(target))
@@ -301,7 +313,7 @@ def plot_by_x(results, x, metric, aggregation="mean"):
         # )
 
         ymin, ymax = ax.get_ylim()
-        variable = "alpha"
+        variable = "alpha" if "alpha" in results.columns else "num_iteration"
         if metric in GREATER_IS_BETTER:
             ymax = max(cur_results_n1[f"{target}/test/{metric}"].max(), ymax)
             var_min = cur_results_n1.filter(pl.col(f"{target}/test/{metric}") >= ymin)[
@@ -322,7 +334,7 @@ def plot_by_x(results, x, metric, aggregation="mean"):
         for _, group in cur_results_n1.group_by(param_names):
             group = group.sort(x)
             var = group[variable].first() / cur_results_n1[variable].max()
-            color = np.clip((var - var_min) / (var_max - var_min), 0, 1)
+            color = np.clip((var - var_min) / max(0.01, (var_max - var_min)), 0, 1)
             if 0 <= color <= 1:
                 ax.plot(
                     group[x],

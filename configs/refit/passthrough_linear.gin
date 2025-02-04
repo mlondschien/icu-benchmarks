@@ -1,5 +1,5 @@
-predict_kwargs.predict_kwargs = {"alpha": %ALPHA}
+get_predict_kwargs.predict_kwargs = {"alpha": %ALPHA}
 
-model.model = @PriorPassthroughCV
+get_model.model = @PriorPassthroughCV
 
-refit_parameters.refit_parameters = [{}]
+get_refit_parameters.refit_parameters = [{}]

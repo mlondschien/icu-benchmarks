@@ -10,6 +10,7 @@ from icu_benchmarks.constants import DATA_DIR, HORIZONS, VARIABLE_REFERENCE_PATH
 
 CONTINUOUS_FEATURES = [
     "mean",
+    "sq_mean",
     "std",
     "slope",
     "fraction_nonnull",
@@ -91,7 +92,7 @@ def load(
         dataset has weight proportional to the dataset size. Should be a float between
         `-1` and `0`.
     other_columns : list of str, optional, default = None
-        Other columns to load. E.g., `["hash"]`.
+        Other columns to load. E.g., `["stay_id_hash"]`.
 
     Returns
     -------
@@ -110,11 +111,13 @@ def load(
     # filters &= ds.field("age") >= 18
 
     if split == "train":
-        filters &= ds.field("hash") < 0.7
+        filters &= ds.field("patient_id_hash") < 0.7
     elif split == "val":
-        filters &= (ds.field("hash") >= 0.7) & (ds.field("hash") < 0.85)
+        filters &= (ds.field("patient_id_hash") >= 0.7) & (ds.field("patient_id_hash") < 0.85)
     elif split == "test":
-        filters &= ds.field("hash") >= 0.85
+        filters &= ds.field("patient_id_hash") >= 0.85
+    elif split == "train_val":
+        filters &= ds.field("patient_id_hash") < 0.85
     elif split is not None:
         raise ValueError(f"Invalid split: {split}")
 
@@ -255,7 +258,9 @@ def features(
         if row["VariableType"] == "static":
             features += [variable]
         elif row["DataType"] == "continuous":
-            features += [f"{variable}_ffilled", f"{variable}_missing"]
+            features += [
+                f"{variable}_ffilled", f"{variable}_missing", f"{variable}_sq_ffilled"
+            ]
             features += [
                 f"{variable}_{feature}_h{horizon}"
                 for feature in continuous_features

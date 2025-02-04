@@ -7,7 +7,7 @@ import numpy as np
 import polars as pl
 
 from icu_benchmarks.constants import (
-    DATA_DIR,
+    DATA_DIR, CAT_MISSING_NAME,
     HORIZONS,
     OUTCOMES,
     VARIABLE_REFERENCE_PATH,
@@ -27,7 +27,6 @@ variable_reference = (
     .filter(pl.col("DatasetVersion").is_not_null())
     .with_columns(pl.col("PossibleValues").str.json_decode())
 )
-CAT_MISSING_NAME = "(MISSING)"
 
 
 def continuous_features(
@@ -63,14 +62,14 @@ def continuous_features(
     if horizons is None:
         horizons = HORIZONS
 
+    column = pl.col(column_name)
     # Most features can be computed using cumulative sums. To "ignore" missing values,
     # we fill them with 0.
-    col = pl.col(column_name)
-    col_filled = col.fill_null(0)
+    col_filled = column.fill_null(0)
     # time is never null. But we want to ignore entries corresponding to missing values
     # in `column_name`.
-    time = pl.when(pl.col(column_name).is_null()).then(0).otherwise(pl.col(time_col))
-    nonnulls = pl.col(column_name).is_not_null().cast(pl.Int32).cum_sum()
+    time = pl.when(column.is_null()).then(0).otherwise(pl.col(time_col))
+    nonnulls = column.is_not_null().cast(pl.Int32).cum_sum()
 
     time_cs = time.cum_sum()
     time_sq_cs = (time * time).cum_sum()
@@ -80,8 +79,9 @@ def continuous_features(
     timexcol_cs = (time * col_filled).cum_sum()
 
     expressions = [
-        pl.col(column_name).forward_fill().alias(f"{column_name}_ffilled"),
-        pl.col(column_name).is_null().alias(f"{column_name}_missing"),
+        column.forward_fill().alias(f"{column_name}_ffilled"),
+        column.pow(2).forward_fill().alias(f"{column_name}_sq_ffilled"),
+        column.is_null().alias(f"{column_name}_missing"),
     ]
 
     for horizon in horizons:
@@ -95,6 +95,7 @@ def continuous_features(
 
         # Use when to avoid division by zero & s.t. column contains Nones, not nans.
         col_mean = pl.when(nonnulls_sum > 0).then(col_sum / nonnulls_sum)
+        col_sq_mean = pl.when(nonnulls_sum > 0).then(col_sq_sum / nonnulls_sum)
 
         # std = sum_i (x_i - mean)^2 / n = sum_i x_i^2 / n - mean^2
         col_std = (col_sq_sum / nonnulls_sum - col_mean * col_mean).clip(0, None).sqrt()
@@ -109,15 +110,12 @@ def continuous_features(
 
         all_missing = nonnulls_sum == 0
 
-        rolling_min = pl.col(column_name).rolling_min(
-            window_size=horizon, min_periods=1
-        )
-        rolling_max = pl.col(column_name).rolling_max(
-            window_size=horizon, min_periods=1
-        )
+        rolling_min = column.rolling_min(window_size=horizon, min_samples=1)
+        rolling_max = column.rolling_max(window_size=horizon, min_samples=1)
 
         expressions += [
             col_mean.alias(f"{column_name}_mean_h{horizon}"),
+            col_sq_mean.alias(f"{column_name}_sq_mean_h{horizon}"),
             col_std.alias(f"{column_name}_std_h{horizon}"),
             slope.alias(f"{column_name}_slope_h{horizon}"),
             fraction_nonnull.alias(f"{column_name}_fraction_nonnull_h{horizon}"),
@@ -171,13 +169,14 @@ def discrete_features(
             .to_series()
         )
 
-    nonnulls = (pl.col(column_name).ne(CAT_MISSING_NAME)).cum_sum()
+    column = pl.col(column_name)
+    nonnulls = (column.ne(CAT_MISSING_NAME)).cum_sum()
 
     expressions = list()
 
     for horizon in horizons:
         col_mode = pl.map_groups(
-            exprs=(pl.col(column_name), pl.col(time_col)),
+            exprs=(column, pl.col(time_col)),
             function=lambda series: get_rolling_mode(series, horizon),
             return_dtype=pl.List(pl.String),
         )
@@ -349,6 +348,22 @@ def polars_nan_or(*args: pl.Expr):
     )
 
 
+def switch(col, bounds, values):
+    """
+    Map intervals to values.
+
+    Returns values[idx] if bounds[idx] <= col < bounds[idx + 1].
+    """
+    if len(bounds) != len(values) + 1:
+        raise ValueError(f"Length mismatch between bounds and values for {col}.")
+
+    if isinstance(col, str):
+        col = pl.col(col)
+
+    return pl.coalesce(
+        pl.when(col.gt(lw1) & col.le(lw2)).then(val) for lw1, lw2, val in zip(bounds[:-1], bounds[1:], values)
+    ).fill_null(0)
+
 def outcomes():
     """
     Compute outcomes.
@@ -458,14 +473,14 @@ def outcomes():
     # The patient has a kidney failure if they are in stage 3 according to
     # https://kdigo.org/wp-content/uploads/2016/10/KDIGO-2012-AKI-Guideline-English.pdf
     relative_creatine = pl.col("crea") / pl.col("crea").shift(1).rolling_min(
-        window_size=7 * 24, min_periods=1
+        window_size=7 * 24, min_samples=1
     )
 
     # AKI 1 is
     # - max absolute creatinine increase of 0.3 within 48h or
     # - a relative creatinine increase of 1.5.
-    creatine_min_48 = pl.col("crea").rolling_min(window_size=48, min_periods=1)
-    creatine_max_48 = pl.col("crea").rolling_max(window_size=48, min_periods=1)
+    creatine_min_48 = pl.col("crea").rolling_min(window_size=48, min_samples=1)
+    creatine_max_48 = pl.col("crea").rolling_max(window_size=48, min_samples=1)
     creatine_change_48 = creatine_max_48 - creatine_min_48
     aki_1 = polars_nan_or(creatine_change_48 >= 0.3, relative_creatine >= 1.5)
 
@@ -475,7 +490,7 @@ def outcomes():
     # - not more than 0.3ml/kg/h urine rate for 24h
     # - no urine for 12h
     low_urine_rate = ((pl.col("urine_rate") / pl.col("weight")) < 0.3).cast(pl.Int32)
-    low_urine_rate_24 = low_urine_rate.rolling_sum(window_size=24, min_periods=1).eq(24)
+    low_urine_rate_24 = low_urine_rate.rolling_sum(window_size=24, min_samples=1).eq(24)
 
     # True if aki_1 is True and creatine >= 4 (neither missing). False if either aki_1
     # is False or creatine < 4. Else, missing.
@@ -486,7 +501,7 @@ def outcomes():
         pl.col("urine_rate")
         .eq(0)
         .cast(pl.Int32)
-        .rolling_sum(window_size=12, min_periods=1)
+        .rolling_sum(window_size=12, min_samples=1)
         .eq(12)
     )
 
@@ -506,10 +521,10 @@ def outcomes():
     los_at_24h = los_at_24h.clip(0, None).alias("los_at_24h")
 
     # log(lactate) in the next hour. This can be seen as an imputation task.
-    log_lactate_in_1h = pl.col("log_lact").shift(-1).alias("log_lactate_in_1h")
+    log_lactate_in_1h = pl.col("lact").shift(-1).alias("log_lactate_in_1h")
 
     # log(lactate) in 8 hours.
-    log_lactate_in_8h = pl.col("log_lact").shift(-8).alias("log_lactate_in_8h")
+    log_lactate_in_8h = pl.col("lact").shift(-8).alias("log_lactate_in_8h")
 
     # log(creatine) in the next hour. This can be seen as an imputation task.
     log_creatine_in_1h = pl.col("log_crea").shift(-1).alias("log_creatine_in_1h")
@@ -522,6 +537,53 @@ def outcomes():
     log_rel_urine_rate_in_8h = (
         pl.col("log_rel_urine_rate").shift(-8).alias("log_rel_urine_rate_in_8h")
     )
+
+    # APACHE II from
+    # https://icucycle.com/wp-content/uploads/2018/06/PROSPECT-APACHE-II-Calculation
+    # -Worksheet.pdf
+    # and
+    # https://icucycle.com/wp-content/uploads/2018/06/PROSPECT-RCT-APACHE-SOP-July-21-
+    # 2016.pdf
+    # We don't use hco3 and chronic health points.
+    # The apache score is (at least in theory) only valid for time point 24:
+    # > All APACHE II data collected must be from the first 24 hours following ICU
+    # > admission.
+    # We fill with 0 if no data is available:
+    # > When recording variables for the Acute Physiology Score, if a physiologic
+    # > measurement is not obtained during the 24 hour time frame, assign a zero (“0”)
+    # > point score.
+    # We take a max over the last 24 hours for physiological measurements:
+    # > For all acute physiologic measurements: choose the worst, most abnormal value
+    # > recorded during the full 24 hour assessment period.
+    # The maximal value apache_ii can take is 10 * 4 + (15 - 3) + 6 = 58.
+    # The minimal value is 0.
+    fio2_ffilled = pl.col("fio2").forward_fill(4).fill_null(21)
+    pco2_ffilled = pl.col("pco2").forward_fill(4)
+    po2_ffilled = pl.col("po2").forward_fill(4)
+    # https://en.wikipedia.org/wiki/Alveolar%E2%80%93arterial_gradient
+    aado2 = fio2_ffilled * 7.10 - pco2_ffilled * 1.25 - po2_ffilled
+
+    apache_ii_scores = [
+        switch("temp", [0, 30, 32, 34, 36, 38.5, 39, 41, 100], [4, 3, 2, 1, 0, 1, 3, 4]),
+        switch("map", [0, 50, 70, 110, 130, 160, 1e4], [4, 2, 0, 2, 3, 4]),
+        switch("hr", [0, 40, 55, 70, 110, 140, 180, 500], [4, 3, 2, 0, 2, 3, 4]),
+        switch("resp", [0, 6, 10, 12, 25, 35, 50, 100], [4, 2, 1, 0, 1, 3, 4]),
+        pl.when(fio2_ffilled.lt(50)).then(
+            switch("po2", [np.inf, 70, 60, 55, 0], [0, 1, 3, 4])
+        ).otherwise(
+            switch(aado2, [np.inf, 500, 350, 200, 0], [4, 3, 2, 0])
+        ),
+        switch("na", [np.inf, 180, 160, 155, 150, 130, 120, 110, 0], [4, 3, 2, 1, 0, 2, 3, 4]),
+        switch("k", [np.inf, 7, 6, 5.5, 3.5, 3, 2.5, 0], [4, 3, 1, 0, 1, 2, 4]),
+        # the thresholds for creatinine are in umol/l, crea is in mg/dl
+        switch(pl.col("crea") * 88.42, [np.inf, 305, 170, 130, 53, 0], [4, 3, 2, 0, 2]),
+        switch("hct", [np.inf, 60, 50, 46, 30, 20, 0], [4, 2, 1, 0, 2, 4]),
+        # wbc is in "Giga/l", the same as "total / mm3".
+        switch("wbc", [np.inf, 40, 20, 15, 3, 1, 0], [4, 2, 1, 0, 2, 4]),
+        15 - pl.col("tgcs").fill_null(3),
+    ]
+    apache_ii = pl.sum_horizontal(x.rolling_max(24, min_samples=1, center=False) for x in apache_ii_scores)
+    apache_ii += switch("age", [0, 45, 55, 65, 75, np.inf], [0, 2, 3, 5, 6])
 
     return [
         mortality_at_24h,
@@ -537,8 +599,8 @@ def outcomes():
         log_rel_urine_rate_in_1h,
         log_rel_urine_rate_in_8h,
         pl.col("log_po2"),
+        apache_ii.alias("apache_ii"),
     ]
-
 
 @click.command()
 @click.option("--dataset", type=str, required=True)
@@ -550,13 +612,16 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     dyn = pl.scan_parquet(data_dir / dataset / "dyn.parquet")
     sta = pl.scan_parquet(data_dir / dataset / "sta.parquet")
 
+    if "patient_id" not in sta.collect_schema().names():
+        sta = sta.with_columns(pl.col("stay_id").alias("patient_id"))
+
     dyn = dyn.join(sta, on="stay_id", how="full", coalesce=True, validate="m:1")
     dyn = dyn.with_columns(
         (pl.col("time").dt.total_hours()).cast(pl.Int32).alias("time_hours")
     )
 
     # The code below assumes that all missing values are encoded as nulls, not nans.
-    # nans behave differently in comparisons (1.0 == nan is False)
+    # nans behave differently in comparisons (1.0 == nan is False, not None)
     tic = perf_counter()
     nan_columns = dyn.select(pl.col([pl.Float32, pl.Float64]).is_nan().any()).collect()
     nan_columns = [col.name for col in nan_columns if col.any()]
@@ -588,48 +653,34 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     dyn = dyn.join(time_ranges, on=["stay_id", "time_hours"], how="full", coalesce=True)
     dyn = dyn.sort(["stay_id", "time_hours"])
 
-    for row in variable_reference.rows(named=True):
-        col = pl.col(row["VariableTag"]).clip(row["LowerBound"], row["UpperBound"])
-
-        # Log transform some of the continuous variables. We add a small epsilon to
-        # avoid taking the log of 0.
-        if row["LogTransform"]:
-            eps = row["LogTransformEps"] or 0.0
-            col = (col + eps).log().alias(f"log_{row['VariableTag']}")
-            col = col.replace([np.nan, -np.inf], None)
-
-        # Cast categorical variables to Enum. `samp` is binary. For simplicity, we cast
-        # it to string first.
-        if row["DataType"] == "categorical":
-            enum = pl.Enum(row["PossibleValues"] + [CAT_MISSING_NAME])
-            col = col.cast(pl.String).fill_null(CAT_MISSING_NAME).cast(enum)
-
-        dyn = dyn.with_columns(col)
-
-    expressions = ["time_hours", "anchoryear", "carevue", "metavision"]
+    expressions = ["time_hours", "anchoryear", "carevue", "metavision", "patient_id"]
 
     for row in variable_reference.rows(named=True):
         tag = row["VariableTag"]
+        col = pl.col(tag).clip(row["LowerBound"], row["UpperBound"])
 
-        if row["VariableType"] == "static" and row["LogTransform"]:
-            expressions += [pl.col(f"log_{tag}")]
-        elif row["VariableType"] == "static":
-            expressions += [pl.col(tag)]
+        # Log transform some of the continuous variables. We add a small epsilon to
+        # avoid taking the log of 0.
+        if row["LogTransform"] and row["DataType"] != "treatment_cont":
+            tag = f"log_{row['VariableTag']}"
+            eps = row["LogTransformEps"] or 0.0
+            col = (col + eps).log().replace([np.nan, -np.inf], None).alias(tag)
 
-        elif row["DataType"] == "continuous" and row["LogTransform"]:
-            expressions += continuous_features(
-                f"log_{tag}", "time_hours", horizons=None
-            )
+        if row["VariableType"] == "static":
+            expressions.append(col)
+
+        # Cast categorical variables to Enum. `samp` is binary. For simplicity, we cast
+        # it to string first.
+        elif row["DataType"] == "categorical":
+            enum = pl.Enum(row["PossibleValues"] + [CAT_MISSING_NAME])
+            col = col.cast(pl.String).fill_null(CAT_MISSING_NAME).cast(enum)
+            expressions += discrete_features(tag, "time_hours", horizons=None)
+
         elif row["DataType"] == "continuous":
             expressions += continuous_features(tag, "time_hours", horizons=None)
 
-        elif row["DataType"] == "categorical":
-            expressions += discrete_features(tag, "time_hours", horizons=None)
-
         elif row["DataType"] == "treatment_ind":
-            expressions += treatment_indicator_features(
-                tag, "time_hours", horizons=None
-            )
+            expressions += treatment_indicator_features(tag, "time_hours", horizons=None)
 
         elif row["DataType"] == "treatment_cont":
             expressions += treatment_continuous_features(
@@ -642,16 +693,19 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         else:
             raise ValueError(f"Unknown DataType: {row['DataType']}")
 
+        dyn = dyn.with_columns(col)
+
     expressions += outcomes()
 
     q = dyn.group_by("stay_id").agg(expressions).explode(pl.exclude("stay_id"))
 
-    q = q.with_columns(
-        (pl.col("stay_id").hash() / 2.0**64).alias("hash"),  # useful for subsetting
+    q = q.with_columns(  # these hashs are useful for subsetting
+        (pl.col("stay_id").hash() / 2.0**64).alias("stay_id_hash"),
+        (pl.col("patient_id").hash() / 2.0**64).alias("patient_id_hash"),
     ).with_columns(
-        pl.when(pl.col("hash") < 0.7)
+        pl.when(pl.col("patient_id") < 0.7)
         .then(pl.lit("train"))
-        .when(pl.col("hash") < 0.85)
+        .when(pl.col("patient_id") < 0.85)
         .then(pl.lit("val"))
         .otherwise(pl.lit("test"))
         .alias("split")
@@ -669,7 +723,9 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
 
     other_variables = {
         "stay_id",
-        "hash",
+        "patient_id",
+        "stay_id_hash",
+        "patient_id_hash",
         "split",
         "dataset",
         "time_hours",
@@ -677,6 +733,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         "carevue",
         "metavision",
         "log_time_hours",
+        "apache_ii"
     }
     extra_features = schema_names - feature_names - other_variables - set(OUTCOMES)
     if extra_features:

@@ -81,8 +81,9 @@ def main(
 {config_text}
 
 ALPHA = {alpha.tolist()}
+FAMILY = "{TASKS[outcome]["family"]}"
 
-name.name = "{stem}"
+get_name.name = "{stem}"
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 

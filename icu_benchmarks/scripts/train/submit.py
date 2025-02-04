@@ -97,9 +97,9 @@ targets.targets = {DATASETS}
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
+FAMILY = "{TASKS[outcome]["family"]}"
 ALPHA = {alpha.tolist()}
 
-icu_benchmarks.load.load.weighting_exponent = -0.5
 icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
 icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 """
@@ -114,7 +114,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
                 f"""#!/bin/bash
 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task={32}
+#SBATCH --cpus-per-task={16}
 #SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"

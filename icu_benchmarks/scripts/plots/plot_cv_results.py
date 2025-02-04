@@ -59,6 +59,8 @@ def main(experiment_name, tracking_uri):  # noqa D
             pl.lit(run.data.tags["outcome"]).alias("outcome"),
         )
         results = results.drop(pl.col(col) for col in results.columns if "/r2" in col)
+        results = results.drop(pl.col(c) for c in results.columns if "/val/" in c)
+        results = results.rename({c: c.replace("/train/", "/train_val/") for c in results.columns if "/train/" in c})
         all_results.append(results)
 
     results = pl.concat(all_results)
@@ -72,8 +74,7 @@ def main(experiment_name, tracking_uri):  # noqa D
         run = client.create_run(experiment_id=experiment_id, tags={"sources": ""})
 
     print(f"logging to {run.info.run_id}")
-
-    metrics = map(re.compile(r"^[a-z]+\/train\/(.+)$").match, results.columns)
+    metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
     for metric in metrics:
         for x in [p for p in PARAMETER_NAMES if p in results.columns]:

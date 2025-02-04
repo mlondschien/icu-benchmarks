@@ -11,12 +11,13 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
+import sklearn
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, log_dict, log_pickle, setup_mlflow
-from icu_benchmarks.models import AnchorRegression, DataSharedLasso  # noqa F401
+from icu_benchmarks.models import AnchorRegression, DataSharedLasso, GeneralizedLinearModel  # noqa F401
+from icu_benchmarks.preprocessing import get_preprocessing
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -72,42 +73,17 @@ def main(config: str):  # noqa D
 
     tic = perf_counter()
     df, y, weights, dataset = load(
-        sources=sources(), outcome=outcome(), split="train", other_columns=["dataset"]
+        sources=sources(), outcome=outcome(), split="train_val", other_columns=["dataset"]
     )
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
-    continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float()]
-    bool_variables = [col for col in df.columns if df[col].dtype == pl.Boolean]
-    other = [
-        col for col in df.columns if col not in continuous_variables + bool_variables
-    ]
-
-    scaler = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
-    imputer = StandardScaler(copy=False)
-    preprocessor = ColumnTransformer(
-        transformers=[
-            (
-                "continuous",
-                Pipeline([("impute", imputer), ("scale", scaler)]),
-                continuous_variables,
-            ),
-            ("bool", "passthrough", bool_variables),
-            (
-                "other",
-                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-                other,
-            ),
-        ],
-        sparse_threshold=0,
-        verbose=1,
-    ).set_output(transform="polars")
-
+    preprocessor = get_preprocessing(model()(), df, outcome())
+    
     tic = perf_counter()
     df = preprocessor.fit_transform(df)
     toc = perf_counter()
     logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
-
     log_pickle(preprocessor, "models/preprocessor.pkl")
 
     glms = []
@@ -153,7 +129,7 @@ def main(config: str):  # noqa D
             )
 
     for target in targets():
-        for split in ["train", "val", "test"]:
+        for split in ["train_val", "test"]:
             logger.info(f"Scoring on {target}/{split}")
             tic = perf_counter()
             df, y, _ = load(sources=[target], outcome=outcome(), split=split)

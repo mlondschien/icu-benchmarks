@@ -33,7 +33,6 @@ SOURCES = [
     type=str,
     default="file:///cluster/work/math/lmalte/mlflow/artifacts",
 )
-@click.option("--script", type=str, default="n_samples.py")
 def main(
     config: str,
     hours: int,
@@ -42,7 +41,6 @@ def main(
     outcome: str,
     tracking_uri: str,
     artifact_location: str,
-    script: str,
 ):  # noqa D
     ip, port = setup_mlflow_server(
         tracking_uri=tracking_uri,
@@ -71,12 +69,13 @@ def main(
 
 {config_text}
 
-outcome.outcome = '{outcome}'
-target.target = '{source}'
+get_outcome.outcome = '{outcome}'
+get_target.target = '{source}'
 
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
+FAMILY = "{TASKS[outcome]["family"]}"
 
 icu_benchmarks.load.load.sources = ["{source}"]
 icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
@@ -85,8 +84,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
             )
 
         required_memory = n_samples / OBSERVATIONS_PER_GB
-        n_cpus = min(64, max(4, required_memory))
-
+        n_cpus = 32 # min(64, max(4, required_memory))
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(
@@ -99,7 +97,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 #SBATCH --job-name="{outcome}_{source}"
 #SBATCH --output="{log_dir}/slurm.out"
 
-python icu_benchmarks/scripts/n_samples/{script} --config {config_file.resolve()}"""
+python icu_benchmarks/scripts/n_samples/n_samples.py --config {config_file.resolve()}"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])

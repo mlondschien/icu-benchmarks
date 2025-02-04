@@ -83,27 +83,28 @@ def setup_mlflow_server(
     port = free_port()
     python_script = tmpdir / "setup_mlflow.py"
 
-    python_script_string = f"""import mlflow
-mlflow.set_tracking_uri('{tracking_uri}')
-experiment = mlflow.get_experiment_by_name('{experiment_name}')
-if experiment is None:
-    experiment_id = mlflow.create_experiment('{experiment_name}', artifact_location='{artifact_location}')
-else:
-    experiment_id = experiment.experiment_id
-
-mlflow.set_experiment(experiment_id=experiment_id)"""
-
-    # https://stackoverflow.com/a/60732403/10586763
-    if experiment_note is not None:
-        python_script_string += f"""
-mlflow.set_experiment_tag('mlflow.note.content', '{experiment_note}')"""
-
-    with python_script.open("w") as f:
-        f.write(python_script_string)
-
     # - set tracking uri and set the experiment. This ensures the experiment exists when
     #   the first run wants to log to it. If not, many runs started at the same time
     #   will try to create the same experiment.
+    if experiment_name is not None:
+        python_script_string = f"""import mlflow
+    mlflow.set_tracking_uri('{tracking_uri}')
+    experiment = mlflow.get_experiment_by_name('{experiment_name}')
+    if experiment is None:
+        experiment_id = mlflow.create_experiment('{experiment_name}', artifact_location='{artifact_location}')
+    else:
+        experiment_id = experiment.experiment_id
+
+    mlflow.set_experiment(experiment_id=experiment_id)"""
+
+        # https://stackoverflow.com/a/60732403/10586763
+        if experiment_note is not None:
+            python_script_string += f"""
+mlflow.set_experiment_tag('mlflow.note.content', '{experiment_note}')"""
+
+        with python_script.open("w") as f:
+            f.write(python_script_string)
+
     # - write the ip address to a file so that we can use it to set up port forwarding
     # - start the mlflow server
     # flake8: noqa E702
@@ -142,8 +143,8 @@ mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --
     with open(server_file, "w") as f:
         f.write(
             f"""
-ssh euler -L {port + 1}:{ip}:{port} -N &
-http://localhost:{port + 1}/
+ssh euler -L {port+1}:{ip}:{port} "sleep 1; exit" && ssh euler -L {port}:{ip}:{port} -N &
+http://localhost:{port}/
 {datetime.now()}
 """
         )

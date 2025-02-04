@@ -70,7 +70,7 @@ def main(config: str):  # noqa D
 
     tic = perf_counter()
     df, y, weights, dataset = load(
-        sources=sources(), outcome=outcome(), split="train", other_columns=["dataset"]
+        sources=sources(), outcome=outcome(), split="train_val", other_columns=["dataset"]
     )
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
@@ -133,7 +133,7 @@ def main(config: str):  # noqa D
             )
 
     for target in targets():
-        for split in ["train", "val", "test"]:
+        for split in ["train_val", "test"]:
             logger.info(f"Scoring on {target}/{split}")
             tic = perf_counter()
             df, y, _ = load(sources=[target], outcome=outcome(), split=split)

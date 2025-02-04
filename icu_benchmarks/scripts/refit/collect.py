@@ -8,10 +8,10 @@ import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
+from icu_benchmarks.constants import GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import log_df
 from icu_benchmarks.plotting import PARAMETER_NAMES
 
-GREATER_IS_BETTER = ["accuracy", "roc", "auprc", "r2"]
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 
 logger = logging.getLogger(__name__)

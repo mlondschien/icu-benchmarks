@@ -1,5 +1,5 @@
-predict_kwargs.predict_kwargs = {"alpha": %ALPHA}
+get_predict_kwargs.predict_kwargs = {"alpha": %ALPHA}
 
-model.model = @RefitInterceptModelCV
+get_model.model = @RefitInterceptModelCV
 
-refit_parameters.refit_parameters = [{}]
+get_refit_parameters.refit_parameters = [{}]

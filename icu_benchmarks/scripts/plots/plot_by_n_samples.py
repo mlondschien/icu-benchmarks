@@ -9,7 +9,8 @@ import polars as pl
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.mlflow_utils import log_fig
-
+from icu_benchmarks.plotting import COLORS
+from icu_benchmarks.constants import GREATER_IS_BETTER
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -17,9 +18,20 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-GREATER_IS_BETTER = ["auc", "auprc", "accuracy", "prc", "r2"]
 SOURCES = sorted(["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"])
 
+colors = {
+    "benchmark": COLORS["grey"],
+    "cv": COLORS["black"],
+    "passthrough_linear": COLORS["blue"],
+    "passthrough_lgbm": COLORS["blue"],
+    "refit_linear_light": COLORS["red"],
+    "refit_lgbm": COLORS["red"],
+    "refit_linear": COLORS["red"],
+    "refit_intercept_linear": COLORS["purple"],
+    "refit_intercept_lgbm": COLORS["purple"],
+    "n_samples": COLORS["green"],
+}
 
 @click.command()
 @click.option("--target_experiment", type=str)
@@ -65,6 +77,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
             pl.lit(name).alias("name"),
             # pl.lit(run.data.tags["outcome"]).alias("outcome"),
         )
+        df = df.rename({"n_samples": "n_target", "scores_cv": "cv_value", "scores_test": "test_value"}, strict=False)
         results.append(df)
 
     results = pl.concat(results, how="diagonal_relaxed")
@@ -84,6 +97,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                         xmin=data["n_target"].min(),
                         xmax=data["n_target"].max(),
                         label=result_name,
+                        color=colors[result_name],
                     )
                     continue
 
@@ -98,12 +112,12 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                     )
                     .sort("n_target")
                 )
-                ax.plot(data_["n_target"], data_["score"], label=result_name)
+                ax.plot(data_["n_target"], data_["score"], label=result_name, color=colors[result_name])
                 ax.fill_between(
                     data_["n_target"],
                     data_["min"],
                     data_["max"],
-                    color="grey",
+                    color=colors[result_name],
                     alpha=0.1,
                 )
 
@@ -111,6 +125,8 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
             ax.legend()
             ax.set_title(dataset)
 
+        fig.suptitle(metric)
+        fig.tight_layout()
         log_fig(fig, f"n_samples_{metric}.png", client, run_id=target_run.info.run_id)
 
     #  summary.filter(pl.col("metric") == "r2").group_by(["target", "result_name", "n_target"]).agg(pl.col("test_value").mean()).sort(["target", "result_name", "n_target"])
