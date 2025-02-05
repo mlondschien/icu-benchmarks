@@ -532,10 +532,14 @@ def outcomes():
     # log(creatine) in the next hour. This can be seen as an imputation task.
     log_creatine_in_1h = pl.col("log_crea").shift(-1).alias("log_creatine_in_1h")
 
-    # log(rel_urine_rate) in the next hour. This can be seen as an imputation task.
-    log_rel_urine_rate_in_1h = (
-        pl.col("log_rel_urine_rate").shift(-1).alias("log_rel_urine_rate_in_1h")
+    # log(rel_urine_rate) in 2 hours. Inspired by Yeche et al.
+    log_rel_urine_rate_in_2h = (
+        pl.when(pl.col("rel_urine_rate") > 0.01)
+        .then(pl.col("rel_urine_rate").log())
+        .shift(-2)
+        .alias("log_rel_urine_rate_in_2h")
     )
+
     # log(rel_urine_rate) in 8 hours.
     log_rel_urine_rate_in_8h = (
         pl.col("log_rel_urine_rate").shift(-8).alias("log_rel_urine_rate_in_8h")
@@ -605,7 +609,7 @@ def outcomes():
         log_lactate_in_1h,
         log_lactate_in_8h,
         log_creatine_in_1h,
-        log_rel_urine_rate_in_1h,
+        log_rel_urine_rate_in_2h,
         log_rel_urine_rate_in_8h,
         pl.col("log_po2"),
         apache_ii.alias("apache_ii"),
