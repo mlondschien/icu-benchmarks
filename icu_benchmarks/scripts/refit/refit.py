@@ -89,7 +89,7 @@ def main(config: str):  # noqa D
     outcome = run.data.tags["outcome"]
 
     df, y, _, hashes = load(
-        split="train", outcome=outcome, other_columns=["stay_id_hash"]
+        split="train_val", outcome=outcome, other_columns=["stay_id_hash"]
     )
     df = preprocessor.transform(df)
 
