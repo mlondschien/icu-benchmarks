@@ -69,6 +69,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     parameter_names = [
         x
         for x in [
+            "alpha",
             "alpha_idx",
             "l1_ratio",
             "gamma",

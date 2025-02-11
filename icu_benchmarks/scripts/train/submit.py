@@ -44,7 +44,6 @@ def main(
     style: str,
     tracking_uri: str,
     artifact_location: str,
-    script: str,
 ):  # noqa D
     ip, port = setup_mlflow_server(
         tracking_uri=tracking_uri,
@@ -74,14 +73,15 @@ def main(
     config_text = Path(config).read_text()
 
     for sources, outcome in product(list_of_sources, outcomes):
-        # n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
-
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)[:-4:2]
 
         log_dir = Path("logs") / experiment_name / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
+
+        size = TASKS[outcome]["size"]
+        n_cpus = max(8, int(8 * size / 4000))
 
         with config_file.open("w") as f:
             f.write(
@@ -113,9 +113,9 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
                 f"""#!/bin/bash
 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task={16}
+#SBATCH --cpus-per-task={n_cpus}
 #SBATCH --time={hours}:00:00
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem-per-cpu=4G
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
 

@@ -88,13 +88,13 @@ def main(config: str):  # noqa D
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
-    preprocessor = get_preprocessing(get_model()(), df, get_outcome())
+    preprocessor = get_preprocessing(get_model(), df)
 
-    hashes = hashes.sort()
+    unique_hashes = hashes.unique().sort()
     data = {}
-    n_samples = np.unique(np.clip(get_n_samples(), 0, len(y)))
+    n_samples = np.unique(np.clip(get_n_samples(), 0, len(unique_hashes)))
     for seed in get_seeds():
-        sampled_hashes = hashes.sample(max(n_samples), seed=seed, shuffle=True)
+        sampled_hashes = unique_hashes.sample(max(n_samples), seed=seed, shuffle=True)
         for n in n_samples:
             mask = hashes.is_in(sampled_hashes[:n])
             data[n, seed] = (

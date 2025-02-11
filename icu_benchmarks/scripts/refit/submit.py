@@ -76,13 +76,13 @@ def main(
 
         with refit_config_file.open("w") as f:
             f.write(
-                f"""{refit_config.read_text()}
-
-{config_text}
-
-ALPHA = {alpha.tolist()}
+                f"""ALPHA = {alpha.tolist()}
 FAMILY = "{TASKS[outcome]["family"]}"
 TASK = "{TASKS[outcome]["task"]}"
+
+{refit_config.read_text()}
+
+{config_text}
 
 get_name.name = "{stem}"
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"

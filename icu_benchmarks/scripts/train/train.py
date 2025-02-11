@@ -75,12 +75,12 @@ def main(config: str):  # noqa D
 
     outcome, sources, targets = get_outcome(), get_sources(), get_targets()
 
-    task = TASKS[outcome]
     tags = {
         "outcome": outcome,
         "sources": sources,
         "targets": targets,
         "parameter_names": np.unique([k for p in get_parameters() for k in p.keys()]),
+        "summary_run": False,
     }
 
     _ = setup_mlflow(tags=tags)
@@ -98,7 +98,7 @@ def main(config: str):  # noqa D
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
-    preprocessor = get_preprocessing(get_model()(), df, outcome)
+    preprocessor = get_preprocessing(get_model(), df)
 
     tic = perf_counter()
     df = preprocessor.fit_transform(df)
@@ -155,14 +155,16 @@ def main(config: str):  # noqa D
 
             for result_idx, result in enumerate(results):
                 model = models[result["parameter_idx"]]
-                yhat = model.predict(df, predict_kwarg=result["predict_kwarg"])
+                yhat = model.predict(df, **result["predict_kwarg"])
                 results[result_idx] = {
                     **result,
-                    **metrics(y, yhat, f"{target}/{split}/", task),
+                    **metrics(y, yhat, f"{target}/{split}/", TASKS[outcome]["task"]),
                 }
 
     for result_idx in range(len(results)):
-        del results[result_idx]["predict_kwargs"]
+        del results[result_idx]["predict_kwarg"]
+        if "objective" in results[result_idx]:
+            del results[result_idx]["objective"]
 
     log_df(pl.DataFrame(results), "results.csv")
     # This needs to be at the end of the script to log all relevant information

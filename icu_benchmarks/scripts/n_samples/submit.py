@@ -74,6 +74,7 @@ icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
 FAMILY = "{TASKS[outcome]["family"]}"
+TASK = "{TASKS[outcome]["task"]}"
 
 icu_benchmarks.load.load.sources = ["{source}"]
 icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}

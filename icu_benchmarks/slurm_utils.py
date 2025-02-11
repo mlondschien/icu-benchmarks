@@ -88,14 +88,15 @@ def setup_mlflow_server(
     #   will try to create the same experiment.
     if experiment_name is not None:
         python_script_string = f"""import mlflow
-    mlflow.set_tracking_uri('{tracking_uri}')
-    experiment = mlflow.get_experiment_by_name('{experiment_name}')
-    if experiment is None:
-        experiment_id = mlflow.create_experiment('{experiment_name}', artifact_location='{artifact_location}')
-    else:
-        experiment_id = experiment.experiment_id
 
-    mlflow.set_experiment(experiment_id=experiment_id)"""
+mlflow.set_tracking_uri('{tracking_uri}')
+experiment = mlflow.get_experiment_by_name('{experiment_name}')
+if experiment is None:
+    experiment_id = mlflow.create_experiment('{experiment_name}', artifact_location='{artifact_location}')
+else:
+    experiment_id = experiment.experiment_id
+
+mlflow.set_experiment(experiment_id=experiment_id)"""
 
         # https://stackoverflow.com/a/60732403/10586763
         if experiment_note is not None:

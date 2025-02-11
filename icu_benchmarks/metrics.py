@@ -6,7 +6,6 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-
 def metrics(y, yhat, prefix, task):  # noqa D
     if not isinstance(y, np.ndarray):
         y = y.to_numpy()
@@ -16,23 +15,25 @@ def metrics(y, yhat, prefix, task):  # noqa D
     y = y.flatten()
     yhat = yhat.flatten()
 
-    if task == "classification":
+    if task == "binary":
         return {
-            f"{prefix}roc": roc_auc_score(y, yhat) if np.unique(y).size > 1 else 0,
+            f"{prefix}roc": roc_auc_score(y, yhat) if np.unique(y).size > 1 else 0.0,
             f"{prefix}accuracy": (
-                accuracy_score(y, yhat >= 0.5) if np.unique(y).size > 1 else 0
+                accuracy_score(y, yhat >= 0.5) if np.unique(y).size > 1 else 0.0
             ),
-            f"{prefix}log_loss": log_loss(y, yhat) if np.unique(y).size > 1 else 0,
+            f"{prefix}log_loss": log_loss(y, yhat) if np.unique(y).size > 1 else np.inf,
             f"{prefix}auprc": (
-                average_precision_score(y, yhat) if np.unique(y).size > 1 else 0
+                average_precision_score(y, yhat) if np.unique(y).size > 1 else 0.0
             ),
-            f"{prefix}brier": np.mean((y - yhat) ** 2) if np.unique(y).size > 1 else 0,
+            f"{prefix}brier": np.mean((y - yhat) ** 2) if np.unique(y).size > 1 else np.inf,
         }
     elif task == "regression":
         abs_residuals = np.abs(y - yhat)
         quantiles = np.quantile(abs_residuals, [0.8, 0.9, 0.95])
+        mse = np.mean(abs_residuals ** 2)
         return {
-            f"{prefix}mse": np.mean(abs_residuals**2),
+            f"{prefix}mse": mse,
+            f"{prefix}rmse": np.sqrt(mse),
             f"{prefix}mae": np.mean(abs_residuals),
             f"{prefix}quantile_0.8": quantiles[0],
             f"{prefix}quantile_0.9": quantiles[1],

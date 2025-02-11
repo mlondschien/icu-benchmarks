@@ -93,11 +93,11 @@ def main(config: str):  # noqa D
     )
     df = preprocessor.transform(df)
 
-    hashes = hashes.sort()
+    unique_hashes = hashes.unique().sort()
     data = {}
-    n_samples = np.unique(np.clip(get_n_samples(), 0, len(y)))
+    n_samples = np.unique(np.clip(get_n_samples(), 0, len(unique_hashes)))
     for seed in get_seeds():
-        sampled_hashes = hashes.sample(max(n_samples), seed=seed, shuffle=True)
+        sampled_hashes = unique_hashes.sample(max(n_samples), seed=seed, shuffle=True)
         for n in n_samples:
             mask = hashes.is_in(sampled_hashes[:n])
             data[n, seed] = (
@@ -111,6 +111,10 @@ def main(config: str):  # noqa D
 
     jobs = []
     for model_idx, prior in enumerate(priors):
+        # log2 = np.log2(prior.ratio)
+        # if np.abs(log2 - np.round(log2, 0)) > 0.1:
+        #     continue
+
         for refit_parameter in get_refit_parameters():
             model = get_model()(prior=prior, **refit_parameter)
             details = {
@@ -133,8 +137,10 @@ def main(config: str):  # noqa D
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-    with Parallel(n_jobs=-1, prefer="processes") as parallel:
-        parallel_results = parallel(jobs)
+    logger.info(f"Number of jobs: {len(jobs)}")
+
+    with Parallel(n_jobs=32, prefer="processes") as parallel:
+        parallel_results = parallel(jobs[:2])
 
     del df, y
 
@@ -169,8 +175,10 @@ def _fit(
                 "metric": metric,
                 "cv_value": cv_scores[idx][metric],
                 "test_value": test_scores[idx][metric],
-                **kwarg,
                 **details,
+                # kwarg needs to come after details. E.g., for linear, details has
+                # "alpha": [1, 0.1, ...], and kwarg has "alpha": 1.
+                **kwarg,
             }
             for metric in cv_scores[0].keys()
             for idx, kwarg in enumerate(kwargs)

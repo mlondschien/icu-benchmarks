@@ -124,7 +124,7 @@ def get_run(tracking_uri, run_id):
     return client, run
 
 
-def get_target_run(tracking_uri, experiment_name):
+def get_target_run(tracking_uri, experiment_name, tags=None):
     """
     Get run with sources tag equal '' in experiment.
 
@@ -144,6 +144,6 @@ def get_target_run(tracking_uri, experiment_name):
     else:
         target_run = client.create_run(
             experiment_id=experiment.experiment_id,
-            tags={"sources": "", "summary_run": True},
+            tags={"sources": "", "summary_run": True, **(tags or {})},
         )
     return client, experiment, target_run

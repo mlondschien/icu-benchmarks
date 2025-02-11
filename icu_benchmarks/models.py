@@ -101,7 +101,7 @@ class GeneralizedLinearModel(GeneralizedLinearRegressor):
             cat_missing_name=cat_missing_name,
         )
 
-    def fit(self, X, y, sample_weight=None, dataset=None):
+    def fit(self, X, y, sample_weight=None, dataset=None, offset=None):
         """
         Fit method that can handle constant y's.
 
@@ -125,7 +125,7 @@ class GeneralizedLinearModel(GeneralizedLinearRegressor):
             self.n_features_in_ = X.shape[1]  # this is used in GLR.linear_predictor
             return self
 
-        return super().fit(X, y, sample_weight=sample_weight)
+        return super().fit(X, y, sample_weight=sample_weight, offset=offset)
 
     def predict(self, X, **kwargs):
         """Predict, allowing for a polars.DataFrame as `X` input."""
@@ -530,6 +530,7 @@ class LGBMAnchorModel(BaseEstimator):
         seed=0,
         deterministic=True,
         num_boost_round=100,
+        **kwargs
     ):
         self.objective = objective
         self.gamma = gamma
@@ -538,6 +539,7 @@ class LGBMAnchorModel(BaseEstimator):
             "learning_rate": learning_rate,
             "seed": seed,
             "deterministic": deterministic,
+            **kwargs
         }
         self.num_boost_round = num_boost_round
         self.booster = None
@@ -558,17 +560,16 @@ class LGBMAnchorModel(BaseEstimator):
             Array of dataset indicators. Each unique value is assumed to correspond to a
             single environment. The anchor then is a one-hot encoding of this.
         """
-        categorical_features = [
-            c
-            for c, dtype in X.schema.items()
-            if not dtype.is_float() and not dtype == pl.Boolean
-        ]
+        if isinstance(dataset, pl.Series):
+            dataset = dataset.to_numpy()
 
-        if not isinstance(self.objective, str):
+        categorical_features = [c for c in X.columns if "categorical" in c]
+
+        if isinstance(self.objective, str):
+            self.params["objective"] = self.objective
+        else:
             self.objective = self.objective(self.gamma, categories=np.unique(dataset))
             self.params["objective"] = self.objective.objective
-        else:
-            self.params["objective"] = self.objective
 
         data = lgb.Dataset(
             X.to_arrow(),
@@ -606,7 +607,7 @@ class LGBMAnchorModel(BaseEstimator):
             X = X.to_arrow()
 
         scores = self.booster.predict(X, num_iteration=num_iteration)
-        if hasattr(self.objective, "predictions"):
+        if hasattr(self.booster.params.get("objective"), "predictions"):
             return self.objective.predictions(scores)
         else:
             return scores
@@ -685,7 +686,7 @@ class CVMixin:
 
 
 @gin.configurable
-class EmpiricalBayesCV(CVMixin, GeneralizedLinearRegressor):
+class EmpiricalBayesCV(CVMixin, GeneralizedLinearModel):
     """
     Empirical Bayes elastic net Regression with prior around beta_prior.
 
@@ -879,17 +880,13 @@ class RefitLGBMModelCV(CVMixin, BaseEstimator):
 
     def fit(self, X, y):  # noqa D
         self.model = copy.deepcopy(self.prior)
+        # For some reason, the model params are not copied over.
+        # https://github.com/microsoft/LightGBM/issues/6821
+        self.model.params = copy.deepcopy(self.prior.params)
 
-        if self.model.booster.params is None:
-            self.model.booster.params = {
-                "num_threads": 1,
-                "force_col_wise": True,
-                "objective": self.objective,
-            }
-        else:
-            self.model.booster.params["num_threads"] = 1
-            self.model.booster.params["force_col_wise"] = True
-            self.model.booster.params["objective"] = self.objective
+        self.model.booster.params["num_threads"] = 1  # outer loop go brrrr
+        self.model.booster.params["force_col_wise"] = True  # should be redundand
+        self.model.booster.params["objective"] = self.objective
 
         if self.decay_rate < 1:
             self.model.booster = self.model.booster.refit(

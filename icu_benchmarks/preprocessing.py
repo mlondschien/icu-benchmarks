@@ -25,55 +25,26 @@ def _sao2_imputation(df):
     )
 
 
-def get_preprocessing(model, df, outcome):  # noqa D
-    continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float()]
-    # continuous_variables = ["temp_ffilled", "ph_ffilled"]
+def get_preprocessing(model, df):  # noqa D
+    # time_hours, gcs columns are continuous, integer columns.
+    continuous_variables = [col for col, dtype in df.schema.items() if dtype.is_float() or dtype.is_integer()]
     bool_variables = [col for col in df.columns if df[col].dtype == pl.Boolean]
-    # bool_variables = []
     other = [
         col for col in df.columns if col not in continuous_variables + bool_variables
     ]
-    # other = []
-    if isinstance(model, GeneralizedLinearRegressor):
+    if "GeneralizedLinear" in str(model) or "AnchorRegression" in str(model) or "DataSharedLasso" in str(model):
         imputer = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
         scaler = StandardScaler(copy=False)
         encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
-        transformers = [
+
+        transformer = ColumnTransformer(transformers=[
             ("continuous", imputer, continuous_variables),
             ("bool", "passthrough", bool_variables),
             ("other", encoder, other),
-        ]
-
-        if outcome == "log_po2":
-            sao2_imputer = FunctionTransformer(_sao2_imputation)
-            splines = SplineTransformer(
-                knots=np.array([50, 60, 70, 80, 85, 90, 95, 100]).reshape(-1, 1),
-                degree=3,
-            )
-            na_imputer = SimpleImputer(
-                strategy="mean", copy=False, keep_empty_features=True
-            )
-            sao2_splines = Pipeline(
-                [
-                    ("sao2_impute", sao2_imputer),
-                    ("na_imputer", na_imputer),
-                    ("splines", splines),
-                ]
-            )
-            transformers.append(
-                (
-                    "sao2_splines",
-                    sao2_splines,
-                    ["sao2_all_missing_h8", "spo2_mean_h8", "sao2_ffilled"],
-                )
-            )
-
-        transformer = ColumnTransformer(transformers=transformers, sparse_threshold=0)
+        ], sparse_threshold=0)
         preprocessor = Pipeline([("transformer", transformer), ("scaler", scaler)])
         preprocessor.set_output(transform="polars")
-    else:
-        # continuous_variables = ["spo2_mean_h8", "sao2_ffilled", "temp_ffilled", "ph_ffilled"]
-        # other = ["sao2_all_missing_h8"]
+    elif "LGBM" in str(model):
         preprocessor = ColumnTransformer(
             transformers=[
                 ("continuous", "passthrough", continuous_variables),
@@ -81,11 +52,17 @@ def get_preprocessing(model, df, outcome):  # noqa D
                     "categorical",
                     OrdinalEncoder(
                         handle_unknown="use_encoded_value",
-                        unknown_value=CAT_MISSING_NAME,
+                        # LGBM from pyarrow allows only int, bool, float types. So we
+                        # have to transform `airway` from str to int. Unknown value must
+                        # be an int. 99 works since we should never have so many
+                        # categories.
+                        unknown_value=99,
                     ),
                     other + bool_variables,
                 ),
             ]
         ).set_output(transform="polars")
+    else:
+        raise ValueError(f"Unknown model {model}")
 
     return preprocessor
