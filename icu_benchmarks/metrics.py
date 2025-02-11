@@ -6,6 +6,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+
 def metrics(y, yhat, prefix, task):  # noqa D
     if not isinstance(y, np.ndarray):
         y = y.to_numpy()
@@ -25,12 +26,14 @@ def metrics(y, yhat, prefix, task):  # noqa D
             f"{prefix}auprc": (
                 average_precision_score(y, yhat) if np.unique(y).size > 1 else 0.0
             ),
-            f"{prefix}brier": np.mean((y - yhat) ** 2) if np.unique(y).size > 1 else np.inf,
+            f"{prefix}brier": (
+                np.mean((y - yhat) ** 2) if np.unique(y).size > 1 else np.inf
+            ),
         }
     elif task == "regression":
         abs_residuals = np.abs(y - yhat)
         quantiles = np.quantile(abs_residuals, [0.8, 0.9, 0.95])
-        mse = np.mean(abs_residuals ** 2)
+        mse = np.mean(abs_residuals**2)
         return {
             f"{prefix}mse": mse,
             f"{prefix}rmse": np.sqrt(mse),

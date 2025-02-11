@@ -43,7 +43,7 @@ OUTCOMES = [
     "log_lactate_in_4h",
 ]
 
-# Top variables according to fig 8a of Lyu et al 2024: An empirical study on 
+# Top variables according to fig 8a of Lyu et al 2024: An empirical study on
 # KDIGO-defined acute kidney injury prediction in the intensive care unit.
 KIDNEY_VARIABLES = [
     "time_hours",  # Time in hours since ICU admission
@@ -61,17 +61,17 @@ KIDNEY_VARIABLES = [
     "loop_diur_ind",  # Loop diuretics
     "resp",  # Respiratory rate
     "fluid_ind",  # Fluids
-    "airway",   # Ventilation type
+    "airway",  # Ventilation type
     "vent_ind",  # Indicator for any ventilation
     "bili",  # Bilirubin
     "anti_delir_ind",  # Indicator for antidelirium treatment
     "mg",  # Magnesium
     "op_pain_ind",  # Opioid pain medication
     "abx_ind",  # Antibiotics indicator
-    "k"  # Potassium
+    "k",  # Potassium
 ]
 
-# "preliminary selected variables" according to https://www.medrxiv.org/content/10.1101/2024.01.23.24301516v1 supp table 3						
+# "preliminary selected variables" according to https://www.medrxiv.org/content/10.1101/2024.01.23.24301516v1 supp table 3
 RESP_VARIABLES = [
     "fio2",
     "norepi",  # Norepinephrine
@@ -186,7 +186,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
         },
         "variables": [x for x in RESP_VARIABLES if x not in ["po2", "pf_ratio"]],
         "horizons": [8, 24],
-        "size": 3578
+        "size": 3578,
     },
     "remaining_los": {
         "task": "regression",

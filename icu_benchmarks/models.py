@@ -530,7 +530,7 @@ class LGBMAnchorModel(BaseEstimator):
         seed=0,
         deterministic=True,
         num_boost_round=100,
-        **kwargs
+        **kwargs,
     ):
         self.objective = objective
         self.gamma = gamma
@@ -539,7 +539,7 @@ class LGBMAnchorModel(BaseEstimator):
             "learning_rate": learning_rate,
             "seed": seed,
             "deterministic": deterministic,
-            **kwargs
+            **kwargs,
         }
         self.num_boost_round = num_boost_round
         self.booster = None
@@ -885,7 +885,7 @@ class RefitLGBMModelCV(CVMixin, BaseEstimator):
         self.model.params = copy.deepcopy(self.prior.params)
 
         self.model.booster.params["num_threads"] = 1  # outer loop go brrrr
-        self.model.booster.params["force_col_wise"] = True  # should be redundand
+        self.model.booster.params["force_col_wise"] = True  # should be redundant
         self.model.booster.params["objective"] = self.objective
 
         if self.decay_rate < 1:

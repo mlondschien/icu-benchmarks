@@ -47,12 +47,13 @@ def switch(col, bounds, values):
         for lw1, lw2, val in zip(bounds[:-1], bounds[1:], values)
     ).fill_null(0)
 
+
 def additional_variables():
     """Compute variables that are not exported from ricu."""
     # Fio2 is often missing if a patient is not ventilated. If the patient is not
     # ventilated and was not ventilated in the last hour, we fill fio2 with 21% (ambient
     # air).
-    vent_ind = pl.col("vent_ind") | pl.col("vent_ind").shift(1, False) 
+    vent_ind = pl.col("vent_ind") | pl.col("vent_ind").shift(1, False)
     fio2 = (pl.col("fio2") / 100.0).fill_null(pl.when(~vent_ind).then(0.21))
     pf_ratio = pl.col("po2") / fio2
 
@@ -114,7 +115,7 @@ def additional_variables():
         pf_ratio.alias("pf_ratio"),
         apache_ii.alias("apache_ii"),
     ]
-    
+
 
 def continuous_features(
     column_name: str, time_col: str, horizons: list[int] | None = None
@@ -433,8 +434,6 @@ def polars_nan_or(*args: pl.Expr):
     )
 
 
-
-
 def outcomes():
     """
     Compute outcomes.
@@ -488,7 +487,7 @@ def outcomes():
     # If the PaO2/FiO2 ratio is below 200, the patient is considered to have a
     # respiratory failure (event). This used pf_ratio from other_variables().
     RESP_PF_DEF_TSH = 200.0
-    events = pf_ratio < RESP_PF_DEF_TSH
+    events = pl.col("pf_ratio") < RESP_PF_DEF_TSH
     resp_failure_at_24h = eep_label(events, 24).alias("respiratory_failure_at_24h")
 
     # remaining_los
@@ -590,7 +589,9 @@ def outcomes():
     # log(lactate) in 4 hours. This is 1/2 the forecast horizon of circ. failure eep.
     log_lactate_in_4h = pl.col("lact").shift(-4).alias("log_lactate_in_4h")
 
-    log_pf_ratio_in_12h = pl.col("pf_ratio").log().shift(-12).alias("log_pf_ratio_in_12h")
+    log_pf_ratio_in_12h = (
+        pl.col("pf_ratio").log().shift(-12).alias("log_pf_ratio_in_12h")
+    )
 
     # The "raw" ICU data contains urine measurements from a bag at specific times (ml).
     # In `ricu`, we divide these measurement values by the time distance to the last
@@ -598,11 +599,14 @@ def outcomes():
     # weight is the relative urine rate (ml/h/kg). These "relative rate" measurements
     # are only non-missing at the timepoint of the measurement.
     # We assign a label if there is a (positive) measurement in 2 hours.
-    log_rel_urine_rate_in_2h = pl.when(
-        pl.col("rel_urine_rate").is_not_null() & pl.col("rel_urine_rate").ge(0.01)
-    ).then(
-        pl.col("rel_urine_rate").log()
-    ).shift(-2).alias("log_rel_urine_rate_in_2h")
+    log_rel_urine_rate_in_2h = (
+        pl.when(
+            pl.col("rel_urine_rate").is_not_null() & pl.col("rel_urine_rate").ge(0.01)
+        )
+        .then(pl.col("rel_urine_rate").log())
+        .shift(-2)
+        .alias("log_rel_urine_rate_in_2h")
+    )
 
     return [
         mortality_at_24h,
@@ -616,7 +620,6 @@ def outcomes():
         log_rel_urine_rate_in_2h,
         log_pf_ratio_in_12h,
         pl.col("log_po2"),
-        apache_ii.alias("apache_ii"),
     ]
 
 

@@ -59,6 +59,7 @@ DATASET_NAMES = {
 
 TITLE = "mortality after 24 hours"
 
+
 @click.command()
 @click.option("--target_experiment", type=str)
 @click.option(
@@ -125,7 +126,9 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
 
     metrics = results["metric"].unique()
     for metric in metrics:
-        fig, axes = plt.subplots(2, 3, figsize=(12, 8), constrained_layout=True, gridspec_kw={"hspace": 0.02})
+        fig, axes = plt.subplots(
+            2, 3, figsize=(12, 8), constrained_layout=True, gridspec_kw={"hspace": 0.02}
+        )
         for idx, (dataset, ax) in enumerate(zip(SOURCES, axes.flat)):
             data = results.filter(
                 (pl.col("target") == dataset) & (pl.col("metric") == metric)
@@ -163,7 +166,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                     data_["score"],
                     label=LEGEND[result_name] if idx == 0 else None,
                     # color=colors[result_name],
-                    **kwargs
+                    **kwargs,
                 )
                 ax.fill_between(
                     data_["n_target"],
@@ -171,7 +174,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                     data_["max"],
                     # color=colors[result_name],
                     alpha=0.1,
-                    **kwargs
+                    **kwargs,
                 )
 
             ax.set_xscale("log")
@@ -180,7 +183,9 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
             ax.label_outer()
             ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
             ax.xaxis.set_tick_params(labelbottom=True)
-            data = data.group_by(["n_target", "result_name"]).agg(pl.col("test_value").median())
+            data = data.group_by(["n_target", "result_name"]).agg(
+                pl.col("test_value").median()
+            )
             ymin, ymax = data["test_value"].min(), data["test_value"].max()
             ymin, ymax = ymin - (ymax - ymin) * 0.05, ymax + (ymax - ymin) * 0.05
             ax.set_ylim(ymin, ymax)

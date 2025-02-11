@@ -3,8 +3,9 @@ import logging
 import tempfile
 
 import click
-import polars as pl
 import numpy as np
+import polars as pl
+
 from icu_benchmarks.constants import GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import get_target_run, log_df
 
@@ -51,7 +52,6 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
                 continue
             target = [t for t in SOURCES if t not in sources][0]
 
-
         run_id = run.info.run_id
         result_file = f"{result_name}_results.csv"
         with tempfile.TemporaryDirectory() as f:
@@ -68,10 +68,15 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
             #   pl.lit(run.data.tags["outcome"]).alias("outcome"),
             pl.lit(result_name).alias("result_name"),
             pl.lit(target).alias("target"),
-            pl.when(pl.col("metric").is_in(["brier", "log_loss"]) & pl.col("cv_value").eq(0)).then(pl.lit(np.inf)).otherwise(pl.col("cv_value")).alias("cv_value"),
+            pl.when(
+                pl.col("metric").is_in(["brier", "log_loss"]) & pl.col("cv_value").eq(0)
+            )
+            .then(pl.lit(np.inf))
+            .otherwise(pl.col("cv_value"))
+            .alias("cv_value"),
         )
         all_results.append(results)
-    
+
     results = pl.concat(all_results)
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
 
