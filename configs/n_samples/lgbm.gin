@@ -10,15 +10,15 @@ get_predict_kwargs.predict_kwargs = {
 }
 
 get_parameters.parameters = {
-    "objective": ["regression"],
+    "objective": [%TASK],
     "num_leaves": [31, 10],
-    "learning_rate": [0.1, 0.05],
-    "gamma": [1],
-    "seed": [0],
+    "learning_rate": [0.1],
+    "min_data_in_leaf": [1, 5, 20],
     "deterministic": [True],
     "num_boost_round": [800],
     "num_threads": [1],
     "force_col_wise": [True],
+    "verbosity": [-1],
 }
 
 get_model.model = @LGBMAnchorModel
