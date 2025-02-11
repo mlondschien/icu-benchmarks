@@ -30,6 +30,92 @@ variable_reference = (
 )
 
 
+def switch(col, bounds, values):
+    """
+    Map intervals to values.
+
+    Returns values[idx] if bounds[idx] <= col < bounds[idx + 1].
+    """
+    if len(bounds) != len(values) + 1:
+        raise ValueError(f"Length mismatch between bounds and values for {col}.")
+
+    if isinstance(col, str):
+        col = pl.col(col)
+
+    return pl.coalesce(
+        pl.when(col.gt(lw1) & col.le(lw2)).then(val)
+        for lw1, lw2, val in zip(bounds[:-1], bounds[1:], values)
+    ).fill_null(0)
+
+def additional_variables():
+    """Compute variables that are not exported from ricu."""
+    # Fio2 is often missing if a patient is not ventilated. If the patient is not
+    # ventilated and was not ventilated in the last hour, we fill fio2 with 21% (ambient
+    # air).
+    vent_ind = pl.col("vent_ind") | pl.col("vent_ind").shift(1, False) 
+    fio2 = (pl.col("fio2") / 100.0).fill_null(pl.when(~vent_ind).then(0.21))
+    pf_ratio = pl.col("po2") / fio2
+
+    # APACHE II from
+    # https://icucycle.com/wp-content/uploads/2018/06/PROSPECT-APACHE-II-Calculation
+    # -Worksheet.pdf
+    # and
+    # https://icucycle.com/wp-content/uploads/2018/06/PROSPECT-RCT-APACHE-SOP-July-21-
+    # 2016.pdf
+    # We don't use hco3 and chronic health points.
+    # The apache score is (at least in theory) only valid for time point 24:
+    # > All APACHE II data collected must be from the first 24 hours following ICU
+    # > admission.
+    # We fill with 0 if no data is available:
+    # > When recording variables for the Acute Physiology Score, if a physiologic
+    # > measurement is not obtained during the 24 hour time frame, assign a zero (“0”)
+    # > point score.
+    # We take a max over the last 24 hours for physiological measurements:
+    # > For all acute physiologic measurements: choose the worst, most abnormal value
+    # > recorded during the full 24 hour assessment period.
+    # The maximal value apache_ii can take is 10 * 4 + (15 - 3) + 6 = 58.
+    # The minimal value is 0.
+    fio2_ffilled = pl.col("fio2").forward_fill(4).fill_null(21)
+    pco2_ffilled = pl.col("pco2").forward_fill(4)
+    po2_ffilled = pl.col("po2").forward_fill(4)
+    # https://en.wikipedia.org/wiki/Alveolar%E2%80%93arterial_gradient
+    # Here, 7.13 = (P_atm - P_H2O) / 100% and 1.25 = 1 / 0.8.
+    aado2 = fio2_ffilled * 7.13 - pco2_ffilled * 1.25 - po2_ffilled
+
+    apache_ii_scores = [
+        switch(
+            "temp", [0, 30, 32, 34, 36, 38.5, 39, 41, 100], [4, 3, 2, 1, 0, 1, 3, 4]
+        ),
+        switch("map", [0, 50, 70, 110, 130, 160, 1e4], [4, 2, 0, 2, 3, 4]),
+        switch("hr", [0, 40, 55, 70, 110, 140, 180, 500], [4, 3, 2, 0, 2, 3, 4]),
+        switch("resp", [0, 6, 10, 12, 25, 35, 50, 100], [4, 2, 1, 0, 1, 3, 4]),
+        pl.when(fio2_ffilled.lt(50))
+        .then(switch("po2", [np.inf, 70, 60, 55, 0], [0, 1, 3, 4]))
+        .otherwise(switch(aado2, [np.inf, 500, 350, 200, 0], [4, 3, 2, 0])),
+        switch(
+            "na",
+            [np.inf, 180, 160, 155, 150, 130, 120, 110, 0],
+            [4, 3, 2, 1, 0, 2, 3, 4],
+        ),
+        switch("k", [np.inf, 7, 6, 5.5, 3.5, 3, 2.5, 0], [4, 3, 1, 0, 1, 2, 4]),
+        # the thresholds for creatinine are in umol/l, crea is in mg/dl
+        switch(pl.col("crea") * 88.42, [np.inf, 305, 170, 130, 53, 0], [4, 3, 2, 0, 2]),
+        switch("hct", [np.inf, 60, 50, 46, 30, 20, 0], [4, 2, 1, 0, 2, 4]),
+        # wbc is in "Giga/l", the same as "total / mm3".
+        switch("wbc", [np.inf, 40, 20, 15, 3, 1, 0], [4, 2, 1, 0, 2, 4]),
+        15 - pl.col("tgcs").fill_null(3),
+    ]
+    apache_ii = pl.sum_horizontal(
+        x.rolling_max(24, min_samples=1, center=False) for x in apache_ii_scores
+    )
+    apache_ii += switch("age", [0, 45, 55, 65, 75, np.inf], [0, 2, 3, 5, 6])
+
+    return [
+        pf_ratio.alias("pf_ratio"),
+        apache_ii.alias("apache_ii"),
+    ]
+    
+
 def continuous_features(
     column_name: str, time_col: str, horizons: list[int] | None = None
 ):
@@ -285,8 +371,6 @@ def eep_label(events: pl.Expr, horizon: int):
        negative, and there is a positive event within the next `horizon` hours, the
        label is true. This holds even if there is a negative event at the current time
        step.
-     - Else, if there is a positive event within the next `horizon` hours, the label is
-       true. This holds even if there is a negative event at the current time step.
      - Else, if there is a negative event within the next `horizon` hours (and no
        positive event within the next `horizon` hours or at the current time step), the
        label is false.
@@ -349,22 +433,6 @@ def polars_nan_or(*args: pl.Expr):
     )
 
 
-def switch(col, bounds, values):
-    """
-    Map intervals to values.
-
-    Returns values[idx] if bounds[idx] <= col < bounds[idx + 1].
-    """
-    if len(bounds) != len(values) + 1:
-        raise ValueError(f"Length mismatch between bounds and values for {col}.")
-
-    if isinstance(col, str):
-        col = pl.col(col)
-
-    return pl.coalesce(
-        pl.when(col.gt(lw1) & col.le(lw2)).then(val)
-        for lw1, lw2, val in zip(bounds[:-1], bounds[1:], values)
-    ).fill_null(0)
 
 
 def outcomes():
@@ -418,13 +486,9 @@ def outcomes():
 
     # respiratory_failure_at_24h
     # If the PaO2/FiO2 ratio is below 200, the patient is considered to have a
-    # respiratory failure (event). We predict whether the patient has one such event
-    # in the next 24 hours. That is, if there is a positive event within the next 24
-    # hours, the label is true. Else, if there is a negative event within the next 24
-    # hours, the label is false. If there are no events within the next 24 hours, the
-    # label is missing.
+    # respiratory failure (event). This used pf_ratio from other_variables().
     RESP_PF_DEF_TSH = 200.0
-    events = (pl.col("po2") / pl.col("fio2") * 100.0) < RESP_PF_DEF_TSH
+    events = pf_ratio < RESP_PF_DEF_TSH
     resp_failure_at_24h = eep_label(events, 24).alias("respiratory_failure_at_24h")
 
     # remaining_los
@@ -523,76 +587,22 @@ def outcomes():
     los_at_24h = pl.when(pl.col("time_hours").eq(24)).then(pl.col("los_icu"))
     los_at_24h = los_at_24h.clip(0, None).alias("los_at_24h")
 
-    # log(lactate) in the next hour. This can be seen as an imputation task.
-    log_lactate_in_1h = pl.col("lact").shift(-1).alias("log_lactate_in_1h")
+    # log(lactate) in 4 hours. This is 1/2 the forecast horizon of circ. failure eep.
+    log_lactate_in_4h = pl.col("lact").shift(-4).alias("log_lactate_in_4h")
 
-    # log(lactate) in 8 hours.
-    log_lactate_in_8h = pl.col("lact").shift(-8).alias("log_lactate_in_8h")
+    log_pf_ratio_in_12h = pl.col("pf_ratio").log().shift(-12).alias("log_pf_ratio_in_12h")
 
-    # log(creatine) in the next hour. This can be seen as an imputation task.
-    log_creatine_in_1h = pl.col("log_crea").shift(-1).alias("log_creatine_in_1h")
-
-    # log(rel_urine_rate) in the next hour. This can be seen as an imputation task.
-    log_rel_urine_rate_in_1h = (
-        pl.col("log_rel_urine_rate").shift(-1).alias("log_rel_urine_rate_in_1h")
-    )
-    # log(rel_urine_rate) in 8 hours.
-    log_rel_urine_rate_in_8h = (
-        pl.col("log_rel_urine_rate").shift(-8).alias("log_rel_urine_rate_in_8h")
-    )
-
-    # APACHE II from
-    # https://icucycle.com/wp-content/uploads/2018/06/PROSPECT-APACHE-II-Calculation
-    # -Worksheet.pdf
-    # and
-    # https://icucycle.com/wp-content/uploads/2018/06/PROSPECT-RCT-APACHE-SOP-July-21-
-    # 2016.pdf
-    # We don't use hco3 and chronic health points.
-    # The apache score is (at least in theory) only valid for time point 24:
-    # > All APACHE II data collected must be from the first 24 hours following ICU
-    # > admission.
-    # We fill with 0 if no data is available:
-    # > When recording variables for the Acute Physiology Score, if a physiologic
-    # > measurement is not obtained during the 24 hour time frame, assign a zero (“0”)
-    # > point score.
-    # We take a max over the last 24 hours for physiological measurements:
-    # > For all acute physiologic measurements: choose the worst, most abnormal value
-    # > recorded during the full 24 hour assessment period.
-    # The maximal value apache_ii can take is 10 * 4 + (15 - 3) + 6 = 58.
-    # The minimal value is 0.
-    fio2_ffilled = pl.col("fio2").forward_fill(4).fill_null(21)
-    pco2_ffilled = pl.col("pco2").forward_fill(4)
-    po2_ffilled = pl.col("po2").forward_fill(4)
-    # https://en.wikipedia.org/wiki/Alveolar%E2%80%93arterial_gradient
-    aado2 = fio2_ffilled * 7.10 - pco2_ffilled * 1.25 - po2_ffilled
-
-    apache_ii_scores = [
-        switch(
-            "temp", [0, 30, 32, 34, 36, 38.5, 39, 41, 100], [4, 3, 2, 1, 0, 1, 3, 4]
-        ),
-        switch("map", [0, 50, 70, 110, 130, 160, 1e4], [4, 2, 0, 2, 3, 4]),
-        switch("hr", [0, 40, 55, 70, 110, 140, 180, 500], [4, 3, 2, 0, 2, 3, 4]),
-        switch("resp", [0, 6, 10, 12, 25, 35, 50, 100], [4, 2, 1, 0, 1, 3, 4]),
-        pl.when(fio2_ffilled.lt(50))
-        .then(switch("po2", [np.inf, 70, 60, 55, 0], [0, 1, 3, 4]))
-        .otherwise(switch(aado2, [np.inf, 500, 350, 200, 0], [4, 3, 2, 0])),
-        switch(
-            "na",
-            [np.inf, 180, 160, 155, 150, 130, 120, 110, 0],
-            [4, 3, 2, 1, 0, 2, 3, 4],
-        ),
-        switch("k", [np.inf, 7, 6, 5.5, 3.5, 3, 2.5, 0], [4, 3, 1, 0, 1, 2, 4]),
-        # the thresholds for creatinine are in umol/l, crea is in mg/dl
-        switch(pl.col("crea") * 88.42, [np.inf, 305, 170, 130, 53, 0], [4, 3, 2, 0, 2]),
-        switch("hct", [np.inf, 60, 50, 46, 30, 20, 0], [4, 2, 1, 0, 2, 4]),
-        # wbc is in "Giga/l", the same as "total / mm3".
-        switch("wbc", [np.inf, 40, 20, 15, 3, 1, 0], [4, 2, 1, 0, 2, 4]),
-        15 - pl.col("tgcs").fill_null(3),
-    ]
-    apache_ii = pl.sum_horizontal(
-        x.rolling_max(24, min_samples=1, center=False) for x in apache_ii_scores
-    )
-    apache_ii += switch("age", [0, 45, 55, 65, 75, np.inf], [0, 2, 3, 5, 6])
+    # The "raw" ICU data contains urine measurements from a bag at specific times (ml).
+    # In `ricu`, we divide these measurement values by the time distance to the last
+    # measurement. This gives us a urine rate (ml/h). This divided by the patient's
+    # weight is the relative urine rate (ml/h/kg). These "relative rate" measurements
+    # are only non-missing at the timepoint of the measurement.
+    # We assign a label if there is a (positive) measurement in 2 hours.
+    log_rel_urine_rate_in_2h = pl.when(
+        pl.col("rel_urine_rate").is_not_null() & pl.col("rel_urine_rate").ge(0.01)
+    ).then(
+        pl.col("rel_urine_rate").log()
+    ).shift(-2).alias("log_rel_urine_rate_in_2h")
 
     return [
         mortality_at_24h,
@@ -602,11 +612,9 @@ def outcomes():
         circulatory_failure_at_8h,
         kidney_failure_at_48h,
         los_at_24h,
-        log_lactate_in_1h,
-        log_lactate_in_8h,
-        log_creatine_in_1h,
-        log_rel_urine_rate_in_1h,
-        log_rel_urine_rate_in_8h,
+        log_lactate_in_4h,
+        log_rel_urine_rate_in_2h,
+        log_pf_ratio_in_12h,
         pl.col("log_po2"),
         apache_ii.alias("apache_ii"),
     ]

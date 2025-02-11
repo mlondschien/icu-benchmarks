@@ -247,6 +247,7 @@ def features(
 
         if variables is not None and variable not in variables:
             continue
+
         elif row["TreatmentDetailLevel"] is not None:
             if row["TreatmentDetailLevel"] > treatment_detail_level:
                 continue
@@ -290,6 +291,10 @@ def features(
             ]
         else:
             raise ValueError(f"Unknown DataType: {row['DataType']}")
+
+    if "time_hours" in variables:
+        features += ["time_hours"]
+        variables.remove("time_hours")
 
     if variables is not None and len(variables) > 0:
         raise ValueError(f"Unknown variables: {variables}")
