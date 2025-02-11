@@ -84,7 +84,7 @@ def main(experiment_name, tracking_uri):  # noqa D
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
     for metric in metrics:
         for x in [p for p in PARAMETER_NAMES if p in results.columns]:
-            for aggregation in ["mean", "mean_05", "mean_1", "median", "worst"]:
+            for aggregation in ["mean", "median", "worst"]:
                 fig = plot_by_x(results, x, metric, aggregation)
                 log_fig(
                     fig,

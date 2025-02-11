@@ -90,6 +90,7 @@ def main(data_dir=None, ncols=6, extra_datasets=False):  # noqa D
 
     fig.tight_layout()
     fig.savefig(OUTPUT_PATH / f"densities_{extra_datasets}.png")
+    fig.savefig(OUTPUT_PATH / f"densities_{extra_datasets}.eps")
     plt.close(fig)
 
 

@@ -48,7 +48,7 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
             )
             for dataset in datasets
         }
-        if (prevalence == "patient") and (task["task"] == "classification"):
+        if (prevalence == "patient") and (task["task"] == "binary"):
             data = {
                 k: v.group_by("stay_id")
                 .agg(
@@ -63,7 +63,7 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         else:
             data = {k: v.select(outcome).to_series() for k, v in data.items()}
 
-        if task["task"] == "classification":
+        if task["task"] == "binary":
             plot_discrete(ax, data, outcome, missings=True)
         elif (task["task"] == "regression") and (task["family"] == "gamma"):
             data = {
