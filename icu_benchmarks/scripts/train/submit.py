@@ -63,7 +63,7 @@ def main(
             if dataset1 <= dataset2
         ] + [SOURCES]
     elif style == "1v1":
-        list_of_sources = [SOURCES]
+        list_of_sources = [[source] for source in SOURCES]
     else:
         raise ValueError(f"Unknown style {style}")
 
@@ -74,7 +74,7 @@ def main(
 
     for sources, outcome in product(list_of_sources, outcomes):
         alpha_max = TASKS[outcome]["alpha_max"]
-        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)[:-4:2]
+        alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 13)
 
         log_dir = Path("logs") / experiment_name / outcome / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -113,7 +113,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
                 f"""#!/bin/bash
 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task={n_cpus}
+#SBATCH --cpus-per-task=16
 #SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=4G
 #SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"

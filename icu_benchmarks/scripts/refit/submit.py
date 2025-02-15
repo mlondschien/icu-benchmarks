@@ -60,7 +60,7 @@ def main(
             continue
 
         alpha_max = TASKS[run.data.tags["outcome"]]["alpha_max"]
-        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)[:-4:2]
+        alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 13)
 
         sources = sorted(json.loads(run.data.tags["sources"].replace("'", '"')))
         if len(sources) != len(SOURCES) - 1:

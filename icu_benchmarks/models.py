@@ -318,30 +318,18 @@ class DataSharedLasso(GeneralizedLinearRegressor):
 
         super().fit(X_interacted, y, sample_weight=sample_weight)
 
+        self.coef_path_ = [x[:X.shape[1]] for x in self.coef_path_]
+        self.coef_ = self.coef_path_[:X.shape[1]]
+        self.n_features_in_ = X.shape[1]
+
         return self
 
     def linear_predictor(self, X, **kwargs):  # noqa D
-        if isinstance(X, np.ndarray):
-            X_interacted = np.hstack(
-                [X, np.zeros((X.shape[0], len(self.fit_datasets_) * (X.shape[1] + 1)))]
-            )
-        elif isinstance(X, pl.DataFrame):
-            X_interacted = X.with_columns(
-                [pl.lit(0).alias(f"_dataset={d}") for d in self.fit_datasets_]
-                + [
-                    pl.lit(0).alias(f"_dataset={d}_x_{col}")
-                    for col in X.columns
-                    for d in self.fit_datasets_
-                ]
-            )
-        else:
-            raise ValueError("X must be a numpy array or polars DataFrame")
-
         # convert to tabmat here as we did so in fit
-        if isinstance(X_interacted, pl.DataFrame):
-            X_interacted = tabmat.from_df(X_interacted)
+        if isinstance(X, pl.DataFrame):
+            X = tabmat.from_df(X)
 
-        return super().linear_predictor(X_interacted, **kwargs)
+        return super().linear_predictor(X, **kwargs)
 
 
 @gin.configurable
@@ -607,7 +595,7 @@ class LGBMAnchorModel(BaseEstimator):
             X = X.to_arrow()
 
         scores = self.booster.predict(X, num_iteration=num_iteration)
-        if hasattr(self.booster.params.get("objective"), "predictions"):
+        if hasattr(self.objective, "predictions"):
             return self.objective.predictions(scores)
         else:
             return scores
@@ -900,7 +888,8 @@ class RefitLGBMModelCV(CVMixin, BaseEstimator):
     def predict(self, X, num_iteration=None):  # noqa D
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
-        return self.model.predict(X, num_iteration=num_iteration)
+
+        return self.model.booster.predict(X, num_iteration=num_iteration)
 
 
 @gin.configurable

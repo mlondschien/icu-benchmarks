@@ -693,23 +693,20 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         # Cast categorical variables to Enum. `samp` is binary. For simplicity, we cast
         # it to string first.
         elif row["DataType"] == "categorical":
-            enum = pl.Enum(row["PossibleValues"] + [CAT_MISSING_NAME])
-            col = col.cast(pl.String).fill_null(CAT_MISSING_NAME).cast(enum)
-            expressions += discrete_features(tag, "time_hours", horizons=None)
+            # enum = pl.Enum(row["PossibleValues"] + [CAT_MISSING_NAME])
+            col = col.cast(pl.String).fill_null(CAT_MISSING_NAME)# .cast(enum)
+            expressions += discrete_features(tag, "time_hours")
 
         elif row["DataType"] == "continuous":
-            expressions += continuous_features(tag, "time_hours", horizons=None)
+            expressions += continuous_features(tag, "time_hours")
 
         elif row["DataType"] == "treatment_ind":
-            expressions += treatment_indicator_features(
-                tag, "time_hours", horizons=None
-            )
+            expressions += treatment_indicator_features(tag, "time_hours")
 
         elif row["DataType"] == "treatment_cont":
             expressions += treatment_continuous_features(
                 tag,
                 "time_hours",
-                horizons=None,
                 log_eps=row["LogTransformEps"],
                 log_transform=row["LogTransform"],
             )

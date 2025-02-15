@@ -1,7 +1,4 @@
-ALPHA = [1.00000000e+01, 4.64158883e+00, 2.15443469e+00, 1.00000000e+00,
-       4.64158883e-01, 2.15443469e-01, 1.00000000e-01, 4.64158883e-02,
-       2.15443469e-02, 1.00000000e-02, 4.64158883e-03, 2.15443469e-03,
-       1.00000000e-03, 4.64158883e-04, 2.15443469e-04, 1.00000000e-04]
+ALPHA = [1.00000000e+01, 3.16227766e+00, 1.00000000e+00, 3.16227766e-01, 1.00000000e-01, 3.16227766e-02, 1.00000000e-02, 3.16227766e-03,     1.00000000e-03, 3.16227766e-04, 1.00000000e-04]
 
 get_parameters.parameters = {
     "l1_ratio": [0.01, 0.2, 0.5, 0.8, 1],
@@ -11,11 +8,10 @@ get_predict_kwargs.predict_kwargs = {
     "alpha": %ALPHA,
 }
 
-
 GeneralizedLinearModel.alpha = %ALPHA
 GeneralizedLinearModel.family = %FAMILY
 GeneralizedLinearModel.max_iter = 100
-GeneralizedLinearModel.verbose = 1
+GeneralizedLinearModel.verbose = -1
 GeneralizedLinearModel.scale_predictors = False
 GeneralizedLinearModel.solver = "irls-cd"
 GeneralizedLinearModel.alpha_search = True

@@ -68,20 +68,19 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
             #   pl.lit(run.data.tags["outcome"]).alias("outcome"),
             pl.lit(result_name).alias("result_name"),
             pl.lit(target).alias("target"),
-            pl.when(
-                pl.col("metric").is_in(["brier", "log_loss"]) & pl.col("cv_value").eq(0)
-            )
-            .then(pl.lit(np.inf))
-            .otherwise(pl.col("cv_value"))
-            .alias("cv_value"),
+            # pl.when(
+            #     pl.col("metric").is_in(["brier", "log_loss"]) & pl.col("cv_value").eq(0)
+            # )
+            # .then(pl.lit(np.inf))
+            # .otherwise(pl.col("cv_value"))
+            # .alias("cv_value"),
         )
         all_results.append(results)
 
-    results = pl.concat(all_results)
+    results = pl.concat(all_results, how="diagonal")
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
 
-    if "n_target" in results.columns:
-        results = results.rename({"n_target": "n_samples"})
+    results = results.rename({"n_target": "n_samples"}, strict=False)
 
     group_by = ["target", "result_name", "metric", "n_samples", "seed"]
     summary = (
@@ -89,7 +88,6 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
         .agg(pl.all().top_k_by(k=1, by=pl.col("cv_value") * mult))
         .explode([x for x in results.columns if x not in group_by])
     )
-
     log_df(summary, f"{result_name}_results.csv", client, run_id=target_run.info.run_id)
 
 

@@ -7,7 +7,7 @@ import polars as pl
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.mlflow_utils import log_fig
-from icu_benchmarks.plotting import COLORS
+from icu_benchmarks.plotting import COLORS, METRIC_NAMES, DATASET_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -38,26 +38,11 @@ LEGEND = {
     "passthrough_lgbm": "Target data used for model selection",
     "refit_linear": "Empirical Bayes: source model refit on target data",
     "refit_lgbm": "Tree leaf values updated with target data",
+    "benchmark": "benchmark",
+    "refit_intercept_linear": "Intercept refit on target data",
 }
 
-METRIC_NAMES = {
-    "brier": "brier score",
-    "roc": "AuROC",
-    "auprc": "AuPRC",
-    "log_loss": "binomial neg. log-likelihood",
-    "accuracy": "accuracy",
-}
 
-DATASET_NAMES = {
-    "sic": "SICdb",
-    "aumc": "AmsterdamUMCdb",
-    "eicu": "eICU",
-    "miiv": "MIMIC-IV",
-    "mimic-carevue": "MIMIC (CareVue subset)",
-    "hirid": "HiRID",
-}
-
-TITLE = "mortality after 24 hours"
 
 
 @click.command()
@@ -71,6 +56,22 @@ TITLE = "mortality after 24 hours"
 def main(result_names, target_experiment, tracking_uri):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment = client.get_experiment_by_name(target_experiment)
+
+    if "mortality" in target_experiment:
+        TITLE = "mortality after 24 hours"
+    elif "pf_ratio" in target_experiment:
+        TITLE = "log(pf ratio) after 12 hours"
+    else:
+        TITLE = ""
+
+    if "_dsl" in target_experiment:
+        TITLE += " (DSL)"
+    elif "_glm" in target_experiment:
+        TITLE += " (GLM)"
+    elif "_lgbm" in target_experiment:
+        TITLE += " (LGBM)"
+    elif "_anchor" in target_experiment:
+        TITLE += " (Anchor)"
 
     if experiment is None:
         raise ValueError(f"Experiment {target_experiment} not found")
@@ -105,10 +106,6 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
 
         outcome = outcome or run.data.tags.get("outcome")
 
-        df = df.with_columns(
-            pl.lit(name).alias("name"),
-            # pl.lit(run.data.tags["outcome"]).alias("outcome"),
-        )
         df = df.rename(
             {
                 "n_samples": "n_target",
@@ -118,11 +115,14 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
             },
             strict=False,
         )
-        if "n_target" in df:
-            df = df.filter(pl.col("n_target").ge(80))
+        df = df.with_columns(
+            pl.lit(name).alias("name"),
+            # pl.lit(run.data.tags["outcome"]).alias("outcome"),
+        )
         results.append(df)
 
     results = pl.concat(results, how="diagonal_relaxed")
+    results = results.with_columns(pl.col("n_target").fill_null(results["n_target"].min()))
 
     metrics = results["metric"].unique()
     for metric in metrics:
@@ -178,12 +178,12 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
                 )
 
             ax.set_xscale("log")
-            ax.set_xlabel("number of patients from target")
+            ax.set_xlabel("number of patient stays from target")
             ax.set_ylabel(f"test {METRIC_NAMES[metric]}")
             ax.label_outer()
             ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
             ax.xaxis.set_tick_params(labelbottom=True)
-            data = data.group_by(["n_target", "result_name"]).agg(
+            data = data.group_by(["n_target", "name"]).agg(
                 pl.col("test_value").median()
             )
             ymin, ymax = data["test_value"].min(), data["test_value"].max()
@@ -195,8 +195,8 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
         # fig.tight_layout()
         fig.legend(loc="outside lower center", ncols=4)
         fig.suptitle(TITLE, size="x-large")
-        log_fig(fig, f"n_samples_{metric}.png", client, run_id=target_run.info.run_id)
-        log_fig(fig, f"n_samples_{metric}.eps", client, run_id=target_run.info.run_id)
+        log_fig(fig, f"n_samples/{metric}.png", client, run_id=target_run.info.run_id)
+        log_fig(fig, f"n_samples/{metric}.pdf", client, run_id=target_run.info.run_id)
 
     #  summary.filter(pl.col("metric") == "r2").group_by(["target", "result_name", "n_target"]).agg(pl.col("test_value").mean()).sort(["target", "result_name", "n_target"])
 

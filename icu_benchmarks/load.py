@@ -292,9 +292,10 @@ def features(
         else:
             raise ValueError(f"Unknown DataType: {row['DataType']}")
 
-    if "time_hours" in variables:
+    if variables is None or "time_hours" in variables:
         features += ["time_hours"]
-        variables.remove("time_hours")
+        if variables is not None:
+            variables.remove("time_hours")
 
     if variables is not None and len(variables) > 0:
         raise ValueError(f"Unknown variables: {variables}")

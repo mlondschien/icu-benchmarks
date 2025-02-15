@@ -7,20 +7,22 @@ import polars as pl
 from icu_benchmarks.constants import DATA_DIR, DATASETS, TASKS
 from icu_benchmarks.plotting import plot_continuous, plot_discrete
 
-OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
+OUTPUT_PATH = Path(__file__).parents[3] / "figures" / "density_plots"
 
 OUTCOMES = [
-    # "mortality_at_24h",
-    "decompensation_at_24h",
+    "mortality_at_24h",
+    # "decompensation_at_24h",
     "respiratory_failure_at_24h",
     "circulatory_failure_at_8h",
     "kidney_failure_at_48h",
-    "remaining_los",
-    # "los_at_24h",
-    "log_creatine_in_1h",
-    "log_lactate_in_1h",
+    # "remaining_los",
+    "los_at_24h",
+    # "log_creatine_in_1h",
+    # "log_lactate_in_1h",
     # "log_lactate_in_8h",
-    "log_rel_urine_rate_in_1h",
+    "log_lactate_in_4h",
+    "log_pf_ratio_in_12h",
+    "log_rel_urine_rate_in_2h",
     # "log_rel_urine_rate_in_8h",
 ]
 
@@ -38,7 +40,7 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
     else:
         datasets = DATASETS
 
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(22, 13))
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(14, 8), constrained_layout=True, gridspec_kw={"hspace": 0.02})
 
     for ax, outcome in zip(axes.flat[: len(OUTCOMES)], OUTCOMES):
         task = TASKS[outcome]
@@ -76,20 +78,26 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
                 ax,
                 data,
                 f"log({outcome})",
-                legend=outcome == "log_rel_urine_rate_in_1h",
+                legend=False,
                 missing_rate=False,
+                label=outcome == "log_rel_urine_rate_in_2h",
             )
         elif task["task"] == "regression":
             plot_continuous(
                 ax,
                 data,
                 outcome,
-                legend=outcome == "log_rel_urine_rate_in_1h",
+                legend=False,
                 missing_rate=False,
+                label=outcome == "log_rel_urine_rate_in_2h",
             )
+    
+    if ax.is_first_row() and not ax.is_first_column():
+        ax.yaxis.set_ticklabels([])
 
-    fig.tight_layout()
-    fig.savefig(OUTPUT_PATH / f"outcomes_{prevalence}_{extra_datasets}.png")
+
+    fig.savefig(OUTPUT_PATH / f"outcomes.png")
+    fig.savefig(OUTPUT_PATH / f"outcomes.eps")
     plt.close(fig)
 
 

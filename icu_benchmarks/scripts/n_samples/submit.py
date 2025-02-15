@@ -82,7 +82,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 """
             )
 
-        n_cpus = 32
+        n_cpus = 16
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(

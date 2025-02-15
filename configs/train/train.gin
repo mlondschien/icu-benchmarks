@@ -1,4 +1,4 @@
 import icu_benchmarks.gin
 
 icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
-icu_benchmarks.load.load.weighting_exponent = -0.5
+icu_benchmarks.load.load.weighting_exponent = 0

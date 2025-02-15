@@ -99,6 +99,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     cv_results = []
 
     for target in sources:
+
         cv = results_n2.filter(~pl.col("sources").list.contains(target))
         cv_sources = [source for source in sources if source != target]
         for metric in metrics:
@@ -128,7 +129,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                         "target": target,
                         "metric": metric,
                         "cv_value": best[col].item(),
-                        "target_value": model[f"{target}/train_val/{metric}"].item(),
+                        "test_value": model[f"{target}/test/{metric}"].item(),
                     },
                     **{p: best[p].item() for p in parameter_names},
                     **{
@@ -141,15 +142,6 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                 }
             )
 
-    for metric in metrics:
-        print("metric:", metric)
-        with pl.Config() as cfg:
-            cfg.set_tbl_cols(20)
-            print(
-                pl.DataFrame(cv_results)
-                .filter(pl.col("metric").eq(metric))
-                .sort("target")
-            )
 
     target_run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"

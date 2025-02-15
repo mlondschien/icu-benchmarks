@@ -1,10 +1,10 @@
 import icu_benchmarks.gin
 
-icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
-icu_benchmarks.load.load.weighting_exponent = -0.5
+# icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
+# icu_benchmarks.load.load.weighting_exponent = -0.5
 
 get_parameters.parameters = {
-    "l1_ratio": [0.2, 0.5, 1],
+    "l1_ratio": [0.01, 0.5, 1.0],
     "gamma": [1, 1.4, 2, 2.8, 4, 5.6, 8, 11.2, 16, 22.4, 32, 44.8, 64, 89.6, 128, 179.2, 256, 358.4, 512, 716.8, 1024],
     # "gamma": [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024],
 }
@@ -14,7 +14,8 @@ get_predict_kwargs.predict_kwargs = {"alpha": %ALPHA}
 AnchorRegression.alpha = %ALPHA
 AnchorRegression.family = %FAMILY
 AnchorRegression.max_iter = 100
-AnchorRegression.verbose = 1
+AnchorRegression.max_inner_iter = 2_000
+AnchorRegression.verbose = 0
 AnchorRegression.scale_predictors = False
 AnchorRegression.solver = "irls-cd"
 AnchorRegression.alpha_search = True

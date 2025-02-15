@@ -8,7 +8,7 @@ import polars as pl
 from icu_benchmarks.constants import DATA_DIR, DATASETS, VARIABLE_REFERENCE_PATH
 from icu_benchmarks.plotting import plot_continuous, plot_discrete
 
-OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
+OUTPUT_PATH = Path(__file__).parents[3] / "figures" / "density_plots"
 
 variable_reference = pl.read_csv(
     VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"]

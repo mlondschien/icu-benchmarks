@@ -69,7 +69,7 @@ def main(experiment_name, tracking_uri):  # noqa D
         )
         all_results.append(results)
 
-    results = pl.concat(all_results)
+    results = pl.concat(all_results, how="diagonal")
 
     run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"
@@ -84,15 +84,20 @@ def main(experiment_name, tracking_uri):  # noqa D
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
     for metric in metrics:
         for x in [p for p in PARAMETER_NAMES if p in results.columns]:
-            for aggregation in ["mean", "median", "worst"]:
-                fig = plot_by_x(results, x, metric, aggregation)
-                log_fig(
-                    fig,
-                    f"plot_by_x/{metric}/{x}_{aggregation}.png",
-                    client,
-                    run.info.run_id,
-                )
-                plt.close(fig)
+            fig = plot_by_x(results, x, metric)
+            log_fig(
+                fig,
+                f"plot_by_x/{metric}_{x}.png",
+                client,
+                run.info.run_id,
+            )
+            log_fig(
+                fig,
+                f"plot_by_x/{metric}_{x}.pdf",
+                client,
+                run.info.run_id,
+            )
+            plt.close(fig)
 
 
 if __name__ == "__main__":

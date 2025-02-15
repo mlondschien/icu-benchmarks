@@ -67,7 +67,6 @@ def get_model(model=gin.REQUIRED):  # noqa D
 def get_name(name="refit"):  # noqa D
     return name
 
-
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
 def main(config: str):  # noqa D
@@ -98,40 +97,49 @@ def main(config: str):  # noqa D
     n_samples = np.unique(np.clip(get_n_samples(), 0, len(unique_hashes)))
     for seed in get_seeds():
         sampled_hashes = unique_hashes.sample(max(n_samples), seed=seed, shuffle=True)
+        # For a single seed, the data increases monotonicly. We pass the data, including
+        # y and "hashes" for group CV for the largest value of n_samples. For smaller
+        # values, the data can be reconstructed via a mask. This uses memory much more
+        # efficiently than passing the training data for each value of n_samples.
+        mask = hashes.is_in(sampled_hashes)
+        data[seed] = {
+            "df": df.filter(mask),
+            "y":y[mask],
+            "hashes": hashes.filter(mask),
+            "masks": {}
+        }
         for n in n_samples:
-            mask = hashes.is_in(sampled_hashes[:n])
-            data[n, seed] = (
-                df.filter(mask),
-                y[mask],
-                hashes.filter(mask),
-            )
+            data[seed]["masks"][n] = data[seed]["hashes"].is_in(sampled_hashes[:n])
 
     df_test, y_test, _ = load(split="test", outcome=outcome)
     df_test = preprocessor.transform(df_test)
 
     jobs = []
     for model_idx, prior in enumerate(priors):
-        # log2 = np.log2(prior.ratio)
-        # if np.abs(log2 - np.round(log2, 0)) > 0.1:
-        #     continue
+        if get_name() in ["refit_linear", "refit_lgbm"]:
+            value = getattr(prior, "gamma", None) or getattr(prior, "ratio", 1.0)
+            if np.abs(np.log2(value) - np.round(np.log2(value))) > 0.1:
+                continue
 
         for refit_parameter in get_refit_parameters():
-            model = get_model()(prior=prior, **refit_parameter)
-            details = {
-                "model_idx": model_idx,
-                **refit_parameter,
-            }
-            jobs.append(
-                delayed(_fit)(
-                    model,
-                    data,
-                    df_test,
-                    y_test,
-                    TASKS[outcome]["task"],
-                    get_predict_kwargs(),
-                    details,
+            for seed in get_seeds():
+                model = get_model()(prior=prior, **refit_parameter)
+                details = {
+                    "model_idx": model_idx,
+                    "seed": seed,
+                    **refit_parameter,
+                }
+                jobs.append(
+                    delayed(_fit)(
+                        model,
+                        data[seed],
+                        df_test,
+                        y_test,
+                        TASKS[outcome]["task"],
+                        get_predict_kwargs(),
+                        details,
+                    )
                 )
-            )
 
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
@@ -139,8 +147,8 @@ def main(config: str):  # noqa D
 
     logger.info(f"Number of jobs: {len(jobs)}")
 
-    with Parallel(n_jobs=32, prefer="processes") as parallel:
-        parallel_results = parallel(jobs[:2])
+    with Parallel(n_jobs=-1, prefer="processes") as parallel:
+        parallel_results = parallel(jobs)
 
     del df, y
 
@@ -160,7 +168,11 @@ def _fit(
     details,
 ):
     results = []
-    for (n_samples, seed), (df, y, groups) in data_train.items():
+    for n_samples, mask in data_train["masks"].items():
+        df = data_train["df"].filter(mask)
+        y = data_train["y"][mask]
+        groups = data_train["hashes"].filter(mask)
+
         yhat = model.fit_predict_cv(df, y, groups=groups, predict_kwargs=kwargs)
         cv_scores = [metrics(y, yhat[:, idx], "", task) for idx in range(len(kwargs))]
 
@@ -171,7 +183,6 @@ def _fit(
         results += [
             {
                 "n_samples": n_samples,
-                "seed": seed,
                 "metric": metric,
                 "cv_value": cv_scores[idx][metric],
                 "test_value": test_scores[idx][metric],

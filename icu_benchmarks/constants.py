@@ -71,7 +71,8 @@ KIDNEY_VARIABLES = [
     "k",  # Potassium
 ]
 
-# "preliminary selected variables" according to https://www.medrxiv.org/content/10.1101/2024.01.23.24301516v1 supp table 3
+# "preliminary selected variables" according to
+# https://www.medrxiv.org/content/10.1101/2024.01.23.24301516v1 supp table 3
 RESP_VARIABLES = [
     "fio2",
     "norepi",  # Norepinephrine
@@ -214,7 +215,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
     "mortality_at_24h": {
         "task": "binary",
         "family": "binomial",
-        "alpha_max": 0.06,
+        "alpha_max": 0.05,
         "n_samples": {
             "mimic": 45018,
             "ehrshot": 32890,
@@ -306,6 +307,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "nwicu": 0,
         },
         "variables": RESP_VARIABLES,
+        "horizons": [8, 24],
         "size": 12670,
     },
     "circulatory_failure_at_8h": {
@@ -332,11 +334,12 @@ TASKS: Dict[str, Dict[str, Any]] = {
         },
         "variables": CIRC_VARIABLES,
         "size": 6308,
+        "horizons": [8],
     },
     "kidney_failure_at_48h": {
         "task": "binary",
         "family": "binomial",
-        "alpha_max": 0.15,
+        "alpha_max": 0.1,
         "n_samples": {
             "mimic": 2961026,
             "ehrshot": 62150,
@@ -406,7 +409,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "aumc-late": 93010,
             "nwicu": 47710,
         },
-        "alpha_max": 2.0,
+        "alpha_max": 1.8,
         "variables": CIRC_VARIABLES,
         "horizons": [8],
         "size": 951,
@@ -415,7 +418,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "task": "regression",
         "family": "gaussian",
         "n_samples": {},
-        "alpha_max": 0.27,
+        "alpha_max": 0.3,
         "variables": RESP_VARIABLES,
         "horizons": [8, 24],
         "size": 1469,
