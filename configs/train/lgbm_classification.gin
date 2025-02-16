@@ -1,8 +1,5 @@
 import icu_benchmarks.gin
 
-# icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
-# icu_benchmarks.load.load.weighting_exponent = -0.5
-
 get_predict_kwargs.predict_kwargs = {"num_iteration": [200, 400, 600, 800, 1000]}
 
 LGBMAnchorModel.num_boost_round = 1000

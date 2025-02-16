@@ -106,15 +106,15 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
 
         outcome = outcome or run.data.tags.get("outcome")
 
-        df = df.rename(
-            {
-                "n_samples": "n_target",
-                "scores_cv": "cv_value",
-                "scores_test": "test_value",
-                "target_value": "test_value",
-            },
-            strict=False,
-        )
+        # df = df.rename(
+        #     {
+        #         # "n_samples": "n_target",
+        #         "scores_cv": "cv_value",
+        #         "scores_test": "test_value",
+        #         "target_value": "test_value",
+        #     },
+        #     strict=False,
+        # )
         df = df.with_columns(
             pl.lit(name).alias("name"),
             # pl.lit(run.data.tags["outcome"]).alias("outcome"),

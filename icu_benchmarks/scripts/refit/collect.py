@@ -80,9 +80,9 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
     results = pl.concat(all_results, how="diagonal")
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
 
-    results = results.rename({"n_target": "n_samples"}, strict=False)
+    # results = results.rename({"n_samples": "n_target"}, strict=False)
 
-    group_by = ["target", "result_name", "metric", "n_samples", "seed"]
+    group_by = ["target", "result_name", "metric", "n_target", "seed"]
     summary = (
         results.group_by(group_by)
         .agg(pl.all().top_k_by(k=1, by=pl.col("cv_value") * mult))

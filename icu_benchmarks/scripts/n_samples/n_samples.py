@@ -44,8 +44,8 @@ def get_parameters(parameters=gin.REQUIRED):
 
 
 @gin.configurable
-def get_n_samples(n_samples=gin.REQUIRED):  # noqa D
-    return n_samples
+def get_n_target(n_target=gin.REQUIRED):  # noqa D
+    return n_target
 
 
 @gin.configurable
@@ -92,13 +92,13 @@ def main(config: str):  # noqa D
 
     unique_hashes = hashes.unique().sort()
     data = {}
-    n_samples = np.unique(np.clip(get_n_samples(), 0, len(unique_hashes)))
+    n_target = np.unique(np.clip(get_n_target(), 0, len(unique_hashes)))
     for seed in get_seeds():
-        sampled_hashes = unique_hashes.sample(max(n_samples), seed=seed, shuffle=True)
+        sampled_hashes = unique_hashes.sample(max(n_target), seed=seed, shuffle=True)
         # For a single seed, the data increases monotonicly. We pass the data, including
-        # y and "hashes" for group CV for the largest value of n_samples. For smaller
+        # y and "hashes" for group CV for the largest value of n_target. For smaller
         # values, the data can be reconstructed via a mask. This uses memory much more
-        # efficiently than passing the training data for each value of n_samples.
+        # efficiently than passing the training data for each value of n_target.
         mask = hashes.is_in(sampled_hashes)
         data[seed] = {
             "df": df.filter(mask),
@@ -106,7 +106,7 @@ def main(config: str):  # noqa D
             "hashes": hashes.filter(mask),
             "masks": {}
         }
-        for n in n_samples:
+        for n in n_target:
             data[seed]["masks"][n] = data[seed]["hashes"].is_in(sampled_hashes[:n])
 
     df_test, y_test, _ = load(split="test", outcome=get_outcome())
@@ -156,7 +156,7 @@ def _fit(
     details,
 ):
     results = []
-    for n_samples, mask in data_train["masks"].items():
+    for n_target, mask in data_train["masks"].items():
         df = data_train["df"].filter(mask)
         y = data_train["y"][mask]
         groups = data_train["hashes"].filter(mask)
@@ -170,7 +170,7 @@ def _fit(
         ]
         results += [
             {
-                "n_target": n_samples,
+                "n_target": n_target,
                 "metric": metric,
                 "cv_value": cv_scores[idx][metric],
                 "test_value": test_scores[idx][metric],

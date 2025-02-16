@@ -57,7 +57,7 @@ def main(
     config_text = Path(config).read_text()
 
     for source, outcome in product(SOURCES, outcomes):
-        log_dir = Path("logs") / experiment_name / outcome / source
+        log_dir = Path("logs") / experiment_name / source
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 

@@ -96,7 +96,7 @@ def main(experiment_name, tracking_uri, data_dir, outcome, artifact_location):  
             raise ValueError(f"No benchmark for outcome {outcome}.")
 
         results += [
-            {"target": target, "target_value": value, "metric": key}
+            {"target": target, "test_value": value, "metric": key}
             for key, value in metrics(y, yhat, "", TASKS[outcome]["task"]).items()
         ]
 

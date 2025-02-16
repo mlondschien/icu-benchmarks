@@ -168,7 +168,7 @@ def main(config: str):  # noqa D
 
     log_df(pl.DataFrame(results), "results.csv")
     # This needs to be at the end of the script to log all relevant information
-    mlflow.log_text(gin.operative_config_str(), "config.gin")
+    mlflow.log_text(gin.operative_config_str(), "config.txt")
 
 
 if __name__ == "__main__":
