@@ -53,7 +53,7 @@ def additional_variables():
     # Fio2 is often missing if a patient is not ventilated. If the patient is not
     # ventilated and was not ventilated in the last hour, we fill fio2 with 21% (ambient
     # air).
-    vent_ind = pl.col("vent_ind") | pl.col("vent_ind").shift(1, False)
+    vent_ind = pl.col("vent_ind") | pl.col("vent_ind").shift(1, fill_value=False)
     fio2 = (pl.col("fio2") / 100.0).fill_null(pl.when(~vent_ind).then(0.21))
     pf_ratio = pl.col("po2") / fio2
 
@@ -222,6 +222,7 @@ def discrete_features(
     Compute discrete features for a column.
 
     These are:
+    - The last value (no suffix).
     - mode: The mode of the column within the last `horizon` hours. Ignores missing
       values.
     - num_nonmissing: The number of non-missing values within the last `horizon` hours.
@@ -260,7 +261,7 @@ def discrete_features(
     column = pl.col(column_name)
     nonnulls = (column.ne(CAT_MISSING_NAME)).cum_sum()
 
-    expressions = list()
+    expressions = [column]
 
     for horizon in horizons:
         col_mode = pl.map_groups(
@@ -285,8 +286,9 @@ def treatment_indicator_features(
     Compute features for a treatment indicator column.
 
     These are:
-    - num_nonmissing: The number of non-missing values within the last `horizon` hours.
-    - any_nonmissing: True if there is a non-missing value within the last `horizon`
+    - The last value (no suffix).
+    - num: The number of "True" values within the last `horizon` hours.
+    - any: True if there is a "True" value within the last `horizon`
     hours.
 
     Parameters
@@ -301,15 +303,16 @@ def treatment_indicator_features(
     if horizons is None:
         horizons = HORIZONS
 
-    col_cs = pl.col(column_name).fill_null(False).cast(pl.Int32).cum_sum()
+    col = pl.col(column_name).fill_null(False)
+    col_cs = col.cast(pl.Int32).cum_sum()
 
-    expressions = list()
+    expressions = [col]
 
     for horizon in horizons:
         col_sum = (col_cs - col_cs.shift(horizon, fill_value=0)).cast(pl.Float64)
         expressions += [
-            col_sum.alias(f"{column_name}_num_nonmissing_h{horizon}"),
-            (col_sum > 0).alias(f"{column_name}_any_nonmissing_h{horizon}"),
+            col_sum.alias(f"{column_name}_num_h{horizon}"),
+            (col_sum > 0).alias(f"{column_name}_any_h{horizon}"),
         ]
     return expressions
 
@@ -673,6 +676,8 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
     # equivalent to a pandas outer join
     dyn = dyn.join(time_ranges, on=["stay_id", "time_hours"], how="full", coalesce=True)
     dyn = dyn.sort(["stay_id", "time_hours"])
+
+    dyn = dyn.with_columns(additional_variables())
 
     expressions = ["time_hours", "anchoryear", "carevue", "metavision", "patient_id"]
 

@@ -1,0 +1,18 @@
+import icu_benchmarks.gin
+
+get_predict_kwargs.predict_kwargs = {"num_iteration": [200, 400, 600, 800, 1000]}
+
+LGBMAnchorModel.num_boost_round = 1000
+get_model.model = @LGBMAnchorModel
+
+get_parameters.parameters = {
+    "objective": [%TASK],
+    "num_leaves": [31],
+    "learning_rate": [0.1],
+    "colsample_bytree": [0.5],
+    "bagging_fraction": [0.5],
+    "bagging_freq": [5],
+    "random_state": [0],
+    "deterministic": [True],
+    "verbosity": [-1],
+}

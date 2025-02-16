@@ -10,17 +10,17 @@ VARIABLE_REFERENCE_PATH = (
 HORIZONS = [8, 24, 72]
 
 DATASETS = [
-    "mimic",
-    "mimic-metavision",
+    # "mimic",
+    # "mimic-metavision",
     "mimic-carevue",
     "miived",
     "miiv",
-    "miiv-late",
+    # "miiv-late",
     "eicu",
     "hirid",
     "aumc",
-    "aumc-early",
-    "aumc-late",
+    # "aumc-early",
+    # "aumc-late",
     "sic",
     "zigong",
     "picdb",
