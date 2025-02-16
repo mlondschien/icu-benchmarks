@@ -318,8 +318,8 @@ class DataSharedLasso(GeneralizedLinearRegressor):
 
         super().fit(X_interacted, y, sample_weight=sample_weight)
 
-        self.coef_path_ = [x[:X.shape[1]] for x in self.coef_path_]
-        self.coef_ = self.coef_path_[:X.shape[1]]
+        self.coef_path_ = [x[: X.shape[1]] for x in self.coef_path_]
+        self.coef_ = self.coef_path_[: X.shape[1]]
         self.n_features_in_ = X.shape[1]
 
         return self

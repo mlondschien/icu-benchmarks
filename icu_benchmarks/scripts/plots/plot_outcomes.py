@@ -40,7 +40,13 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
     else:
         datasets = DATASETS
 
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(14, 8), constrained_layout=True, gridspec_kw={"hspace": 0.02})
+    fig, axes = plt.subplots(
+        nrows=2,
+        ncols=4,
+        figsize=(14, 8),
+        constrained_layout=True,
+        gridspec_kw={"hspace": 0.02},
+    )
 
     for ax, outcome in zip(axes.flat[: len(OUTCOMES)], OUTCOMES):
         task = TASKS[outcome]
@@ -91,13 +97,12 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
                 missing_rate=False,
                 label=outcome == "log_rel_urine_rate_in_2h",
             )
-    
+
     if ax.is_first_row() and not ax.is_first_column():
         ax.yaxis.set_ticklabels([])
 
-
-    fig.savefig(OUTPUT_PATH / f"outcomes.png")
-    fig.savefig(OUTPUT_PATH / f"outcomes.eps")
+    fig.savefig(OUTPUT_PATH / "outcomes.png")
+    fig.savefig(OUTPUT_PATH / "outcomes.pdf")
     plt.close(fig)
 
 

@@ -7,7 +7,7 @@ import polars as pl
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.mlflow_utils import log_fig
-from icu_benchmarks.plotting import COLORS, METRIC_NAMES, DATASET_NAMES
+from icu_benchmarks.plotting import COLORS, DATASET_NAMES, METRIC_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -41,8 +41,6 @@ LEGEND = {
     "benchmark": "benchmark",
     "refit_intercept_linear": "Intercept refit on target data",
 }
-
-
 
 
 @click.command()
@@ -122,7 +120,9 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
         results.append(df)
 
     results = pl.concat(results, how="diagonal_relaxed")
-    results = results.with_columns(pl.col("n_target").fill_null(results["n_target"].min()))
+    results = results.with_columns(
+        pl.col("n_target").fill_null(results["n_target"].min())
+    )
 
     metrics = results["metric"].unique()
     for metric in metrics:

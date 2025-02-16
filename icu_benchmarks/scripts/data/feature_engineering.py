@@ -699,7 +699,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         # it to string first.
         elif row["DataType"] == "categorical":
             # enum = pl.Enum(row["PossibleValues"] + [CAT_MISSING_NAME])
-            col = col.cast(pl.String).fill_null(CAT_MISSING_NAME)# .cast(enum)
+            col = col.cast(pl.String).fill_null(CAT_MISSING_NAME)  # .cast(enum)
             expressions += discrete_features(tag, "time_hours")
 
         elif row["DataType"] == "continuous":

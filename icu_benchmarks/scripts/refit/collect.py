@@ -3,7 +3,6 @@ import logging
 import tempfile
 
 import click
-import numpy as np
 import polars as pl
 
 from icu_benchmarks.constants import GREATER_IS_BETTER

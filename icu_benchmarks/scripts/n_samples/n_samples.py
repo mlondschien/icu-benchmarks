@@ -102,9 +102,9 @@ def main(config: str):  # noqa D
         mask = hashes.is_in(sampled_hashes)
         data[seed] = {
             "df": df.filter(mask),
-            "y":y[mask],
+            "y": y[mask],
             "hashes": hashes.filter(mask),
-            "masks": {}
+            "masks": {},
         }
         for n in n_target:
             data[seed]["masks"][n] = data[seed]["hashes"].is_in(sampled_hashes[:n])
@@ -115,7 +115,9 @@ def main(config: str):  # noqa D
     for parameter_idx, parameter in enumerate(get_parameters()):
         for seed in get_seeds():
             model = get_model()(**parameter)
-            pipeline = PipelineCV(steps=[("preprocessor", preprocessor), ("model", model)])
+            pipeline = PipelineCV(
+                steps=[("preprocessor", preprocessor), ("model", model)]
+            )
             details = {
                 "model_idx": parameter_idx,
                 "seed": seed,

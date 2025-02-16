@@ -133,7 +133,6 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                 }
             )
 
-
     target_run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"
     )

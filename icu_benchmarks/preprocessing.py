@@ -14,7 +14,10 @@ def get_preprocessing(model, df):  # noqa D
     ]
     bool_variables = [col for col in df.columns if df[col].dtype == pl.Boolean]
     other = [c for c in df.columns if c not in continuous_variables + bool_variables]
-    if any(x in str(model) for x in ["GeneralizedLinear", "AnchorRegression", "DataSharedLasso"]):
+    if any(
+        x in str(model)
+        for x in ["GeneralizedLinear", "AnchorRegression", "DataSharedLasso"]
+    ):
         imputer = SimpleImputer(strategy="mean", copy=False, keep_empty_features=True)
         scaler = StandardScaler(copy=False)
         encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)

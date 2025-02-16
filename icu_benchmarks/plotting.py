@@ -3,7 +3,7 @@ import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 
-from icu_benchmarks.constants import GREATER_IS_BETTER, TASKS
+from icu_benchmarks.constants import GREATER_IS_BETTER
 
 SOURCE_COLORS = {
     "eicu": "black",
@@ -66,9 +66,9 @@ METRIC_NAMES = {
     "mae": "MAE",
     "mse": "MSE",
     "rmse": "RMSE",
-    "quantile_0.8": "80\%-quantile of abs. errors",
-    "quantile_0.9": "90\%-quantile of abs. errors",
-    "quantile_0.95": "95\%-quantile of abs. errors",
+    "abs_quantile_0.8": "80\\%-quantile of abs. errors",
+    "abs_quantile_0.9": "90\\%-quantile of abs. errors",
+    "abs_quantile_0.95": "95\\%-quantile of abs. errors",
 }
 
 DATASET_NAMES = {
@@ -175,8 +175,8 @@ def plot_continuous(ax, data, name, label=True, legend=True, missing_rate=True):
 
         kwargs = {
             "label": label,
-            "color":SOURCE_COLORS[dataset],
-            "linestyle":LINESTYLES.get(dataset, "solid"),
+            "color": SOURCE_COLORS[dataset],
+            "linestyle": LINESTYLES.get(dataset, "solid"),
         }
 
         if len(df) <= 1:
@@ -192,11 +192,7 @@ def plot_continuous(ax, data, name, label=True, legend=True, missing_rate=True):
 
             linspace = np.linspace(df.min(), df.max(), num=100)
 
-            ax.plot(
-                linspace,
-                density(linspace),
-                **kwargs
-            )
+            ax.plot(linspace, density(linspace), **kwargs)
 
     if legend:
         ax.legend()
@@ -227,7 +223,6 @@ def plot_by_x(results, x, metric):
 
     param_names = [p for p in PARAMETER_NAMES if p in results.columns and p != x]
 
-
     aggregations = ["mean", "worst", "median"]
 
     if results["sources"].dtype == pl.String:
@@ -238,11 +233,13 @@ def plot_by_x(results, x, metric):
 
     results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
     results_n1 = results.filter(pl.col("sources").list.len() == len(sources) - 1)
-    results_1v1 = results.filter(pl.col("sources").list.len() == 1)
+    # results_1v1 = results.filter(pl.col("sources").list.len() == 1)
 
     cv_results = []
 
-    fig, axes = plt.subplots(2, 3, figsize=(12, 8), constrained_layout=True, gridspec_kw={"hspace": 0.02})
+    fig, axes = plt.subplots(
+        2, 3, figsize=(12, 8), constrained_layout=True, gridspec_kw={"hspace": 0.02}
+    )
 
     for idx, (target, ax) in enumerate(zip(sorted(sources), axes.flat[: len(sources)])):
         mult = -1 if metric in GREATER_IS_BETTER else 1
@@ -359,7 +356,7 @@ def plot_by_x(results, x, metric):
             group = group.sort(x)
             # var = group[variable].first() / cur_results_n1[variable].max()
             # color = np.clip((var - var_min) / max(0.01, (var_max - var_min)), 0, 1)
-            #if 0 <= color <= 1:
+            # if 0 <= color <= 1:
             ax.plot(
                 group[x],
                 group[f"{target}/test/{metric}"],

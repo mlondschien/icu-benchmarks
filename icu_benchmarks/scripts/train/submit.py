@@ -80,9 +80,6 @@ def main(
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 
-        size = TASKS[outcome]["size"]
-        n_cpus = max(8, int(8 * size / 4000))
-
         with config_file.open("w") as f:
             f.write(
                 f"""{train_config.read_text()}

@@ -67,6 +67,7 @@ def get_model(model=gin.REQUIRED):  # noqa D
 def get_name(name="refit"):  # noqa D
     return name
 
+
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
 def main(config: str):  # noqa D
@@ -104,9 +105,9 @@ def main(config: str):  # noqa D
         mask = hashes.is_in(sampled_hashes)
         data[seed] = {
             "df": df.filter(mask),
-            "y":y[mask],
+            "y": y[mask],
             "hashes": hashes.filter(mask),
-            "masks": {}
+            "masks": {},
         }
         for n in n_target:
             data[seed]["masks"][n] = data[seed]["hashes"].is_in(sampled_hashes[:n])
