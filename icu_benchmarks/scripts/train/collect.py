@@ -23,7 +23,7 @@ logging.basicConfig(
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 def main(experiment_name: str, tracking_uri: str):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)

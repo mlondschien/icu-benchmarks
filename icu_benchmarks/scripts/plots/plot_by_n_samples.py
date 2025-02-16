@@ -50,7 +50,7 @@ LEGEND = {
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 @click.argument("result_names", type=str, nargs=-1)
 def main(result_names, target_experiment, tracking_uri):  # noqa D

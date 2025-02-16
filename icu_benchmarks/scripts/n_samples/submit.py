@@ -26,7 +26,7 @@ SOURCES = [
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 @click.option(
     "--artifact_location",
