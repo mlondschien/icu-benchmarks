@@ -587,10 +587,11 @@ def outcomes():
 
     # total length of stay, predicted at 24h after entry to the ICU.
     los_at_24h = pl.when(pl.col("time_hours").eq(24)).then(pl.col("los_icu"))
-    los_at_24h = los_at_24h.clip(0, None).alias("los_at_24h")
+    los_at_24h = pl.when(los_at_24h > 0.1).then(los_at_24h).alias("los_at_24h")
+    log_los_at_24h = los_at_24h.log().alias("log_los_at_24h")
 
     # log(lactate) in 4 hours. This is 1/2 the forecast horizon of circ. failure eep.
-    log_lactate_in_4h = pl.col("lact").shift(-4).alias("log_lactate_in_4h")
+    log_lactate_in_4h = (pl.col("lact") + 0.1).log().shift(-4).alias("log_lactate_in_4h")
 
     log_pf_ratio_in_12h = (
         pl.col("pf_ratio").log().shift(-12).alias("log_pf_ratio_in_12h")
@@ -619,10 +620,10 @@ def outcomes():
         circulatory_failure_at_8h,
         kidney_failure_at_48h,
         los_at_24h,
+        log_los_at_24h,
         log_lactate_in_4h,
         log_rel_urine_rate_in_2h,
         log_pf_ratio_in_12h,
-        pl.col("log_po2"),
     ]
 
 

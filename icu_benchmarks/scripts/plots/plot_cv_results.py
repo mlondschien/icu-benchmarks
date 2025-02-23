@@ -19,6 +19,8 @@ logging.basicConfig(
 )
 
 
+
+    
 @click.command()
 @click.option("--experiment_name", type=str)
 @click.option(
@@ -30,8 +32,6 @@ def main(experiment_name, tracking_uri):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment = client.get_experiment_by_name(experiment_name)
 
-    if experiment is None:
-        raise ValueError(f"Experiment {experiment_name} not found")
 
     if "mlflow.note.content" in experiment.tags:
         print(experiment.tags["mlflow.note.content"])

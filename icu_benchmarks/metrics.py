@@ -5,9 +5,10 @@ from sklearn.metrics import (
     log_loss,
     roc_auc_score,
 )
+import scipy
+from icu_benchmarks.constants import GREATER_IS_BETTER
 
-
-def metrics(y, yhat, prefix, task):  # noqa D
+def metrics(y, yhat, prefix, task, groups=None):  # noqa D
     if not isinstance(y, np.ndarray):
         y = y.to_numpy()
     if not isinstance(yhat, np.ndarray):
@@ -36,7 +37,7 @@ def metrics(y, yhat, prefix, task):  # noqa D
         abs_residuals = np.abs(residuals)
         abs_quantiles = np.quantile(abs_residuals, [0.8, 0.9, 0.95])
         mse = np.mean(abs_residuals**2)
-        return {
+        out = {
             f"{prefix}mse": mse,
             f"{prefix}rmse": np.sqrt(mse),
             f"{prefix}mae": np.mean(abs_residuals),
@@ -50,5 +51,51 @@ def metrics(y, yhat, prefix, task):  # noqa D
             f"{prefix}quantile_0.9": quantiles[4],
             f"{prefix}mean_residual": np.mean(residuals),
         }
+
+        if groups is not None:
+            grouped_mses = map(np.mean, np.split(mse, np.unique(groups, return_index=True)[1][1:]))
+            mse_quantiles = np.quantile(grouped_mses, [0.5, 0.6, 0.7, 0.8, 0.9, 0.95])
+            out["grouped_mse_quantile_0.5"] = mse_quantiles[0]
+            out["grouped_mse_quantile_0.6"] = mse_quantiles[1]
+            out["grouped_mse_quantile_0.7"] = mse_quantiles[2]
+            out["grouped_mse_quantile_0.8"] = mse_quantiles[3]
+            out["grouped_mse_quantile_0.9"] = mse_quantiles[4]
+            out["grouped_mse_quantile_0.95"] = mse_quantiles[5]
+        
+        return out
+
     else:
         raise ValueError(f"Unknown task {task}")
+
+
+def get_equivalent_number_of_samples(n_samples, values, metric):
+    """
+    Get the number of target samples needed to achieve a certain value of metric.
+    
+    First, fit an isotonic (monotone) regression through the points
+    `test_value ~ n_target`. Then, linearly interpolate `fitted values ~ log(n_target)`.
+    Extrapolate beyond `max(fitted_values)` and `min(fitted_values)` with
+    `max(n_target)` and `min(n_target)`, respectively (opposite if greater is not
+    better).
+
+    Parameters
+    ----------
+    n_samples: pl.DataFrame
+        With columns `"n_target"` and `"test_value"`.
+    values: np.ndarray
+        Values for which to estimate the number of samples of the test distribution to
+        achieve the same value of the metric.
+    metric: str
+        Name of the metric. Used to determine whether greater is better.
+    """
+    n_samples = n_samples.sort(by="n_target")
+    isotonic_regression = scipy.optimize.isotonic_regression(n_samples["test_value"], increasing=metric in GREATER_IS_BETTER).x
+    min_, max_ = np.log(n_samples["n_target"].min()), np.log(n_samples["n_target"].max())
+    interp = scipy.interpolate.interp1d(
+        x=isotonic_regression,
+        y=np.log(n_samples["n_target"]),
+        kind="linear",
+        fill_value=(min_, max_) if metric in GREATER_IS_BETTER else (max_, min_),
+        bounds_error=False
+    )
+    return np.exp(interp(values))

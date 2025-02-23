@@ -20,7 +20,6 @@ class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):  # noqa D
         if isinstance(obj, np.ndarray):
             return obj.tolist()
-
         try:
             return json.JSONEncoder.default(self, obj)
         except TypeError:
@@ -37,12 +36,12 @@ def log_dict(dict, name):
         mlflow.log_artifact(path, target_dir)
 
 
-def log_fig(fig, name, client=None, run_id=None):
+def log_fig(fig, name, client=None, run_id=None, **kwargs):
     """Log a matplotlib figure to MLflow."""
     target_dir, name = os.path.split(name)
     with tempfile.TemporaryDirectory() as tmpdir:
         path = f"{tmpdir}/{name}"
-        fig.savefig(path)
+        fig.savefig(path, **kwargs)
 
         if client is not None:
             client.log_artifact(run_id, path, target_dir)
@@ -91,6 +90,25 @@ def log_pickle(object, name):
             pickle.dump(object, f)
         mlflow.log_artifact(path, target_dir)
 
+
+def log_markdown(df, name, client=None, run_id=None):
+    with pl.Config() as cfg:
+        cfg.set_tbl_rows(-1)
+        cfg.set_tbl_cols(-1)
+        cfg.set_tbl_formatting("MARKDOWN")
+        text = repr(df)
+    
+    target_dir, name = os.path.split(name)
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = f"{tmpdir}/{name}"
+        with open(path, "w") as f:
+            f.write(text)
+
+        if client is not None:
+            client.log_artifact(run_id, path, target_dir)
+        else:
+            mlflow.log_artifact(path, target_dir)
 
 @gin.configurable
 def setup_mlflow(

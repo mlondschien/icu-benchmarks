@@ -123,6 +123,11 @@ def main(config: str):  # noqa D
                 continue
 
         for refit_parameter in get_refit_parameters():
+            if get_name() == "refit_linear":
+                value = refit_parameter["prior_alpha"]
+                if np.abs(np.log10(value) - np.round(np.log10(value))) > 0.1:
+                    continue
+
             for seed in get_seeds():
                 model = get_model()(prior=prior, **refit_parameter)
                 details = {

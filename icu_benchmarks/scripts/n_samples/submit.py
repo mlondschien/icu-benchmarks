@@ -92,7 +92,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 #SBATCH --cpus-per-task={int(n_cpus)}
 #SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=8G
-#SBATCH --job-name="{outcome}_{source}"
+#SBATCH --job-name="{experiment_name}_n_{source}"
 #SBATCH --output="{log_dir}/slurm.out"
 
 python icu_benchmarks/scripts/n_samples/n_samples.py --config {config_file.resolve()}"""

@@ -12,19 +12,19 @@ HORIZONS = [8, 24, 72]
 DATASETS = [
     # "mimic",
     # "mimic-metavision",
-    "mimic-carevue",
-    "miived",
-    "miiv",
-    # "miiv-late",
+    "aumc",
     "eicu",
     "hirid",
-    "aumc",
+    "mimic-carevue",
+    "miiv",
+    "sic",
+    # "miiv-late",
     # "aumc-early",
     # "aumc-late",
-    "sic",
-    "zigong",
-    "picdb",
     "nwicu",
+    "miived",
+    "picdb",
+    "zigong",
 ]
 
 CAT_MISSING_NAME = "(MISSING)"
@@ -426,3 +426,5 @@ TASKS: Dict[str, Dict[str, Any]] = {
 }
 
 GREATER_IS_BETTER = ["roc", "auroc", "auc", "auprc", "accuracy", "prc", "r2"]
+
+METRIC_NAMES = ["mse", "rmse", "mae", "abs_quantile_0.8", "abs_quantile_0.9", "abs_quantile_0.95", "roc", "accuracy", "log_loss", "auprc", "brier"]

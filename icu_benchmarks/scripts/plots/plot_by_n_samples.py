@@ -95,7 +95,7 @@ def main(result_names, target_experiment, tracking_uri):  # noqa D
             experiment_ids=[experiment.experiment_id], filter_string="tags.sources = ''"
         )
         if len(runs) != 1:
-            raise ValueError(f"Expected exactly one run. Got {runs:}")
+            raise ValueError(f"Expected exactly one run for {experiment_name}. Got {runs:}")
         run = runs[0]
 
         with tempfile.TemporaryDirectory() as f:

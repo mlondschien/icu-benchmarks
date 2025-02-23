@@ -72,6 +72,10 @@ def main(
     train_config = Path(__file__).parents[3] / "configs" / "train" / "train.gin"
     config_text = Path(config).read_text()
 
+    if style == "1v1":
+        config = Path(__file__).parents[3] / "configs" / "train" / "1v1.gin"
+        config_text = f"{config.read_text()}\n{config_text}"
+
     for sources, outcome in product(list_of_sources, outcomes):
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 13)
@@ -105,19 +109,20 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
         # required_memory = n_samples / OBSERVATIONS_PER_GB
         # n_cpus = min(64, max(4, required_memory))
 
+        script = "train.py" if style != "1v1" else "train_1v1.py"
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(
                 f"""#!/bin/bash
 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=32
 #SBATCH --time={hours}:00:00
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem-per-cpu=8G
 #SBATCH --job-name="{experiment_name}_{'_'.join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
 
-python icu_benchmarks/scripts/train/train.py --config {config_file.resolve()}"""
+python icu_benchmarks/scripts/train/{script} --config {config_file.resolve()}"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])
