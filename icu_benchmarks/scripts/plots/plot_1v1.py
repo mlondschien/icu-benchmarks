@@ -1,16 +1,14 @@
-import mlflow
-from icu_benchmarks.constants import OUTCOMES, DATASETS
-from mlflow.tracking import MlflowClient
-from icu_benchmarks.plotting import get_method_name, METRIC_NAMES, SHORT_DATASET_NAMES
-from icu_benchmarks.mlflow_utils import log_fig
-from icu_benchmarks.metrics import get_equivalent_number_of_samples
+import tempfile
 
+import click
 import matplotlib.pyplot as plt
 import numpy as np
-import tempfile
 import polars as pl
-import click
-from icu_benchmarks.constants import GREATER_IS_BETTER
+from mlflow.tracking import MlflowClient
+
+from icu_benchmarks.metrics import get_equivalent_number_of_samples
+from icu_benchmarks.mlflow_utils import log_fig
+from icu_benchmarks.plotting import METRIC_NAMES, SHORT_DATASET_NAMES, get_method_name
 
 
 @click.command()
@@ -41,11 +39,11 @@ def main(experiment_name: str, n_samples_name: str, tracking_uri: str):  # noqa 
     nsamples_run = nsamples_runs[0]
 
     with tempfile.TemporaryDirectory() as f:
-        client.download_artifacts(run.info.run_id, f"1v1_results.csv", f)
+        client.download_artifacts(run.info.run_id, "1v1_results.csv", f)
         df = pl.read_csv(f"{f}/1v1_results.csv")
 
     with tempfile.TemporaryDirectory() as f:
-        client.download_artifacts(nsamples_run.info.run_id, f"n_samples_results.csv", f)
+        client.download_artifacts(nsamples_run.info.run_id, "n_samples_results.csv", f)
         df_nsamples = pl.read_csv(f"{f}/n_samples_results.csv")
 
     metrics = df["metric"].unique().to_numpy()

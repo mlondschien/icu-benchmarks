@@ -9,7 +9,7 @@ CONFIG = {
     "x": "gamma",
     "y": "learning_rate",
     "panels": [
-        {       
+        {
             "source": "aumc",
             "title": "AUMCdb",
             # "ylim": (0.29, 0.31),

@@ -1,11 +1,12 @@
 import numpy as np
+import scipy
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
     log_loss,
     roc_auc_score,
 )
-import scipy
+
 from icu_benchmarks.constants import GREATER_IS_BETTER
 
 

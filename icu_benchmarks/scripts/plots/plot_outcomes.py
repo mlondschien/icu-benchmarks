@@ -1,19 +1,19 @@
 from pathlib import Path
 
 import click
-import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import matplotlib.gridspec as gridspec
-from matplotlib.patches import Patch
+import matplotlib.pyplot as plt
 import polars as pl
 from matplotlib.lines import Line2D
-import matplotlib.colors as mcolors
+from matplotlib.patches import Patch
 
-from icu_benchmarks.constants import DATA_DIR, DATASETS, TASKS
+from icu_benchmarks.constants import DATA_DIR, DATASETS
 from icu_benchmarks.plotting import (
+    SHORT_DATASET_NAMES,
+    SOURCE_COLORS,
     plot_continuous,
     plot_discrete,
-    SOURCE_COLORS,
-    SHORT_DATASET_NAMES,
 )
 
 OUTPUT_PATH = Path(__file__).parents[3] / "figures" / "density_plots"

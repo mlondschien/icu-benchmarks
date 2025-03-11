@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import tempfile
@@ -6,7 +7,6 @@ import click
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-import json
 
 from icu_benchmarks.constants import DATASETS, GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import log_df
@@ -69,22 +69,6 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
 
     results = pl.concat(all_results)
 
-    parameter_names = [
-        x
-        for x in [
-            "alpha",
-            "alpha_idx",
-            "l1_ratio",
-            "gamma",
-            "ratio",
-            "num_boost_round",
-            "num_iteration",
-            "learning_rate",
-            "num_leaves",
-        ]
-        if x in results.columns
-    ]
-
     metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
 
@@ -96,7 +80,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
             continue
 
         results = results.with_columns(
-            pl.mean_horizontal(c for c in cv_columns).alias(f"cv_value")
+            pl.mean_horizontal(c for c in cv_columns).alias("cv_value")
         )
         grouped = (
             results.group_by("sources")
@@ -124,7 +108,6 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
         cv_results.append(grouped)
     cv_results = pl.concat(cv_results).drop("sources")
 
-    breakpoint()
     target_run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"
     )

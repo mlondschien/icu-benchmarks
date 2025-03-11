@@ -4,10 +4,10 @@ import tempfile
 
 import click
 import polars as pl
+from mlfow.tracking import MlflowClient
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import get_target_run, log_df
-from mlfow.tracking import MlflowClient
 
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 

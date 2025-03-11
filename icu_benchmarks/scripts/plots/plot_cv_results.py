@@ -80,8 +80,6 @@ def main(experiment_name, tracking_uri):  # noqa D
     print(f"logging to {run.info.run_id}")
     metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
-    metrics = ["mse"]
-    PARAMETER_NAMES = ["gamma"]
 
     for metric in metrics:
         for x in [p for p in PARAMETER_NAMES if p in results.columns]:

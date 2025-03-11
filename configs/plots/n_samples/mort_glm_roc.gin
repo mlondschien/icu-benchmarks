@@ -7,7 +7,7 @@ CONFIG = {
     "target_experiment": "mort_glm",
     "filename": "n_samples/roc_glm",
     "panels": [
-        {       
+        {
             "source": "aumc",
             "title": "AUMCdb",
             "xlim": (100, 12800),

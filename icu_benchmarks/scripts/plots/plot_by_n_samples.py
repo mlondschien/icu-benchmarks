@@ -2,12 +2,12 @@ import logging
 import tempfile
 
 import click
+import gin
 import matplotlib.pyplot as plt
 import polars as pl
 from mlflow.tracking import MlflowClient
-import gin
+
 from icu_benchmarks.mlflow_utils import log_fig
-from icu_benchmarks.plotting import COLORS, DATASET_NAMES, METRIC_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -18,7 +18,7 @@ logging.basicConfig(
 
 
 @gin.configurable()
-def get_config(config):
+def get_config(config):  # noqa D
     return config
 
 
@@ -38,7 +38,7 @@ def main(tracking_uri, config):  # noqa D
     experiment = client.get_experiment_by_name(CONFIG["target_experiment"])
 
     if experiment is None:
-        raise ValueError(f"target experiment not found")
+        raise ValueError("target experiment not found")
 
     experiment_id = experiment.experiment_id
 
@@ -76,7 +76,7 @@ def main(tracking_uri, config):  # noqa D
         df = df.filter(pl.col("metric") == CONFIG["metric"])
 
         for idx, (panel, ax) in enumerate(zip(CONFIG["panels"], axes.flat)):
-            data = df.filter((pl.col("target") == panel["source"]))
+            data = df.filter(pl.col("target") == panel["source"])
             if len(data) == 1:
                 ax.hlines(
                     data["test_value"].first(),

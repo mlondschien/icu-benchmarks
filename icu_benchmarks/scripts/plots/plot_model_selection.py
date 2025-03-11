@@ -1,17 +1,17 @@
+import json
 import logging
 import tempfile
-from matplotlib import colormaps
+
 import click
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import polars as pl
+from matplotlib import colormaps, colors
 from mlflow.tracking import MlflowClient
-from icu_benchmarks.mlflow_utils import log_fig, get_target_run
-from icu_benchmarks.plotting import DATASET_NAMES, PARAMETER_NAMES, METRICS
-import numpy as np
+
 from icu_benchmarks.constants import GREATER_IS_BETTER
-import json
-import matplotlib.cm as cm
-from matplotlib import colors
+from icu_benchmarks.mlflow_utils import get_target_run, log_fig
+from icu_benchmarks.plotting import DATASET_NAMES, METRICS, PARAMETER_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

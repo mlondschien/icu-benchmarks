@@ -92,6 +92,7 @@ def log_pickle(object, name):
 
 
 def log_markdown(df, name, client=None, run_id=None):
+    """Log a polars dataframe as markdown to MLflow."""
     with pl.Config() as cfg:
         cfg.set_tbl_rows(-1)
         cfg.set_tbl_cols(-1)

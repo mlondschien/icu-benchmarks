@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import tempfile
@@ -6,10 +7,10 @@ import click
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-from icu_benchmarks.plotting import PARAMETER_NAMES
+
 from icu_benchmarks.constants import DATASETS, GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import log_df
-import json
+from icu_benchmarks.plotting import PARAMETER_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

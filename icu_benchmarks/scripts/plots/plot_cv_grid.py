@@ -1,20 +1,18 @@
+import json
 import logging
-import re
 import tempfile
-import gin
+
 import click
+import gin
 import matplotlib.pyplot as plt
 import numpy as np
-import json
 import polars as pl
+from matplotlib import colormaps, colors
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.mlflow_utils import log_fig, get_target_run
-from icu_benchmarks.plotting import PARAMETER_NAMES, plot_by_x
 from icu_benchmarks.constants import GREATER_IS_BETTER
-import matplotlib.cm as cm
-from matplotlib import colors
-from matplotlib import colormaps
+from icu_benchmarks.mlflow_utils import get_target_run, log_fig
+from icu_benchmarks.plotting import PARAMETER_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -25,7 +23,7 @@ logging.basicConfig(
 
 
 @gin.configurable()
-def get_config(config):
+def get_config(config):  # noqa D
     return config
 
 

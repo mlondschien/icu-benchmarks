@@ -7,7 +7,7 @@ CONFIG = {
     "experiment_name": "pf_anti_algbm",
     "parameter": "gamma",
     "panels": [
-        {       
+        {
             "source": "aumc",
             "title": "AUMCdb",
             "xlim": None,

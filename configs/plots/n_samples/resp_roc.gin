@@ -7,7 +7,7 @@ CONFIG = {
     "target_experiment": "resp_glm",
     "filename": "n_samples/roc_glm_lgbm",
     "panels": [
-        {       
+        {
             "source": "aumc",
             "title": "AUMCdb",
             "xlim": (25, 6400),

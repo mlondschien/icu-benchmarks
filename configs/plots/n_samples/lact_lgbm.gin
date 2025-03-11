@@ -7,7 +7,7 @@ CONFIG = {
     "target_experiment": "lact_lgbm",
     "filename": "n_samples/rmse_lgbm",
     "panels": [
-        {       
+        {
             "source": "aumc",
             "title": "AUMCdb",
             "xlim": (25, 25600),

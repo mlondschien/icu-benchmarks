@@ -1,10 +1,10 @@
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
-import matplotlib.colors as mcolors
 
 SOURCE_COLORS = {
     "eicu": "black",
@@ -132,6 +132,7 @@ OUTCOME_NAMES = {
 
 
 def get_method_name(experiment_name):
+    """Get a methods name by the experiment name."""
     if "_dsl" in experiment_name:
         return "DSL"
     elif "_glm" in experiment_name:

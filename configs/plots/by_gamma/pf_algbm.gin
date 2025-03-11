@@ -9,7 +9,7 @@ CONFIG = {
     "x": "gamma",
     "xlim": (1, 128),
     "panels": [
-        {       
+        {
             "source": "aumc",
             "title": "AUMCdb",
             # "ylim": (0.29, 0.31),

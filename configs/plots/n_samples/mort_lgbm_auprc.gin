@@ -7,7 +7,7 @@ CONFIG = {
     "target_experiment": "mort_lgbm",
     "filename": "n_samples/auprc_lgbm",
     "panels": [
-        {       
+        {
             "source": "aumc",
             "title": "AUMCdb",
             "xlim": (100, 12800),

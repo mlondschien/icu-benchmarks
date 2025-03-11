@@ -7,7 +7,7 @@ CONFIG = {
     "target_experiment": "plots",
     "filename": "pf/n_samples_mse",
     "panels": [
-        {       
+        {
             "source": "aumc",
             "title": "AUMCdb",
             "xlim": (25, 6400),

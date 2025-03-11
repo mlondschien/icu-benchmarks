@@ -4,12 +4,12 @@ import gin
 import lightgbm as lgb
 import numpy as np
 import polars as pl
+import scipy
 import tabmat
 from glum import GeneralizedLinearRegressor
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
-import scipy
 
 
 @gin.configurable

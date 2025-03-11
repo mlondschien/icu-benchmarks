@@ -7,7 +7,7 @@ CONFIG = {
     "filename": "residuals/mse_gamma",
     "x": "gamma",
     "panels": [
-        {       
+        {
             "target": "aumc",
             "title": "AUMCdb",
             "y_residuals": (-0.65, 0.65),

@@ -7,7 +7,7 @@ CONFIG = {
     "target_experiment": "pf_glm",
     "filename": "n_samples/rmse_glm",
     "panels": [
-        {       
+        {
             "source": "aumc",
             "title": "AUMCdb",
             "xlim": (25, 6400),

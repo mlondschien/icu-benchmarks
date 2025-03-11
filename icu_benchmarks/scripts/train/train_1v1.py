@@ -1,17 +1,18 @@
 import logging
 from itertools import product
 from time import perf_counter
-from icu_benchmarks.metrics import metrics
+
 import click
 import gin
 import mlflow
 import numpy as np
 import polars as pl
-from sklearn.model_selection import ParameterGrid, GroupKFold
-from icu_benchmarks.constants import TASKS, METRIC_NAMES
+from sklearn.model_selection import GroupKFold
+
+from icu_benchmarks.constants import METRIC_NAMES, TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import log_df, log_dict, log_pickle, setup_mlflow
+from icu_benchmarks.mlflow_utils import log_df, log_dict, setup_mlflow
 from icu_benchmarks.models import (  # noqa F401
     AnchorRegression,
     AnticausalAnchorRegression,
@@ -70,17 +71,17 @@ def get_predict_kwargs(predict_kwargs=gin.REQUIRED):
 
 
 @gin.configurable
-def get_n_splits(n_splits=gin.REQUIRED):
+def get_n_splits(n_splits=gin.REQUIRED):  # noqa D
     return n_splits
 
 
 @gin.configurable
-def get_split_by(split_by=gin.REQUIRED):
+def get_split_by(split_by=gin.REQUIRED):  # noqa D
     return split_by
 
 
 @gin.configurable
-def get_anchor(anchor=gin.REQUIRED):
+def get_anchor(anchor=gin.REQUIRED):  # noqa D
     return anchor
 
 
@@ -154,19 +155,19 @@ def main(config: str):  # noqa D
                     }
                 )
 
-    cv_results = pl.DataFrame(cv_results)
+    cv_results_frame = pl.DataFrame(cv_results)
 
-    log_df(cv_results, "cv_results.csv")
+    log_df(cv_results_frame, "cv_results.csv")
 
-    metric_names = [x for x in METRIC_NAMES if f"cv/{x}" in cv_results.columns]
+    metric_names = [x for x in METRIC_NAMES if f"cv/{x}" in cv_results_frame.columns]
 
-    cv_results = cv_results.pivot(
+    cv_results_frame = cv_results_frame.pivot(
         on="fold_idx",
         index=["parameter_idx", "predict_kwarg_idx"],
         values=[f"cv/{m}" for m in metric_names],
     )
 
-    results = []
+    results: list[dict] = []
 
     preprocessor = get_preprocessing(get_model(), df)
     df = preprocessor.fit_transform(df)
@@ -234,10 +235,11 @@ def main(config: str):  # noqa D
                 }
                 idx += 1
 
-    results = pl.DataFrame(results)
-    results = results.join(cv_results, on=["parameter_idx", "predict_kwarg_idx"])
+    results_frame = pl.DataFrame(results).join(
+        cv_results_frame, on=["parameter_idx", "predict_kwarg_idx"]
+    )
 
-    log_df(pl.DataFrame(results), "results.csv")
+    log_df(pl.DataFrame(results_frame), "results.csv")
     # This needs to be at the end of the script to log all relevant information
     mlflow.log_text(gin.operative_config_str(), "config.txt")
 

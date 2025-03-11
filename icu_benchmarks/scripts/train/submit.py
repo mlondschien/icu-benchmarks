@@ -76,8 +76,8 @@ def main(
     config_text = Path(config).read_text()
 
     if style == "1v1":
-        config = Path(__file__).parents[3] / "configs" / "train" / "1v1.gin"
-        config_text = f"{config.read_text()}\n{config_text}"
+        config_path = Path(__file__).parents[3] / "configs" / "train" / "1v1.gin"
+        config_text = f"{config_path.read_text()}\n{config_text}"
 
     for sources, outcome in product(list_of_sources, outcomes):
         alpha_max = TASKS[outcome]["alpha_max"]
