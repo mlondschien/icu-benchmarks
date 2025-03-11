@@ -1,16 +1,13 @@
 import json
 import logging
-import re
 import tempfile
 
 import click
-import numpy as np
 import polars as pl
-from mlflow.tracking import MlflowClient
+from mlfow.tracking import MlflowClient
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
-from icu_benchmarks.mlflow_utils import log_df
-from icu_benchmarks.plotting import PARAMETER_NAMES
+from icu_benchmarks.mlflow_utils import get_target_run, log_df
 
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 
@@ -28,27 +25,13 @@ logging.basicConfig(
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
-
-    experiment = client.get_experiment_by_name(experiment_name)
-    target_run = client.search_runs(
-        experiment_ids=[experiment.experiment_id],
-        filter_string="tags.sources = ''",
-    )
-    if len(target_run) > 0:
-        target_run = target_run[0]
-    else:
-        target_run = client.create_run(
-            experiment_id=experiment.experiment_id,
-            tags={"sources": "", "summary_run": True},
-        )
+    experiment, target_run = get_target_run(client, experiment_name)
 
     logger.info(f"logging to {target_run.info.run_id}")
-
-    summarized = []
 
     experiment_id = experiment.experiment_id
 
@@ -82,49 +65,31 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
 
         results = results.with_columns(
             pl.lit(run_id).alias("run_id"),
-            pl.lit(sources).alias("sources"),
+            # pl.lit(sources).alias("sources"),
             #   pl.lit(run.data.tags["outcome"]).alias("outcome"),
             pl.lit(result_name).alias("result_name"),
             pl.lit(target).alias("target"),
+            # pl.when(
+            #     pl.col("metric").is_in(["brier", "log_loss"]) & pl.col("cv_value").eq(0)
+            # )
+            # .then(pl.lit(np.inf))
+            # .otherwise(pl.col("cv_value"))
+            # .alias("cv_value"),
         )
         all_results.append(results)
 
-        parameter_names = [p for p in PARAMETER_NAMES if p in results.columns]
+    results = pl.concat(all_results, how="diagonal")
+    mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
 
-        metrics = map(re.compile(r"\/(.+)$").search, results.columns)
-        metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
+    # results = results.rename({"n_samples": "n_target"}, strict=False)
 
-        for result in all_results:
-            target = result["target"].unique()[0]
-            for metric in metrics:
-                for n_target in [5, 10, 20, 40, 80, 160, 320, 640, 1280]:
-                    for seed in [0, 1, 2, 3, 4]:
-                        if metric in GREATER_IS_BETTER:
-                            df = result[
-                                result[f"cv_{n_target}_{seed}/{metric}"].arg_max()
-                            ]
-                        else:
-                            df = result[
-                                result[f"cv_{n_target}_{seed}/{metric}"].arg_min()
-                            ]
-
-                        summarized.append(
-                            {
-                                "target": target,
-                                "metric": metric,
-                                "cv_value": df[f"cv_{n_target}_{seed}/{metric}"].item(),
-                                "test_value": df[
-                                    f"test_{n_target}_{seed}/{metric}"
-                                ].item(),
-                                **{p: df[p].item() for p in parameter_names},
-                                "seed": seed,
-                                "n_target": n_target,
-                                "result_name": result_name,
-                            }
-                        )
-
-    result = pl.DataFrame(summarized)
-    log_df(result, f"{result_name}_results.csv", client, run_id=target_run.info.run_id)
+    group_by = ["target", "result_name", "metric", "n_target", "seed"]
+    summary = (
+        results.group_by(group_by)
+        .agg(pl.all().top_k_by(k=1, by=pl.col("cv_value") * mult))
+        .explode([x for x in results.columns if x not in group_by])
+    )
+    log_df(summary, f"{result_name}_results.csv", client, run_id=target_run.info.run_id)
 
 
 if __name__ == "__main__":

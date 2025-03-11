@@ -26,7 +26,7 @@ SOURCES = [
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 @click.option(
     "--artifact_location",
@@ -57,7 +57,7 @@ def main(
     config_text = Path(config).read_text()
 
     for source, outcome in product(SOURCES, outcomes):
-        log_dir = Path("logs") / experiment_name / outcome / source
+        log_dir = Path("logs2") / experiment_name / source
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 
@@ -74,14 +74,15 @@ icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
 FAMILY = "{TASKS[outcome]["family"]}"
+TASK = "{TASKS[outcome]["task"]}"
 
 icu_benchmarks.load.load.sources = ["{source}"]
-icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
-icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
+icu_benchmarks.load.load.variables = {TASKS[outcome].get("variables")}
+icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
 """
             )
 
-        n_cpus = 32
+        n_cpus = 16
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(
@@ -91,7 +92,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 #SBATCH --cpus-per-task={int(n_cpus)}
 #SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=8G
-#SBATCH --job-name="{outcome}_{source}"
+#SBATCH --job-name="{experiment_name}_n_{source}"
 #SBATCH --output="{log_dir}/slurm.out"
 
 python icu_benchmarks/scripts/n_samples/n_samples.py --config {config_file.resolve()}"""

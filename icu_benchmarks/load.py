@@ -19,7 +19,7 @@ CONTINUOUS_FEATURES = [
     "max",
 ]
 CATEGORICAL_FEATURES = ["mode", "num_nonmissing"]
-TREATMENT_INDICATOR_FEATURES = ["num_nonmissing", "any_nonmissing"]
+TREATMENT_INDICATOR_FEATURES = ["num", "any"]
 TREATMENT_CONTINUOUS_FEATURES = ["rate"]
 
 
@@ -151,6 +151,8 @@ def load(
 
     if not -1 <= weighting_exponent <= 0:
         raise ValueError(f"Invalid weighting exponent: {weighting_exponent}")
+    if not weighting_exponent == 0:
+        raise ValueError
 
     weighting_exponent = float(weighting_exponent)  # .pow(x) errors if x is an int
 
@@ -166,7 +168,10 @@ def load(
     y = df[outcome].to_numpy()
     assert np.isnan(y).sum() == 0
 
-    return (df.select(columns), y, weights) + tuple(
+    # return (df.select(columns), y, weights) + tuple(
+    #     df.select(c).to_series() for c in other_columns
+    # )
+    return (df.select(columns), y, None) + tuple(
         df.select(c).to_series() for c in other_columns
     )
 
@@ -247,6 +252,7 @@ def features(
 
         if variables is not None and variable not in variables:
             continue
+
         elif row["TreatmentDetailLevel"] is not None:
             if row["TreatmentDetailLevel"] > treatment_detail_level:
                 continue
@@ -271,12 +277,14 @@ def features(
                 for horizon in horizons
             ]
         elif row["DataType"] == "categorical":
+            features += [variable]
             features += [
                 f"{variable}_{feature}_h{horizon}"
                 for feature in categorical_features
                 for horizon in horizons
             ]
         elif row["DataType"] == "treatment_ind":
+            features += [variable]
             features += [
                 f"{variable}_{feature}_h{horizon}"
                 for feature in treatment_indicator_features
@@ -290,6 +298,11 @@ def features(
             ]
         else:
             raise ValueError(f"Unknown DataType: {row['DataType']}")
+
+    if variables is None or "time_hours" in variables:
+        features += ["time_hours"]
+        if variables is not None:
+            variables.remove("time_hours")
 
     if variables is not None and len(variables) > 0:
         raise ValueError(f"Unknown variables: {variables}")

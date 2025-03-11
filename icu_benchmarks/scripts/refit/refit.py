@@ -49,8 +49,8 @@ def get_predict_kwargs(predict_kwargs=gin.REQUIRED):
 
 
 @gin.configurable
-def get_n_samples(n_samples=gin.REQUIRED):  # noqa D
-    return n_samples
+def get_n_target(n_target=gin.REQUIRED):  # noqa D
+    return n_target
 
 
 @gin.configurable
@@ -89,49 +89,70 @@ def main(config: str):  # noqa D
     outcome = run.data.tags["outcome"]
 
     df, y, _, hashes = load(
-        split="train", outcome=outcome, other_columns=["stay_id_hash"]
+        split="train_val", outcome=outcome, other_columns=["stay_id_hash"]
     )
     df = preprocessor.transform(df)
 
-    hashes = hashes.sort()
+    unique_hashes = hashes.unique().sort()
     data = {}
-    n_samples = np.unique(np.clip(get_n_samples(), 0, len(y)))
+    n_target = np.unique(np.clip(get_n_target(), 0, len(unique_hashes)))
     for seed in get_seeds():
-        sampled_hashes = hashes.sample(max(n_samples), seed=seed, shuffle=True)
-        for n in n_samples:
-            mask = hashes.is_in(sampled_hashes[:n])
-            data[n, seed] = (
-                df.filter(mask),
-                y[mask],
-                hashes.filter(mask),
-            )
+        sampled_hashes = unique_hashes.sample(max(n_target), seed=seed, shuffle=True)
+        # For a single seed, the data increases monotonicly. We pass the data, including
+        # y and "hashes" for group CV for the largest value of n_target. For smaller
+        # values, the data can be reconstructed via a mask. This uses memory much more
+        # efficiently than passing the training data for each value of n_target.
+        mask = hashes.is_in(sampled_hashes)
+        data[seed] = {
+            "df": df.filter(mask),
+            "y": y[mask],
+            "hashes": hashes.filter(mask),
+            "masks": {},
+        }
+        for n in n_target:
+            data[seed]["masks"][n] = data[seed]["hashes"].is_in(sampled_hashes[:n])
 
     df_test, y_test, _ = load(split="test", outcome=outcome)
     df_test = preprocessor.transform(df_test)
 
     jobs = []
+
     for model_idx, prior in enumerate(priors):
+        if get_name() in ["refit_linear", "refit_lgbm"]:
+            value = getattr(prior, "gamma", None) or getattr(prior, "ratio", 1.0)
+            if np.abs(np.log2(value) - np.round(np.log2(value))) > 0.1:
+                continue
+
         for refit_parameter in get_refit_parameters():
-            model = get_model()(prior=prior, **refit_parameter)
-            details = {
-                "model_idx": model_idx,
-                **refit_parameter,
-            }
-            jobs.append(
-                delayed(_fit)(
-                    model,
-                    data,
-                    df_test,
-                    y_test,
-                    TASKS[outcome]["task"],
-                    get_predict_kwargs(),
-                    details,
+            # if get_name() == "refit_linear":
+            #     value = refit_parameter["prior_alpha"]
+            #     if np.abs(np.log10(value) - np.round(np.log10(value))) > 0.1:
+            #         continue
+
+            for seed in get_seeds():
+                model = get_model()(prior=prior, **refit_parameter)
+                details = {
+                    "model_idx": model_idx,
+                    "seed": seed,
+                    **refit_parameter,
+                }
+                jobs.append(
+                    delayed(_fit)(
+                        model,
+                        data[seed],
+                        df_test,
+                        y_test,
+                        TASKS[outcome]["task"],
+                        get_predict_kwargs(),
+                        details,
+                    )
                 )
-            )
 
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
+    logger.info(f"Number of jobs: {len(jobs)}")
 
     with Parallel(n_jobs=-1, prefer="processes") as parallel:
         parallel_results = parallel(jobs)
@@ -154,7 +175,11 @@ def _fit(
     details,
 ):
     results = []
-    for (n_samples, seed), (df, y, groups) in data_train.items():
+    for n_target, mask in data_train["masks"].items():
+        df = data_train["df"].filter(mask)
+        y = data_train["y"][mask]
+        groups = data_train["hashes"].filter(mask)
+
         yhat = model.fit_predict_cv(df, y, groups=groups, predict_kwargs=kwargs)
         cv_scores = [metrics(y, yhat[:, idx], "", task) for idx in range(len(kwargs))]
 
@@ -164,13 +189,14 @@ def _fit(
         ]
         results += [
             {
-                "n_samples": n_samples,
-                "seed": seed,
+                "n_target": n_target,
                 "metric": metric,
                 "cv_value": cv_scores[idx][metric],
                 "test_value": test_scores[idx][metric],
-                **kwarg,
                 **details,
+                # kwarg needs to come after details. E.g., for linear, details has
+                # "alpha": [1, 0.1, ...], and kwarg has "alpha": 1.
+                **kwarg,
             }
             for metric in cv_scores[0].keys()
             for idx, kwarg in enumerate(kwargs)

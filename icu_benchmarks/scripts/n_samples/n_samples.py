@@ -44,8 +44,8 @@ def get_parameters(parameters=gin.REQUIRED):
 
 
 @gin.configurable
-def get_n_samples(n_samples=gin.REQUIRED):  # noqa D
-    return n_samples
+def get_n_target(n_target=gin.REQUIRED):  # noqa D
+    return n_target
 
 
 @gin.configurable
@@ -88,42 +88,52 @@ def main(config: str):  # noqa D
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
-    preprocessor = get_preprocessing(get_model()(), df, get_outcome())
+    preprocessor = get_preprocessing(get_model(), df)
 
-    hashes = hashes.sort()
+    unique_hashes = hashes.unique().sort()
     data = {}
-    n_samples = np.unique(np.clip(get_n_samples(), 0, len(y)))
+    n_target = np.unique(np.clip(get_n_target(), 0, len(unique_hashes)))
     for seed in get_seeds():
-        sampled_hashes = hashes.sample(max(n_samples), seed=seed, shuffle=True)
-        for n in n_samples:
-            mask = hashes.is_in(sampled_hashes[:n])
-            data[n, seed] = (
-                df.filter(mask),
-                y[mask],
-                hashes.filter(mask),
-            )
+        sampled_hashes = unique_hashes.sample(max(n_target), seed=seed, shuffle=True)
+        # For a single seed, the data increases monotonicly. We pass the data, including
+        # y and "hashes" for group CV for the largest value of n_target. For smaller
+        # values, the data can be reconstructed via a mask. This uses memory much more
+        # efficiently than passing the training data for each value of n_target.
+        mask = hashes.is_in(sampled_hashes)
+        data[seed] = {
+            "df": df.filter(mask),
+            "y": y[mask],
+            "hashes": hashes.filter(mask),
+            "masks": {},
+        }
+        for n in n_target:
+            data[seed]["masks"][n] = data[seed]["hashes"].is_in(sampled_hashes[:n])
 
     df_test, y_test, _ = load(split="test", outcome=get_outcome())
 
     jobs = []
     for parameter_idx, parameter in enumerate(get_parameters()):
-        glm = get_model()(**parameter)
-        pipeline = PipelineCV(steps=[("preprocessor", preprocessor), ("model", glm)])
-        details = {
-            "model_idx": parameter_idx,
-            **parameter,
-        }
-        jobs.append(
-            delayed(_fit)(
-                pipeline,
-                data,
-                df_test,
-                y_test,
-                task,
-                get_predict_kwargs(),
-                details,
+        for seed in get_seeds():
+            model = get_model()(**parameter)
+            pipeline = PipelineCV(
+                steps=[("preprocessor", preprocessor), ("model", model)]
             )
-        )
+            details = {
+                "model_idx": parameter_idx,
+                "seed": seed,
+                **parameter,
+            }
+            jobs.append(
+                delayed(_fit)(
+                    pipeline,
+                    data[seed],
+                    df_test,
+                    y_test,
+                    task,
+                    get_predict_kwargs(),
+                    details,
+                )
+            )
 
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
@@ -148,7 +158,11 @@ def _fit(
     details,
 ):
     results = []
-    for (n_samples, seed), (df, y, groups) in data_train.items():
+    for n_target, mask in data_train["masks"].items():
+        df = data_train["df"].filter(mask)
+        y = data_train["y"][mask]
+        groups = data_train["hashes"].filter(mask)
+
         yhat = model.fit_predict_cv(df, y, groups=groups, predict_kwargs=kwargs)
         cv_scores = [metrics(y, yhat[:, idx], "", task) for idx in range(len(kwargs))]
 
@@ -158,8 +172,7 @@ def _fit(
         ]
         results += [
             {
-                "n_target": n_samples,
-                "seed": seed,
+                "n_target": n_target,
                 "metric": metric,
                 "cv_value": cv_scores[idx][metric],
                 "test_value": test_scores[idx][metric],

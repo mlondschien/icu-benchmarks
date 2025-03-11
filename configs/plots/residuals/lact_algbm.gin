@@ -1,0 +1,48 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "log(lactate in 4h)",
+    "metric": "mse",
+    "experiment_name": "lact_algbm",
+    "filename": "residuals/mse_gamma",
+    "x": "gamma",
+    "panels": [
+        {
+            "target": "aumc",
+            "title": "AUMCdb",
+            "y_residuals": (-0.65, 0.65),
+            "ytest_zoom": 0.2,
+        },
+        {
+            "target": "eicu",
+            "title": "eICU",
+            "y_residuals": (-0.65, 0.65),
+            "ytest_zoom": 0.2,
+        },
+        {
+            "target": "hirid",
+            "title": "HiRID",
+            "y_residuals": (-0.65, 0.65),
+            "ytest_zoom": 0.2,
+        },
+        {
+            "target": "mimic-carevue",
+            "title": "MIMIC-III",
+            "y_residuals": (-0.65, 0.65),
+            "ytest_zoom": 0.2,
+        },
+        {
+            "target": "miiv",
+            "title": "MIMIC-IV",
+            "y_residuals": (-0.65, 0.65),
+            "ytest_zoom": 0.2,
+        },
+        {
+            "target": "sic",
+            "title": "SICdb",
+            "y_residuals": (-0.65, 0.65),
+            "ytest_zoom": 0.2,
+        },
+    ],
+}
+

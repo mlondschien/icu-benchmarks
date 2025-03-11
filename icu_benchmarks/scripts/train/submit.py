@@ -28,7 +28,7 @@ SOURCES = [
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 @click.option(
     "--artifact_location",
@@ -44,7 +44,6 @@ def main(
     style: str,
     tracking_uri: str,
     artifact_location: str,
-    script: str,
 ):  # noqa D
     ip, port = setup_mlflow_server(
         tracking_uri=tracking_uri,
@@ -64,7 +63,10 @@ def main(
             if dataset1 <= dataset2
         ] + [SOURCES]
     elif style == "1v1":
-        list_of_sources = [SOURCES]
+        # list_of_sources = [[source] for source in SOURCES]
+        list_of_sources = [
+            [source for source in SOURCES if source != dataset] for dataset in SOURCES
+        ]
     else:
         raise ValueError(f"Unknown style {style}")
 
@@ -73,13 +75,15 @@ def main(
     train_config = Path(__file__).parents[3] / "configs" / "train" / "train.gin"
     config_text = Path(config).read_text()
 
+    if style == "1v1":
+        config_path = Path(__file__).parents[3] / "configs" / "train" / "1v1.gin"
+        config_text = f"{config_path.read_text()}\n{config_text}"
+
     for sources, outcome in product(list_of_sources, outcomes):
-        # n_samples = sum(TASKS[outcome]["n_samples"][source] for source in sources)
-
         alpha_max = TASKS[outcome]["alpha_max"]
-        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)[:-4:2]
+        alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 13)
 
-        log_dir = Path("logs") / experiment_name / outcome / "_".join(sorted(sources))
+        log_dir = Path("logs2") / experiment_name / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 
@@ -96,30 +100,32 @@ get_targets.targets = {DATASETS}
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
+TASK = "{TASKS[outcome]["task"]}"
 FAMILY = "{TASKS[outcome]["family"]}"
 ALPHA = {alpha.tolist()}
 
-icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
-icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
+icu_benchmarks.load.load.variables = {TASKS[outcome].get("variables")}
+icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
 """
             )
 
         # required_memory = n_samples / OBSERVATIONS_PER_GB
         # n_cpus = min(64, max(4, required_memory))
 
+        script = "train.py" if style != "1v1" else "train_1v1.py"
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(
                 f"""#!/bin/bash
 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task={16}
+#SBATCH --cpus-per-task=32
 #SBATCH --time={hours}:00:00
-#SBATCH --mem-per-cpu=8G
-#SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
+#SBATCH --mem-per-cpu=4G
+#SBATCH --job-name="{experiment_name}_{"_".join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
 
-python icu_benchmarks/scripts/train/train.py --config {config_file.resolve()}"""
+python icu_benchmarks/scripts/train/{script} --config {config_file.resolve()}"""
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])

@@ -1,0 +1,22 @@
+import icu_benchmarks.gin
+
+# icu_benchmarks.load.load.data_dir = "/cluster/work/math/lmalte/data"
+# icu_benchmarks.load.load.weighting_exponent = -0.5
+
+get_parameters.parameters = {
+    "l1_ratio": [0],
+    "l2_ratio": [0, 0.0001, 0.003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1],
+}
+
+get_predict_kwargs.predict_kwargs = {"alpha": %ALPHA}
+
+AnticausalAnchorRegression.alpha = %ALPHA
+AnticausalAnchorRegression.family = %FAMILY
+AnticausalAnchorRegression.max_iter = 100
+AnticausalAnchorRegression.max_inner_iter = 20_000
+AnticausalAnchorRegression.verbose = 0
+AnticausalAnchorRegression.scale_predictors = False
+AnticausalAnchorRegression.solver = "irls-cd"
+AnticausalAnchorRegression.alpha_search = True
+
+get_model.model = @AnticausalAnchorRegression

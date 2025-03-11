@@ -26,7 +26,7 @@ SOURCES = [
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 @click.option(
     "--artifact_location",
@@ -60,7 +60,7 @@ def main(
             continue
 
         alpha_max = TASKS[run.data.tags["outcome"]]["alpha_max"]
-        alpha = np.geomspace(alpha_max, alpha_max * 1e-8, 20)[:-4:2]
+        alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 13)
 
         sources = sorted(json.loads(run.data.tags["sources"].replace("'", '"')))
         if len(sources) != len(SOURCES) - 1:
@@ -69,26 +69,27 @@ def main(
         target = [d for d in SOURCES if d not in sources][0]
 
         outcome = run.data.tags["outcome"]
-        log_dir = Path("logs") / experiment_name / outcome / "_".join(sources)
+        log_dir = Path("logs2") / experiment_name / "_".join(sources)
         log_dir = log_dir / f"refit_{stem}"
         log_dir.mkdir(parents=True, exist_ok=True)
         refit_config_file = log_dir / "config.gin"
 
         with refit_config_file.open("w") as f:
             f.write(
-                f"""{refit_config.read_text()}
-
-{config_text}
-
-ALPHA = {alpha.tolist()}
+                f"""ALPHA = {alpha.tolist()}
 FAMILY = "{TASKS[outcome]["family"]}"
 TASK = "{TASKS[outcome]["task"]}"
+
+{refit_config.read_text()}
+
+{config_text}
 
 get_name.name = "{stem}"
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
-icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
+icu_benchmarks.load.load.variables = {TASKS[outcome].get("variables")}
+icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
 icu_benchmarks.load.load.sources = ["{target}"]
 
 get_run.run_id = "{run.info.run_id}"
@@ -105,7 +106,7 @@ get_run.tracking_uri = "http://{ip}:{port}"
 #SBATCH --cpus-per-task=32
 #SBATCH --time={hours}:00:00
 #SBATCH --mem-per-cpu=8G
-#SBATCH --job-name="{outcome}_{'_'.join(sorted(sources))}"
+#SBATCH --job-name="{experiment_name}/{stem}/{target}"
 #SBATCH --output="{log_dir}/slurm.out"
 
 python icu_benchmarks/scripts/refit/refit.py --config {refit_config_file.resolve()}"""

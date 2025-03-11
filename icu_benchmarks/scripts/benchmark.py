@@ -24,7 +24,7 @@ logging.basicConfig(
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 @click.option("--data_dir", type=str, default="/cluster/work/math/lmalte/data")
 @click.option("--outcome", type=str, default=None)
@@ -96,7 +96,7 @@ def main(experiment_name, tracking_uri, data_dir, outcome, artifact_location):  
             raise ValueError(f"No benchmark for outcome {outcome}.")
 
         results += [
-            {"target": target, "target_value": value, "metric": key}
+            {"target": target, "test_value": value, "metric": key}
             for key, value in metrics(y, yhat, "", TASKS[outcome]["task"]).items()
         ]
 

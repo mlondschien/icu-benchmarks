@@ -1,0 +1,108 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "mortality at 24h",
+    "metric": "roc",
+    "ylabel": "test AuROC",
+    "target_experiment": "mort_glm",
+    "filename": "n_samples/roc_glm_lgbm",
+    "panels": [
+        {
+            "source": "aumc",
+            "title": "AUMCdb",
+            "xlim": (100, 12800),
+            "ylim": (0.8, 0.87),
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": (100, 12800),
+            "ylim": (0.8, 0.88),
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": (100, 12800),
+            "ylim": (0.7, 0.875),
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CV)",
+            "xlim": (100, 12800),
+            "ylim": (0.75, 0.9),
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": (100, 12800),
+            "ylim": (0.7, 0.86),
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": (100, 12800),
+            "ylim": (0.75, 0.91),
+        },
+    ],
+    "lines": [
+        {
+            "experiment_name": "mort_glm_n_samples",
+            "result_name": "n_samples",
+            "color": "#228833",
+            "legend": "Linear model fit on target",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "mort_lgbm_n_samples",
+            "result_name": "n_samples",
+            "color": "#CCBB44",
+            "legend": "LGBM fit on target",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "mort_glm",
+            "result_name": "refit_linear",
+            "color": "#AA3377",
+            "legend": "Empirical Bayes: GLM refit on target data",
+            # "hatch": "//",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "mort_lgbm",
+            "result_name": "refit_lgbm",
+            "color": "#EE6677",
+            "legend": "LGBM refit on target data",
+            # "hatch": "//",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "mort_glm",
+            "result_name": "cv",
+            "color": "#66CCEE",
+            "ls": "solid",
+            "legend": "GLM fit on source",
+        },
+        {
+            "experiment_name": "mort_dsl",
+            "result_name": "cv",
+            "color": "#66CCEE",
+            "ls": "dotted",
+            "legend": "DSL fit on source",
+        },
+        {
+            "experiment_name": "mort_lgbm",
+            "result_name": "cv",
+            "color": "#4477AA",
+            "ls": "solid",
+            "legend": "LGBM fit on source",
+        },
+        {
+            "experiment_name": "mort_algbm",
+            "result_name": "cv",
+            "color": "#4477AA",
+            "ls": "dashed",
+            "legend": "Boosted anchor regression fit on source",
+        }
+    ]
+}
+

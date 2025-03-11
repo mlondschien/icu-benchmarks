@@ -1,0 +1,108 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "log(P/F ratio in 12h)",
+    "metric": "rmse",
+    "ylabel": "RMSE",
+    "target_experiment": "pf_lgbm",
+    "filename": "n_samples/rmse_new",
+    "panels": [
+        {
+            "source": "aumc",
+            "title": "AUMCdb",
+            "xlim": (25, 10000),
+            "ylim": (0.285, 0.305),
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": (25, 30_000),
+            "ylim": (0.392, 0.42),
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": (25, 30_000),
+            "ylim": (0.29, 0.32),
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III",
+            "xlim": (25, 30_000),
+            "ylim": (0.385, 0.43),
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": (25, 30_000),
+            "ylim": (0.445, 0.49),
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": (25, 30_000),
+            "ylim": (0.319, 0.36),
+        },
+    ],
+    "lines": [
+        {
+            "experiment_name": "pf_lgbm_n_samples",
+            "result_name": "n_samples",
+            "color": "green",
+            "legend": "LGBM fit on target data",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "pf_lgbm",
+            "result_name": "cv",
+            "color": "black",
+            "legend": "LGBM fit on source data",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "test_pf_algbm",
+            "result_name": "cv",
+            "color": "blue",
+            "ls": "dotted",
+            "legend": "Boosted anchor, no '/ gamma'",
+        },
+        {
+            "experiment_name": "test_pf_lgbm",
+            "result_name": "cv",
+            "color": "red",
+            "ls": "dashdot",
+            "legend": "Boosted ancho 2",
+        },
+        {
+            "experiment_name": "test_pf_algbm2",
+            "result_name": "cv",
+            "color": "green",
+            "ls": (0, (5, 10)),
+            "legend": "Boosted lgbm, with '/ gamma'",
+        },
+        {
+            "experiment_name": "pf_algbm",
+            "result_name": "cv",
+            "color": "black",
+            "ls": "dashed",
+            "legend": "Boosted anchor fit on source data",
+        },
+        {
+            "experiment_name": "pf_lgbm",
+            "result_name": "refit_lgbm",
+            "color": "red",
+            "legend": "LGBM refit on target data",
+            # "hatch": "//",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "pf_algbm",
+            "result_name": "refit_lgbm",
+            "color": "orange",
+            "ls": "dashed",
+            "legend": "Boosted anchor refit on target data",
+            # "hatch": "\\"
+        },
+    ]
+}
+

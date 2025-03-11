@@ -10,21 +10,21 @@ VARIABLE_REFERENCE_PATH = (
 HORIZONS = [8, 24, 72]
 
 DATASETS = [
-    "mimic",
-    "mimic-metavision",
-    "mimic-carevue",
-    "miived",
-    "miiv",
-    "miiv-late",
+    # "mimic",
+    # "mimic-metavision",
+    "aumc",
     "eicu",
     "hirid",
-    "aumc",
-    "aumc-early",
-    "aumc-late",
+    "mimic-carevue",
+    "miiv",
     "sic",
-    "zigong",
-    "picdb",
+    # "miiv-late",
+    # "aumc-early",
+    # "aumc-late",
     "nwicu",
+    "miived",
+    "picdb",
+    "zigong",
 ]
 
 CAT_MISSING_NAME = "(MISSING)"
@@ -37,12 +37,126 @@ OUTCOMES = [
     "respiratory_failure_at_24h",
     "circulatory_failure_at_8h",
     "kidney_failure_at_48h",
-    "log_creatine_in_1h",
-    "log_lactate_in_1h",
-    "log_lactate_in_8h",
-    "log_rel_urine_rate_in_1h",
-    "log_rel_urine_rate_in_8h",
     "log_po2",
+    "log_pf_ratio_in_12h",
+    "log_rel_urine_rate_in_2h",
+    "log_lactate_in_4h",
+]
+
+# Top variables according to fig 8a of Lyu et al 2024: An empirical study on
+# KDIGO-defined acute kidney injury prediction in the intensive care unit.
+KIDNEY_VARIABLES = [
+    "time_hours",  # Time in hours since ICU admission
+    "ufilt",  # Ultrafiltration on cont. RRT
+    "ufilt_ind",  # Ultrafiltration on cont. RRT
+    "rel_urine_rate",  # Urine rate per weight (ml/kg/h)
+    "weight",
+    "crea",  # Creatinine
+    "etco2",  # End-tidal CO2
+    "crp",  # C-reactive protein
+    "anti_coag_ind",  # Indicator for antocoagulants treatment
+    "hep",  # Heparin
+    "hep_ind",  # Heparin
+    "loop_diur",  # Loop diuretics
+    "loop_diur_ind",  # Loop diuretics
+    "resp",  # Respiratory rate
+    "fluid_ind",  # Fluids
+    "airway",  # Ventilation type
+    "vent_ind",  # Indicator for any ventilation
+    "bili",  # Bilirubin
+    "anti_delir_ind",  # Indicator for antidelirium treatment
+    "mg",  # Magnesium
+    "op_pain_ind",  # Opioid pain medication
+    "abx_ind",  # Antibiotics indicator
+    "k",  # Potassium
+]
+
+# "preliminary selected variables" according to
+# https://www.medrxiv.org/content/10.1101/2024.01.23.24301516v1 supp table 3
+RESP_VARIABLES = [
+    "fio2",
+    "norepi",  # Norepinephrine
+    "norepi_ind",  # Norepinephrine
+    "dobu",  # Dobutamine
+    "dobu_ind",  # Dobutamine
+    "loop_diur",  # Loop diuretics
+    "loop_diur_ind",  # Loop diuretics
+    "benzdia",  # Benzodiazepines
+    "benzdia_ind",  # Benzodiazepines
+    "prop",  # Propofol
+    "prop_ind",  # Propofol
+    "ins_ind",  # Insulin
+    "hep",  # Heparin
+    "hep_ind",  # Heparin
+    "cf_treat_ind",  # circulatory failure treatments incl. dobu, norepi.
+    "sed_ind",  # sedation medication indicator incl. benzdia, prop.
+    "age",
+    # no emergency admission
+    "vent_ind",  # Indicator for any ventilation
+    "airway",  # Ventilation type
+    "pco2",  # Partial pressure of carbon dioxide PaCO2
+    "po2",  # Partial pressure of oxygen PaO2
+    "sao2",  # Oxygen saturation (lab value) SaO2
+    "spo2",  # Oxygen saturation (finger) SpO2
+    "ps",  # Pressure support
+    # No MV exp / MV spont. These are available in HiRID only
+    "resp",  # Respiratory rate
+    "supp_o2_vent",  # Oxygen supplementation
+    "tgcs",  # Total Glasgow Coma Scale (Response)
+    "mgcs",  # Motor Glasgow Coma Scale
+    "peep",  # Positive end-expiratory pressure
+    "map",  # Mean arterial pressure. ABPm is window-mean of map
+    "peak",  # Peak airway pressure
+    "ph",  # Used to determine po2 from sao2 according to the serveringhaus equation
+    "temp",  # Temperature, used to determine po2 from sao2 according to serveringhaus
+    "pf_ratio",  # ratio of po2 to fio2
+]
+
+# Top 20 variables of Hyland et al.: Early prediction of circulatory failure in the
+# intensive care unit using machine learning. Table 1.
+CIRC_VARIABLES = [
+    "lact",  # Lactate
+    "map",  # mean arterial pressure
+    "time_hours",  # Time in hours since ICU admission
+    "age",
+    "hr",  # Heart rate
+    "dobu",  # Dobutamine
+    "dobu_ind",  # Dobutamine
+    "milrin",  # Milrinone
+    "milrin_ind",  # Milrinone
+    "levo",  # Levosimendan
+    "levo_ind",  # Levosimendan
+    "teophyllin",  # Theophylline
+    "teophyllin_ind",  # Theophylline
+    "cf_treat_ind",  # circ. failure treatments incl. dobu, norepi, milrin, theo, levo
+    "cout",  # Cardiac output
+    "rass",  # Richmond Agitation Sedation Scale
+    "inr_pt",  # Prothrombin
+    "glu",  # Serum glucose
+    "crp",  # C-reactive protein
+    "dbp",  # Diastolic blood pressure
+    "sbp",  # Systolic blood pressure
+    "peak",  # Peak airway pressure
+    "spo2",  # Oxygen saturation (finger) SpO2
+    "nonop_pain_ind",  # Non-opioid pain medication
+    "supp_o2_vent",  # Oxygen supplementation
+]
+
+# Variables used to determine apache II
+APACHE_II_VARIABLES = [
+    "age",
+    "crea",
+    "fio2",
+    "hct",
+    "hr",
+    "k",
+    "na",
+    "pco2",
+    "po2",
+    "resp",
+    "temp",
+    "tgcs",
+    "wbc",
 ]
 
 # Approx. number of rows per GB of memory. If all ~1000 columns were float64, this would
@@ -53,7 +167,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
     "log_po2": {
         "task": "regression",
         "family": "gaussian",
-        "alpha_max": 0.4,
+        "alpha_max": 0.16,
         "n_samples": {
             "mimic": 338189,
             "mimic-metavision": 109443,
@@ -71,31 +185,9 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "picdb": 0,
             "nwicu": 0,
         },
-        "variables": [
-            "age",
-            "anti_coag_ind",
-            "cf_treat_ind",
-            "diur_ind",
-            "fio2",
-            "ins_ind",
-            "map",
-            "mgcs",
-            "sao2",
-            "spo2",
-            "pco2",
-            "peak",
-            "peep",
-            "resp",
-            "sed_ind",
-            "sex",
-            "supp_o2_vent",
-            "temp",
-            "tgcs",
-            "vent_ind",
-            "airway",
-            "ph",
-        ],
+        "variables": [x for x in RESP_VARIABLES if x not in ["po2", "pf_ratio"]],
         "horizons": [8, 24],
+        "size": 3578,
     },
     "remaining_los": {
         "task": "regression",
@@ -121,9 +213,9 @@ TASKS: Dict[str, Dict[str, Any]] = {
         },
     },
     "mortality_at_24h": {
-        "task": "classification",
+        "task": "binary",
         "family": "binomial",
-        "alpha_max": 0.07,
+        "alpha_max": 0.05,
         "n_samples": {
             "mimic": 45018,
             "ehrshot": 32890,
@@ -142,22 +234,9 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "aumc-late": 7218,
             "nwicu": 21566,
         },
-        "variables": [
-            "age",
-            "crea",
-            "fio2",
-            "hct",
-            "hr",
-            "k",
-            "na",
-            "pco2",
-            "po2",
-            "resp",
-            "temp",
-            "tgcs",
-            "wbc",
-        ],
+        "variables": APACHE_II_VARIABLES,
         "horizons": [24],
+        "size": 215,
     },
     "los_at_24h": {
         "task": "regression",
@@ -183,7 +262,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
         },
     },
     "decompensation_at_24h": {
-        "task": "classification",
+        "task": "binary",
         "family": "binomial",
         "alpha_max": 0.025,
         "n_samples": {
@@ -206,9 +285,9 @@ TASKS: Dict[str, Dict[str, Any]] = {
         },
     },
     "respiratory_failure_at_24h": {
-        "task": "classification",
+        "task": "binary",
         "family": "binomial",
-        "alpha_max": 0.25,
+        "alpha_max": 0.1,
         "n_samples": {
             "mimic": 795094,
             "ehrshot": 72164,
@@ -227,33 +306,14 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "aumc-late": 273435,
             "nwicu": 0,
         },
-        "variables": [
-            "age",
-            "anti_coag_ind",
-            "cf_treat_ind",
-            "diur_ind",
-            "fio2",
-            "ins_ind",
-            "map",
-            "mgcs",
-            "o2sat",
-            "pco2",
-            "peak",
-            "peep",
-            "pf_ratio",
-            "po2",
-            "resp",
-            "sed_ind",
-            "sex",
-            "supp_o2_vent",
-            "temp",
-            "tgcs",
-        ],
+        "variables": RESP_VARIABLES,
+        "horizons": [8, 24],
+        "size": 12670,
     },
     "circulatory_failure_at_8h": {
-        "task": "classification",
+        "task": "binary",
         "family": "binomial",
-        "alpha_max": 0.25,
+        "alpha_max": 0.09,
         "n_samples": {
             "mimic": 270080,
             "ehrshot": 14266,
@@ -272,29 +332,14 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "aumc-late": 176682,
             "nwicu": 43563,
         },
-        "variables": [
-            "age",
-            "cf_treat_ind",
-            "cout",
-            "crp",
-            "dbp",
-            "glu",
-            "hr",
-            "inr_pt",
-            "lact",
-            "map",
-            "nonop_pain_ind",
-            "o2sat",
-            "peak",
-            "rass",
-            "sbp",
-            "supp_o2_vent",
-        ],
+        "variables": CIRC_VARIABLES,
+        "size": 6308,
+        "horizons": [8],
     },
     "kidney_failure_at_48h": {
-        "task": "classification",
+        "task": "binary",
         "family": "binomial",
-        "alpha_max": 0.15,
+        "alpha_max": 0.1,
         "n_samples": {
             "mimic": 2961026,
             "ehrshot": 62150,
@@ -313,28 +358,11 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "aumc-late": 786126,
             "nwicu": 29505,
         },
-        "variables": [
-            "abx_ind",
-            # "airway_ind",
-            "anti_coag_ind",
-            "anti_delir_ind",
-            "bili",
-            "cf_treat_ind",
-            "crea",
-            "crp",
-            "diur_ind",
-            "fluid_ind",
-            "inf_rbc_ind",
-            "k",
-            "mg",
-            "pain_killer_ind",
-            "rel_urine_rate",
-            "resp",
-            "ufilt_ind",
-            "weight",
-        ],
+        "variables": KIDNEY_VARIABLES,
+        "horizons": [24],
+        "size": 9763,
     },
-    "log_creatine_in_1h": {
+    "log_rel_urine_rate_in_2h": {
         "task": "regression",
         "family": "gaussian",
         "n_samples": {
@@ -356,8 +384,11 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "nwicu": 146530,
         },
         "alpha_max": 0.53,
+        "variables": KIDNEY_VARIABLES,
+        "horizons": [8],
+        "size": 6399,
     },
-    "log_lactate_in_1h": {
+    "log_lactate_in_4h": {
         "task": "regression",
         "family": "gaussian",
         "n_samples": {
@@ -378,74 +409,39 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "aumc-late": 93010,
             "nwicu": 47710,
         },
-        "alpha_max": 0.54,
+        "alpha_max": 1.8,
+        "variables": CIRC_VARIABLES,
+        "horizons": [8],
+        "size": 951,
     },
-    "log_lactate_in_8h": {
+    "log_pf_ratio_in_12h": {
         "task": "regression",
         "family": "gaussian",
-        "n_samples": {
-            "mimic": 87361,
-            "mimic-metavision": 40473,
-            "mimic-carevue": 45856,
-            "miived": 0,
-            "miiv": 207861,
-            "miiv-late": 115751,
-            "eicu": 81666,
-            "hirid": 165926,
-            "aumc": 95121,
-            "aumc-early": 17338,
-            "aumc-late": 77783,
-            "sic": 419345,
-            "zigong": 9248,
-            "picdb": 0,
-            "nwicu": 38984,
-        },
-        "alpha_max": 0.46,
-    },
-    "log_rel_urine_rate_in_1h": {
-        "task": "regression",
-        "family": "gaussian",
-        "n_samples": {
-            "mimic": 2513691,
-            "mimic-metavision": 1071446,
-            "mimic-carevue": 1429682,
-            "miived": 0,
-            "miiv": 3647178,
-            "miiv-late": 1702075,
-            "eicu": 2942815,
-            "hirid": 434608,
-            "aumc": 1164204,
-            "aumc-early": 562179,
-            "aumc-late": 602025,
-            "sic": 1417030,
-            "zigong": 0,
-            "picdb": 0,
-            "nwicu": 0,
-        },
-        "alpha_max": 0.8,
-    },
-    "log_rel_urine_rate_in_8h": {
-        "task": "regression",
-        "family": "gaussian",
-        "n_samples": {
-            "mimic": 2337842,
-            "mimic-metavision": 985846,
-            "mimic-carevue": 1339860,
-            "miived": 0,
-            "miiv": 3341223,
-            "miiv-late": 1565769,
-            "eicu": 2648121,
-            "hirid": 384372,
-            "aumc": 1059385,
-            "aumc-early": 517004,
-            "aumc-late": 542381,
-            "sic": 1313309,
-            "zigong": 0,
-            "picdb": 0,
-            "nwicu": 0,
-        },
-        "alpha_max": 0.8,
+        "n_samples": {},
+        "alpha_max": 0.3,
+        "variables": RESP_VARIABLES,
+        "horizons": [8, 24],
+        "size": 1469,
     },
 }
 
-GREATER_IS_BETTER = ["roc", "auc", "auprc", "accuracy", "prc", "r2"]
+GREATER_IS_BETTER = ["roc", "auroc", "auc", "auprc", "accuracy", "prc", "r2"]
+
+METRIC_NAMES = [
+    "mse",
+    "rmse",
+    "mae",
+    "abs_quantile_0.8",
+    "abs_quantile_0.9",
+    "abs_quantile_0.95",
+    "roc",
+    "accuracy",
+    "log_loss",
+    "auprc",
+    "brier",
+    "grouped_mse_quantile_0.5",
+    "grouped_mse_quantile_0.8",
+    "grouped_mse_quantile_0.9",
+    "grouped_mse_quantile_0.6",
+    "grouped_mse_quantile_0.7",
+]

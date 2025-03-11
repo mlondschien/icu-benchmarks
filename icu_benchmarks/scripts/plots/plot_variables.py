@@ -8,7 +8,7 @@ import polars as pl
 from icu_benchmarks.constants import DATA_DIR, DATASETS, VARIABLE_REFERENCE_PATH
 from icu_benchmarks.plotting import plot_continuous, plot_discrete
 
-OUTPUT_PATH = Path(__file__).parents[2] / "figures" / "density_plots"
+OUTPUT_PATH = Path(__file__).parents[3] / "figures" / "density_plots"
 
 variable_reference = pl.read_csv(
     VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"]
@@ -66,9 +66,9 @@ def main(data_dir=None, ncols=6, extra_datasets=False):  # noqa D
                 data[dataset] = df
 
             if variable["LogTransform"]:
-                title = f'log({variable["VariableTag"]})'
+                title = f"log({variable['VariableTag']})"
             else:
-                title = f'{variable["VariableTag"]}'
+                title = f"{variable['VariableTag']}"
 
             _ = plot_continuous(ax, data, title)
 
@@ -90,6 +90,7 @@ def main(data_dir=None, ncols=6, extra_datasets=False):  # noqa D
 
     fig.tight_layout()
     fig.savefig(OUTPUT_PATH / f"densities_{extra_datasets}.png")
+    fig.savefig(OUTPUT_PATH / f"densities_{extra_datasets}.eps")
     plt.close(fig)
 
 

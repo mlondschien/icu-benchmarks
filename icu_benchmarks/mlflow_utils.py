@@ -20,7 +20,6 @@ class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):  # noqa D
         if isinstance(obj, np.ndarray):
             return obj.tolist()
-
         try:
             return json.JSONEncoder.default(self, obj)
         except TypeError:
@@ -37,12 +36,12 @@ def log_dict(dict, name):
         mlflow.log_artifact(path, target_dir)
 
 
-def log_fig(fig, name, client=None, run_id=None):
+def log_fig(fig, name, client=None, run_id=None, **kwargs):
     """Log a matplotlib figure to MLflow."""
     target_dir, name = os.path.split(name)
     with tempfile.TemporaryDirectory() as tmpdir:
         path = f"{tmpdir}/{name}"
-        fig.savefig(path)
+        fig.savefig(path, **kwargs)
 
         if client is not None:
             client.log_artifact(run_id, path, target_dir)
@@ -92,6 +91,27 @@ def log_pickle(object, name):
         mlflow.log_artifact(path, target_dir)
 
 
+def log_markdown(df, name, client=None, run_id=None):
+    """Log a polars dataframe as markdown to MLflow."""
+    with pl.Config() as cfg:
+        cfg.set_tbl_rows(-1)
+        cfg.set_tbl_cols(-1)
+        cfg.set_tbl_formatting("MARKDOWN")
+        text = repr(df)
+
+    target_dir, name = os.path.split(name)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = f"{tmpdir}/{name}"
+        with open(path, "w") as f:
+            f.write(text)
+
+        if client is not None:
+            client.log_artifact(run_id, path, target_dir)
+        else:
+            mlflow.log_artifact(path, target_dir)
+
+
 @gin.configurable
 def setup_mlflow(
     tracking_uri: str,
@@ -124,13 +144,12 @@ def get_run(tracking_uri, run_id):
     return client, run
 
 
-def get_target_run(tracking_uri, experiment_name):
+def get_target_run(client, experiment_name, create_if_not_exists=True):
     """
     Get run with sources tag equal '' in experiment.
 
     If such a run does not exist, create it.
     """
-    client = mlflow.client.MlflowClient(tracking_uri=tracking_uri)
     experiment = client.get_experiment_by_name(experiment_name)
     if experiment is None:
         raise ValueError(f"No experiment {experiment_name}.")
@@ -139,11 +158,15 @@ def get_target_run(tracking_uri, experiment_name):
         experiment_ids=[experiment.experiment_id],
         filter_string="tags.sources = ''",
     )
-    if len(target_run) > 0:
-        target_run = target_run[0]
-    else:
+    if len(target_run) == 1:
+        return experiment, target_run[0]
+    elif len(target_run) == 0 and create_if_not_exists:
         target_run = client.create_run(
             experiment_id=experiment.experiment_id,
             tags={"sources": "", "summary_run": True},
         )
-    return client, experiment, target_run
+        return experiment, target_run
+    else:
+        raise ValueError(
+            f"Expected exactly one target run for {experiment_name}. Got {len(target_run)}."
+        )

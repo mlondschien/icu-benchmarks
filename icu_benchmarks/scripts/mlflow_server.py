@@ -16,7 +16,7 @@ logging.basicConfig(
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 @click.option("--hours", type=int, default=24)
 @click.option(
@@ -27,7 +27,7 @@ logging.basicConfig(
 def main(tracking_uri, hours, artifact_location):  # noqa D
     _, _ = setup_mlflow_server(
         tracking_uri=tracking_uri,
-        experiment_name=None,
+        experiment_name="plots",
         artifact_location=artifact_location,
         hours=hours,
         verbose=True,

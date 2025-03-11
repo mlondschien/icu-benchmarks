@@ -5,6 +5,7 @@ __pycache__
 slurm-*.out
 *.png
 logs/
+logs2/
 mlruns/
 logs_*/
 /data/

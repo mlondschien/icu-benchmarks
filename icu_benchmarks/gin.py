@@ -22,3 +22,12 @@ AnchorKookClassificationObjective = gin.external_configurable(
 AnchorLiuClassificationObjective = gin.external_configurable(
     anchorboost.AnchorLiuClassificationObjective, module="anchorboost"
 )
+
+
+AnchorLiuClassificationObjective = gin.external_configurable(
+    anchorboost.AntiAnchorRegressionObjective, module="anchorboost"
+)
+
+AnchorHSICRegressionObjective = gin.external_configurable(
+    anchorboost.AnchorHSICRegressionObjective, module="anchorboost"
+)
