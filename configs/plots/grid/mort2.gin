@@ -1,0 +1,87 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "mortality at 24h",
+    "metric": "auprc",
+    "ylabel": "AuPRC",
+    "experiment_name": "test_mort_algbm_lr2",
+    "filename": "mort/grid_auprc",
+    "x": "gamma",
+    "y": "learning_rate",
+    "panels": [
+        {       
+            "source": "aumc",
+            "title": "AUMCdb",
+            # "ylim": (0.29, 0.31),
+            # "cmap_range": (0.0862, 0.0
+            "ylim": (0.085, 0.094),
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": None,
+            # "ylim": (0.4, 0.42),
+            "ylim": (0.158, 0.175),
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": None,
+            # "ylim": (0.29, 0.32),
+            "ylim": (0.088, 0.10),
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CareVue subset)",
+            "xlim": None,
+            # "ylim": (0.4, 0.42),
+            "ylim": (0.161, 0.172),
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": None,
+            # "ylim": (0.46, 0.47),
+            "ylim": (0.212, 0.22),
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": None,
+            # "ylim": (0.33, 0.37),
+            "ylim": (0.114, 0.135),
+        },
+    ],
+    "lines": [
+        {
+            "experiment_name": "pf_algbm",
+            "label": "anchor boosting",
+            "color": "#0072B2",
+            "ls": "solid",
+            "alpha": 1,
+        },
+        {
+            "experiment_name": "pf_anchor",
+            "label": "anchor regression",
+            "color": "grey",
+            "ls": "solid",
+            "alpha": 0.5,
+        },
+        {
+            "experiment_name": "pf_glm",
+            "label": "GLM",
+            "color": "black",
+            "alpha": 0.1,
+            "ls": "dashed",
+        },
+        {
+            "experiment_name": "pf_lgbm",
+            "label": "LGBM",
+            "color": "#0072B2",
+            "ls": "dashed",
+            "alpha": 1,
+        },
+    ]
+}
+
+#56B4E9

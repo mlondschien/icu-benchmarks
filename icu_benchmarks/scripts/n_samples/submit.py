@@ -77,8 +77,8 @@ FAMILY = "{TASKS[outcome]["family"]}"
 TASK = "{TASKS[outcome]["task"]}"
 
 icu_benchmarks.load.load.sources = ["{source}"]
-icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
-icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
+icu_benchmarks.load.load.variables = {TASKS[outcome].get("variables")}
+icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
 """
             )
 

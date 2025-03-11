@@ -1,0 +1,84 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "respiratory failure within 24h",
+    "metric": "auprc",
+    "ylabel": "test AuPRC",
+    "target_experiment": "resp_lgbm",
+    "filename": "n_samples/auprc_lgbm",
+    "panels": [
+        {       
+            "source": "aumc",
+            "title": "AUMCdb",
+            "xlim": (25, 6400),
+            "ylim": (0.72, 0.76),
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": (25, 6400),
+            "ylim": (0.58, 0.63),
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": (25, 6400),
+            "ylim": (0.58, 0.65),        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CV)",
+            "xlim": (25, 6400),
+            "ylim": (0.58, 0.68),
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": (25, 6400),
+            "ylim": (0.64, 0.7),
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": (25, 6400),
+            "ylim": (0.655, 0.72),
+        },
+    ],
+    "lines": [
+        {
+            "experiment_name": "resp_lgbm_n_samples",
+            "result_name": "n_samples",
+            "color": "green",
+            "legend": "LGBM fit on target",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "resp_lgbm",
+            "result_name": "cv",
+            "color": "black",
+            "legend": "LGBM fit on source",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "resp_algbm",
+            "result_name": "cv",
+            "color": "black",
+            "ls": "dashed",
+            "legend": "Boosted anchor fit on source",
+        },
+        {
+            "experiment_name": "resp_lgbm",
+            "result_name": "refit_lgbm",
+            "color": "red",
+            "legend": "lgbm refit on target data",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "resp_algbm",
+            "result_name": "refit_lgbm",
+            "color": "orange",
+            "ls": "dashed",
+            "legend": "Boosted anchor refit on target data",
+        },
+    ]
+}
+

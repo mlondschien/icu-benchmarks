@@ -591,7 +591,9 @@ def outcomes():
     log_los_at_24h = los_at_24h.log().alias("log_los_at_24h")
 
     # log(lactate) in 4 hours. This is 1/2 the forecast horizon of circ. failure eep.
-    log_lactate_in_4h = (pl.col("lact") + 0.1).log().shift(-4).alias("log_lactate_in_4h")
+    log_lactate_in_4h = (
+        (pl.col("lact") + 0.1).log().shift(-4).alias("log_lactate_in_4h")
+    )
 
     log_pf_ratio_in_12h = (
         pl.col("pf_ratio").log().shift(-12).alias("log_pf_ratio_in_12h")
@@ -729,9 +731,9 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         (pl.col("stay_id").hash() / 2.0**64).alias("stay_id_hash"),
         (pl.col("patient_id").hash() / 2.0**64).alias("patient_id_hash"),
     ).with_columns(
-        pl.when(pl.col("patient_id") < 0.7)
+        pl.when(pl.col("patient_id_hash") < 0.7)
         .then(pl.lit("train"))
-        .when(pl.col("patient_id") < 0.85)
+        .when(pl.col("patient_id_hash") < 0.85)
         .then(pl.lit("val"))
         .otherwise(pl.lit("test"))
         .alias("split")

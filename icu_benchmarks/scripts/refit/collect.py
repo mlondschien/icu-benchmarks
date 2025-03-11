@@ -7,6 +7,7 @@ import polars as pl
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import get_target_run, log_df
+from mlfow.tracking import MlflowClient
 
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 
@@ -27,7 +28,8 @@ logging.basicConfig(
     default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
 def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
-    client, experiment, target_run = get_target_run(tracking_uri, experiment_name)
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment, target_run = get_target_run(client, experiment_name)
 
     logger.info(f"logging to {target_run.info.run_id}")
 

@@ -1,0 +1,52 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "mortality at 24h",
+    "metric": "auprc",
+    "ylabel": "AuPRC",
+    "target_experiment": "test_mort_algbm_lr2",
+    "filename": "truly_ood",
+    "x": "gamma",
+    "xlim": (1, 128),
+    "panels": [
+        {       
+            "source": "nwicu",
+            "title": "NWICU",
+            # "ylim": (0.29, 0.31),
+            "ylim": (0.05, 0.2),
+        },
+        {
+            "source": "miived",
+            "title": "MIMIV-IV ED",
+            "xlim": None,
+            # "ylim": (0.1, 0.8),
+            "ylim": (0, 0.1),
+        },
+        {
+            "source": "picdb",
+            "title": "PICdb",
+            "xlim": None,
+            # "ylim": (0.1, 0.8),
+            "ylim": (0.05, 0.15),
+        },
+        {
+            "source": "zigong",
+            "title": "Zigong",
+            "xlim": None,
+            # "ylim": (0.1, 0.8),
+            "ylim": (0.4, 0.65),
+        },
+
+    ],
+    "lines": [
+        {
+            "experiment_name": "test_mort_algbm_lr2",
+            "label": "anchor boosting",
+            "color": "#0072B2",
+            "ls": "solid",
+            "alpha": 1,
+        },
+    ]
+}
+
+#56B4E9

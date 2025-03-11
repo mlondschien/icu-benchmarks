@@ -63,7 +63,10 @@ def main(
             if dataset1 <= dataset2
         ] + [SOURCES]
     elif style == "1v1":
-        list_of_sources = [[source] for source in SOURCES]
+        # list_of_sources = [[source] for source in SOURCES]
+        list_of_sources = [
+            [source for source in SOURCES if source != dataset] for dataset in SOURCES
+        ]
     else:
         raise ValueError(f"Unknown style {style}")
 
@@ -101,8 +104,8 @@ TASK = "{TASKS[outcome]["task"]}"
 FAMILY = "{TASKS[outcome]["family"]}"
 ALPHA = {alpha.tolist()}
 
-icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
-icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
+icu_benchmarks.load.load.variables = {TASKS[outcome].get("variables")}
+icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
 """
             )
 
@@ -118,8 +121,8 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --time={hours}:00:00
-#SBATCH --mem-per-cpu=8G
-#SBATCH --job-name="{experiment_name}_{'_'.join(sorted(sources))}"
+#SBATCH --mem-per-cpu=4G
+#SBATCH --job-name="{experiment_name}_{"_".join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
 
 python icu_benchmarks/scripts/train/{script} --config {config_file.resolve()}"""

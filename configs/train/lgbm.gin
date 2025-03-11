@@ -7,10 +7,10 @@ get_model.model = @LGBMAnchorModel
 
 get_parameters.parameters = {
     "objective": [%TASK],
-    "num_leaves": [31],
-    "learning_rate": [0.1],
-    "colsample_bytree": [0.5],
-    "bagging_fraction": [0.5],
+    "num_leaves": [31, 10],
+    "learning_rate": [0.0125, 0.025, 0.05, 0.1, 0.2],
+    "colsample_bytree": [1],
+    "bagging_fraction": [1],
     "bagging_freq": [5],
     "random_state": [0],
     "deterministic": [True],

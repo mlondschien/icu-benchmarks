@@ -45,9 +45,10 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
         if run.data.tags["sources"] == "":
             continue
         sources = json.loads(run.data.tags["sources"].replace("'", '"'))
-        if len(sources) != 1:
-            continue
-    
+
+        # if len(sources) != 1:
+        #     continue
+
         run_id = run.info.run_id
         with tempfile.TemporaryDirectory() as f:
             if "results.csv" not in [x.path for x in client.list_artifacts(run_id)]:
@@ -60,6 +61,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
         results = results.with_columns(
             pl.lit(run_id).alias("run_id"),
             pl.lit(sources[0]).alias("source"),
+            pl.lit(sources).alias("sources"),
             pl.lit(run.data.tags["outcome"]).alias("outcome"),
         )
 
@@ -88,24 +90,41 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
 
     cv_results = []
     for metric in metrics:
-        cv_columns = [x for x in results.columns if re.match(fr"^{metric}_\d+$", x)]
+        cv_columns = [x for x in results.columns if re.match(rf"^cv/{metric}_\d+$", x)]
         if len(cv_columns) == 0:
+            logger.info(f"No cv columns for {metric}.")
             continue
-        
+
         results = results.with_columns(
             pl.mean_horizontal(c for c in cv_columns).alias(f"cv_value")
         )
-        grouped = results.group_by("source").agg(pl.all().top_k_by(k=1, by="cv_value", reverse=metric not in GREATER_IS_BETTER)).explode([x for x in results.columns if x!="source"])
+        grouped = (
+            results.group_by("sources")
+            .agg(
+                pl.all().top_k_by(
+                    k=1, by="cv_value", reverse=metric not in GREATER_IS_BETTER
+                )
+            )
+            .explode([x for x in results.columns if x != "sources"])
+        )
         grouped = grouped.with_columns(pl.lit(metric).alias("metric"))
         grouped = grouped.with_columns(
-            pl.coalesce(pl.when(pl.col("source") == t).then(pl.col(f"{t}/test/{metric}")) for t in DATASETS).alias("test_value"),
+            pl.coalesce(
+                pl.when(~pl.col("sources").list.contains(t)).then(pl.lit(t))
+                for t in DATASETS
+            ).alias("target"),
+            pl.coalesce(
+                pl.when(~pl.col("sources").list.contains(t)).then(
+                    pl.col(f"{t}/test/{metric}")
+                )
+                for t in DATASETS
+            ).alias("test_value"),
             *[pl.col(f"{t}/test/{metric}").alias(f"{t}/test_value") for t in DATASETS],
         )
-
         cv_results.append(grouped)
-    cv_results = pl.concat(cv_results)
+    cv_results = pl.concat(cv_results).drop("sources")
 
-
+    breakpoint()
     target_run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"
     )

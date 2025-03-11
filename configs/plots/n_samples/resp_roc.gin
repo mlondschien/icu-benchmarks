@@ -1,0 +1,108 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "respiratory failure in 24h",
+    "metric": "roc",
+    "ylabel": "test AuROC",
+    "target_experiment": "resp_glm",
+    "filename": "n_samples/roc_glm_lgbm",
+    "panels": [
+        {       
+            "source": "aumc",
+            "title": "AUMCdb",
+            "xlim": (25, 6400),
+            "ylim": (0.65, 0.8),
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": (25, 6400),
+            "ylim": (0.675, 0.84),
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": (25, 6400),
+            "ylim": (0.65, 0.835),
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CV)",
+            "xlim": (25, 6400),
+            "ylim": (0.65, 0.815),
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": (25, 6400),
+            "ylim": (0.65, 0.815),
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": (25, 6400),
+            "ylim": (0.65, 0.82),
+        },
+    ],
+    "lines": [
+        {
+            "experiment_name": "resp_glm_n_samples",
+            "result_name": "n_samples",
+            "color": "#228833",
+            "legend": "GLM fit on target",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "resp_lgbm_n_samples",
+            "result_name": "n_samples",
+            "color": "#CCBB44",
+            "legend": "LGBM fit on target",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "resp_glm",
+            "result_name": "refit_linear",
+            "color": "#AA3377",
+            "legend": "GLM refit on target data",
+            # "hatch": "//",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "resp_lgbm",
+            "result_name": "refit_lgbm",
+            "color": "#EE6677",
+            "legend": "LGBM refit on target data",
+            # "hatch": "//",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "resp_glm",
+            "result_name": "cv",
+            "color": "#66CCEE",
+            "ls": "solid",
+            "legend": "GLM fit on source",
+        },
+        {
+            "experiment_name": "resp_dsl",
+            "result_name": "cv",
+            "color": "#66CCEE",
+            "ls": "dotted",
+            "legend": "DSL fit on source",
+        },
+        {
+            "experiment_name": "resp_lgbm",
+            "result_name": "cv",
+            "color": "#4477AA",
+            "ls": "solid",
+            "legend": "LGBM fit on source",
+        },
+        {
+            "experiment_name": "resp_algbm",
+            "result_name": "cv",
+            "color": "#4477AA",
+            "ls": "dashed",
+            "legend": "Anchor LGBM fit on source",
+        }
+    ]
+}
+

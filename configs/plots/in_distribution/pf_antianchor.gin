@@ -1,0 +1,48 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "log(Po2/Fio2 in 12h)",
+    "metric": "grouped_mse_quantile_0.8",
+    "ylabel": "80% quantile of MSE grouped over patients",
+    "experiment_name": "pf_antianchor",
+    "parameter": "alpha",
+    "panels": [
+        {       
+            "source": "aumc",
+            "title": "AUMCdb",
+            "xlim": None,
+            "ylim": (0.12, 0.19)
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": None,
+            "ylim": (0.22, 0.25)
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": None,
+            "ylim": (0.135, 0.16)
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CareVue subset)",
+            "xlim": None,
+            "ylim": (0.23, 0.3)
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": None,
+            "ylim": (0.33, 0.375)
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": None,
+            "ylim": (0.18, 0.22)
+        },
+    ],
+}
+

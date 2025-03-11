@@ -9,6 +9,7 @@ from glum import GeneralizedLinearRegressor
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
+import scipy
 
 
 @gin.configurable
@@ -495,6 +496,160 @@ class AnchorRegression(GeneralizedLinearRegressor):
 
 
 @gin.configurable
+class AnticausalAnchorRegression(GeneralizedLinearRegressor):  # noqa D
+    # All parameters are copied from the GLM estimator. They need to be explicit to
+    # adhere to sklearn's API. GLR inherits from BaseEstimator.
+    def __init__(
+        self,
+        alpha=None,
+        l1_ratio=0,
+        P1="identity",
+        P2="identity",
+        fit_intercept=True,
+        family="normal",
+        link="auto",
+        solver="auto",
+        max_iter=100,
+        max_inner_iter=100000,
+        gradient_tol=None,
+        step_size_tol=None,
+        hessian_approx=0.0,
+        warm_start=False,
+        alpha_search=False,
+        alphas=None,
+        n_alphas=100,
+        min_alpha_ratio=None,
+        min_alpha=None,
+        start_params=None,
+        selection="cyclic",
+        random_state=None,
+        copy_X=None,
+        check_input=True,
+        verbose=0,
+        scale_predictors=False,
+        lower_bounds=None,
+        upper_bounds=None,
+        A_ineq=None,
+        b_ineq=None,
+        force_all_finite=True,
+        drop_first=False,
+        robust=True,
+        expected_information=False,
+        formula=None,
+        interaction_separator=":",
+        categorical_format="{name}[{category}]",
+        cat_missing_method="fail",
+        cat_missing_name="(MISSING)",
+        l2_ratio=0.0,
+    ):
+        super().__init__(
+            alpha=alpha,
+            l1_ratio=l1_ratio,
+            P1=P1,
+            P2=P2,
+            fit_intercept=fit_intercept,
+            family=family,
+            link=link,
+            solver=solver,
+            max_iter=max_iter,
+            max_inner_iter=max_inner_iter,
+            gradient_tol=gradient_tol,
+            step_size_tol=step_size_tol,
+            hessian_approx=hessian_approx,
+            warm_start=warm_start,
+            alpha_search=alpha_search,
+            alphas=alphas,
+            n_alphas=n_alphas,
+            min_alpha_ratio=min_alpha_ratio,
+            min_alpha=min_alpha,
+            start_params=start_params,
+            selection=selection,
+            random_state=random_state,
+            copy_X=copy_X,
+            check_input=check_input,
+            verbose=verbose,
+            scale_predictors=scale_predictors,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
+            A_ineq=A_ineq,
+            b_ineq=b_ineq,
+            force_all_finite=force_all_finite,
+            drop_first=drop_first,
+            robust=robust,
+            expected_information=expected_information,
+            formula=formula,
+            interaction_separator=interaction_separator,
+            categorical_format=categorical_format,
+            cat_missing_method=cat_missing_method,
+            cat_missing_name=cat_missing_name,
+        )
+        self.l2_ratio = l2_ratio
+
+    def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
+        """
+        Fit the anticausal Anchor Regression model.
+
+        Parameters
+        ----------
+        X : np.ndarray or polars.DataFrame
+            The input data.
+        y : np.ndarray
+            The outcome.
+        sample_weight : np.ndarray, optional
+            The sample weights.
+        dataset : np.ndarray
+            Array of dataset indicators. Each unique value is assumed to correspond to a
+            single environment. The anchor then is a one-hot encoding of this.
+        """
+        if sample_weight is not None:
+            raise ValueError
+
+        if isinstance(dataset, np.ndarray):
+            dataset = pl.from_numpy(dataset, schema=["__group"])
+        elif isinstance(dataset, pl.Series):
+            dataset = dataset.alias("__group")
+        else:
+            raise ValueError
+
+        X_mean = X.mean()
+        X = X.with_columns(pl.col(col).sub(X_mean[col]) for col in X.columns)
+        X_proj = X.group_by(dataset).agg(pl.all().mean(), pl.len().alias("__weight"))
+        cov = np.cov(
+            X_proj.drop(["__group", "__weight"]).to_numpy().T,
+            fweights=X_proj["__weight"],
+        )
+        del X_proj
+
+        D, V = scipy.linalg.eigh(cov)
+        D[D < 1e-10] = (
+            1e-10  # D might have some negative values. 1e-10 for num. accuracy
+        )
+        D += 100 * self.l2_ratio
+
+        X = X.to_numpy() @ V
+
+        self.P2 = 100 * D
+
+        super().fit(X, y)
+
+        X_mean = X_mean.to_numpy()
+        self.coef_path_ = [V @ c for c in self.coef_path_]
+        self.coef_ = self.coef_path_[-1]
+        self.intercept_path_ = [
+            i - X_mean @ c for i, c in zip(self.intercept_path_, self.coef_path_)
+        ]
+        self.intercept_ = self.intercept_path_[-1]
+
+        return self
+
+    def predict(self, X, **kwargs):  # noqa: D
+        if isinstance(X, pl.DataFrame):
+            X = X.to_numpy()
+
+        return super().predict(X, **kwargs)
+
+
+@gin.configurable
 class LGBMAnchorModel(BaseEstimator):
     """
     LightGBM Model with Anchor Loss.
@@ -518,6 +673,7 @@ class LGBMAnchorModel(BaseEstimator):
         seed=0,
         deterministic=True,
         num_boost_round=100,
+        n_components=None,
         **kwargs,
     ):
         self.objective = objective
@@ -531,6 +687,7 @@ class LGBMAnchorModel(BaseEstimator):
         }
         self.num_boost_round = num_boost_round
         self.booster = None
+        self.n_components = n_components
 
     def fit(self, X, y, sample_weight=None, dataset=None):
         """
@@ -556,7 +713,16 @@ class LGBMAnchorModel(BaseEstimator):
         if isinstance(self.objective, str):
             self.params["objective"] = self.objective
         else:
-            self.objective = self.objective(self.gamma, categories=np.unique(dataset))
+            if self.n_components is not None:
+                self.objective = self.objective(
+                    self.gamma,
+                    categories=np.unique(dataset),
+                    n_components=self.n_components,
+                )
+            else:
+                self.objective = self.objective(
+                    self.gamma, categories=np.unique(dataset)
+                )
             self.params["objective"] = self.objective.objective
 
         data = lgb.Dataset(

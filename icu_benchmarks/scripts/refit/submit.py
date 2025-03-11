@@ -88,8 +88,8 @@ get_name.name = "{stem}"
 icu_benchmarks.mlflow_utils.setup_mlflow.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.setup_mlflow.tracking_uri = "http://{ip}:{port}"
 
-icu_benchmarks.load.load.variables = {TASKS[outcome].get('variables')}
-icu_benchmarks.load.load.horizons = {TASKS[outcome].get('horizons')}
+icu_benchmarks.load.load.variables = {TASKS[outcome].get("variables")}
+icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
 icu_benchmarks.load.load.sources = ["{target}"]
 
 get_run.run_id = "{run.info.run_id}"

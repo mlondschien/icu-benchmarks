@@ -66,9 +66,9 @@ def main(data_dir=None, ncols=6, extra_datasets=False):  # noqa D
                 data[dataset] = df
 
             if variable["LogTransform"]:
-                title = f'log({variable["VariableTag"]})'
+                title = f"log({variable['VariableTag']})"
             else:
-                title = f'{variable["VariableTag"]}'
+                title = f"{variable['VariableTag']}"
 
             _ = plot_continuous(ax, data, title)
 

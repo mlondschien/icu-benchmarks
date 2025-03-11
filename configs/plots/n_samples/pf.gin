@@ -1,0 +1,122 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "log(P/F ratio in 12h)",
+    "metric": "mse",
+    "ylabel": "MSE",
+    "target_experiment": "plots",
+    "filename": "pf/n_samples_mse",
+    "panels": [
+        {       
+            "source": "aumc",
+            "title": "AUMCdb",
+            "xlim": (25, 6400),
+            # "ylim": (0.288, 0.32),
+            "ylim": (0.083, 0.1025)
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": (25, 6400),
+            # "ylim": (0.395, 0.45),
+            "ylim": (0.156, 0.20),
+
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": (25, 6400),
+            # "ylim": (0.295, 0.34),
+            "ylim": (0.087, 0.116),
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CV)",
+            "xlim": (25, 6400),
+            # "ylim": (None, 0.44),
+            "ylim": (0.0145, 0.20),
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": (25, 6400),
+            # "ylim": (None, 0.5),
+            "ylim": (0.2, 0.235),
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": (25, 6400),
+            "ylim": (0.1, 0.14),
+            # "ylim": (0.32, 0.38),
+        },
+    ],
+    "lines": [
+        {
+            "experiment_name": "pf_glm_n_samples",
+            "result_name": "n_samples",
+            "color": "grey",
+            "legend": "Linear model fit on target",
+            "ls": "dashdot",
+        },
+        {
+            "experiment_name": "pf_lgbm_n_samples",
+            "result_name": "n_samples",
+            "color": "#009E73",
+            "legend": "LGBM fit on target",
+            "ls": "dashdot",
+        },
+        {
+            "experiment_name": "pf_glm",
+            "result_name": "refit_linear",
+            "color": "grey",
+            "legend": "GLM refit on target data",
+            # "hatch": "//",
+            "ls": "dashed",
+        },
+        {
+            "experiment_name": "pf_lgbm",
+            "result_name": "refit_lgbm",
+            "color": "#D55E00",
+            "legend": "LGBM refit on target data",
+            # "hatch": "//",
+            "ls": "dashed",
+        },
+        {
+            "experiment_name": "pf_glm",
+            "result_name": "cv",
+            "color": "grey",
+            "ls": "dashed",
+            "legend": "GLM fit on source",
+        },
+        {
+            "experiment_name": "pf_anchor",
+            "result_name": "cv",
+            "color": "grey",
+            "ls": "solid",
+            "legend": "Anchor Regression fit on source",
+        },
+        # {
+        #     "experiment_name": "pf_dsl",
+        #     "result_name": "cv",
+        #     "color": "#66CCEE",
+        #     "ls": "dotted",
+        #     "legend": "DSL fit on source",
+        # },
+        {
+            "experiment_name": "pf_lgbm",
+            "result_name": "cv",
+            "color": "#D55E00",
+            "ls": "dashed",
+            "legend": "LGBM fit on source",
+        },
+        {
+            "experiment_name": "pf_algbm",
+            "result_name": "cv",
+            "color": "#0072B2",
+            "ls": "solid",
+            "legend": "Boosted anchor regression fit on source",
+        }
+    ]
+}
+

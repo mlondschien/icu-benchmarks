@@ -1,0 +1,106 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "mortality at 24h",
+    "metric": "auprc",
+    "ylabel": "test AuPRC",
+    "target_experiment": "mort_lgbm",
+    "filename": "n_samples/auprc_lgbm2",
+    "panels": [
+        {       
+            "source": "aumc",
+            "title": "AUMCdb",
+            "xlim": (100, 12800),
+            "ylim": (0.42, 0.54),
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": (100, 12800),
+            "ylim": (0.25, 0.39),
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": (100, 12800),
+            "ylim": (0.25, 0.51),
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CV)",
+            "xlim": (100, 12800),
+            "ylim": (0.22, 0.46),
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": (100, 12800),
+            "ylim": (0.25, 0.45),
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": (100, 12800),
+            "ylim": (0.25, 0.49),
+        },
+    ],
+    "lines": [
+        {
+            "experiment_name": "mort_lgbm_n_samples",
+            "result_name": "n_samples",
+            "color": "green",
+            "legend": "LGBM fit on target",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "mort_lgbm",
+            "result_name": "cv",
+            "color": "black",
+            "legend": "LGBM fit on source",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "mort_algbm",
+            "result_name": "cv",
+            "color": "black",
+            "ls": "dashed",
+            "legend": "Boosted anchor fit on source",
+        },
+        {
+            "experiment_name": "test_mort_algbm",
+            "result_name": "cv",
+            "color": "blue",
+            "ls": "dotted",
+            "legend": "Boosted anchor, no '/ gamma'",
+        },
+        {
+            "experiment_name": "test_mort_lgbm",
+            "result_name": "cv",
+            "color": "red",
+            "ls": "dashdot",
+            "legend": "Boosted lgbm 2",
+        },
+        {
+            "experiment_name": "test_mort_algbm2",
+            "result_name": "cv",
+            "color": "green",
+            "ls": (0, (5, 10)),
+            "legend": "Boosted lgbm, with '/ gamma'",
+        },
+        {
+            "experiment_name": "mort_lgbm",
+            "result_name": "refit_lgbm",
+            "color": "red",
+            "legend": "lgbm refit on target data",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "mort_algbm",
+            "result_name": "refit_lgbm",
+            "color": "orange",
+            "ls": "dashed",
+            "legend": "Boosted anchor refit on target data",
+        },
+    ]
+}
+

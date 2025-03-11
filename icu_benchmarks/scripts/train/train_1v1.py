@@ -14,6 +14,7 @@ from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, log_dict, log_pickle, setup_mlflow
 from icu_benchmarks.models import (  # noqa F401
     AnchorRegression,
+    AnticausalAnchorRegression,
     DataSharedLasso,
     GeneralizedLinearModel,
     LGBMAnchorModel,
@@ -62,17 +63,26 @@ def get_model(model=gin.REQUIRED):  # noqa D
 def get_predict_kwargs(predict_kwargs=gin.REQUIRED):
     """If kwargs is a dictionary, create list of records with all combinations."""
     if isinstance(predict_kwargs, dict):
-        return ParameterGrid(predict_kwargs)
+        keys, values = predict_kwargs.keys(), predict_kwargs.values()
+        return [dict(zip(keys, combination)) for combination in product(*values)]
     else:
         return predict_kwargs
+
 
 @gin.configurable
 def get_n_splits(n_splits=gin.REQUIRED):
     return n_splits
 
+
 @gin.configurable
 def get_split_by(split_by=gin.REQUIRED):
     return split_by
+
+
+@gin.configurable
+def get_anchor(anchor=gin.REQUIRED):
+    return anchor
+
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -80,7 +90,7 @@ def main(config: str):  # noqa D
     gin.parse_config_file(config)
 
     outcome, sources, targets = get_outcome(), get_sources(), get_targets()
-    split_by, n_splits = get_split_by(), get_n_splits()
+    n_splits = get_n_splits()
 
     tags = {
         "outcome": outcome,
@@ -96,33 +106,35 @@ def main(config: str):  # noqa D
     log_dict(get_predict_kwargs(), "predict_kwargs.json")
 
     tic = perf_counter()
-    df, y, weights, groups = load(
+    df, y, weights, split_by, anchor = load(
         sources=sources,
         outcome=outcome,
         split="train_val",
-        other_columns=[split_by],
+        other_columns=[get_split_by(), get_anchor()],
     )
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
     cv_results = []
-    for fold_idx, (train_idx, val_idx) in enumerate(GroupKFold(n_splits=n_splits).split(df, y, groups)):
+    for fold_idx, (train_idx, val_idx) in enumerate(
+        GroupKFold(n_splits=n_splits).split(df, y, split_by)
+    ):
         logger.info(f"Fold: {fold_idx}.")
         df_train, df_val = df[train_idx, :], df[val_idx, :]
         y_train, y_val = y[train_idx], y[val_idx]
-        groups_train = groups[train_idx]
+        anchor_train = anchor[train_idx]
+        split_by_val = split_by[val_idx]
 
         preprocessor = get_preprocessing(get_model(), df)
         df_train = preprocessor.fit_transform(df_train)
         df_val = preprocessor.transform(df_val)
 
         for parameter_idx, parameter in enumerate(get_parameters()):
-
             logger.info(f"Fitting the model with {parameter}")
             model = get_model()(**parameter)
-            
+
             tic = perf_counter()
-            model.fit(df_train, y_train, sample_weight=weights, dataset=groups_train)
+            model.fit(df_train, y_train, sample_weight=weights, dataset=anchor_train)
             toc = perf_counter()
 
             for predict_kwarg_idx, predict_kwarg in enumerate(get_predict_kwargs()):
@@ -132,16 +144,28 @@ def main(config: str):  # noqa D
                         "fold_idx": fold_idx,
                         "parameter_idx": parameter_idx,
                         "predict_kwarg_idx": predict_kwarg_idx,
-                        **metrics(y_val, y_val_hat, "", TASKS[outcome]["task"]),
+                        **metrics(
+                            y_val,
+                            y_val_hat,
+                            "cv/",
+                            TASKS[outcome]["task"],
+                            groups=split_by_val,
+                        ),
                     }
                 )
 
     cv_results = pl.DataFrame(cv_results)
+
     log_df(cv_results, "cv_results.csv")
 
-    metric_names = [x for x in cv_results.columns if x in METRIC_NAMES]
-    cv_results = cv_results.pivot(on="fold_idx", values=metric_names)
-    
+    metric_names = [x for x in METRIC_NAMES if f"cv/{x}" in cv_results.columns]
+
+    cv_results = cv_results.pivot(
+        on="fold_idx",
+        index=["parameter_idx", "predict_kwarg_idx"],
+        values=[f"cv/{m}" for m in metric_names],
+    )
+
     results = []
 
     preprocessor = get_preprocessing(get_model(), df)
@@ -154,7 +178,7 @@ def main(config: str):  # noqa D
         model = get_model()(**parameter)
 
         tic = perf_counter()
-        model.fit(df, y, sample_weight=weights)
+        model.fit(df, y, sample_weight=weights, dataset=anchor)
         toc = perf_counter()
         models.append(model)
         for predict_kwarg_idx, predict_kwarg in enumerate(get_predict_kwargs()):
@@ -165,13 +189,22 @@ def main(config: str):  # noqa D
                     "predict_kwarg_idx": predict_kwarg_idx,
                     **parameter,
                     **predict_kwarg,
-                    **metrics(y, yhat, "train/", TASKS[outcome]["task"]),
+                    **metrics(
+                        y, yhat, "train/", TASKS[outcome]["task"], groups=split_by
+                    ),
                 }
             )
-    
+            if "objective" in results[-1].keys():
+                del results[-1]["objective"]
+
     for target in targets:
         tic = perf_counter()
-        df, y, _ = load(sources=[target], outcome=outcome, split="test")
+        df, y, _, split_by = load(
+            sources=[target],
+            outcome=outcome,
+            split="test",
+            other_columns=[get_split_by()],
+        )
         toc = perf_counter()
         logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
@@ -191,7 +224,13 @@ def main(config: str):  # noqa D
                 yhat = model.predict(df, **predict_kwarg)
                 results[idx] = {
                     **results[idx],
-                    **metrics(y, yhat, f"{target}/test/", TASKS[outcome]["task"]),
+                    **metrics(
+                        y,
+                        yhat,
+                        f"{target}/test/",
+                        TASKS[outcome]["task"],
+                        groups=split_by,
+                    ),
                 }
                 idx += 1
 

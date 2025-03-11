@@ -116,6 +116,7 @@ def main(config: str):  # noqa D
     df_test = preprocessor.transform(df_test)
 
     jobs = []
+
     for model_idx, prior in enumerate(priors):
         if get_name() in ["refit_linear", "refit_lgbm"]:
             value = getattr(prior, "gamma", None) or getattr(prior, "ratio", 1.0)
@@ -123,10 +124,10 @@ def main(config: str):  # noqa D
                 continue
 
         for refit_parameter in get_refit_parameters():
-            if get_name() == "refit_linear":
-                value = refit_parameter["prior_alpha"]
-                if np.abs(np.log10(value) - np.round(np.log10(value))) > 0.1:
-                    continue
+            # if get_name() == "refit_linear":
+            #     value = refit_parameter["prior_alpha"]
+            #     if np.abs(np.log10(value) - np.round(np.log10(value))) > 0.1:
+            #         continue
 
             for seed in get_seeds():
                 model = get_model()(prior=prior, **refit_parameter)

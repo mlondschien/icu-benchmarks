@@ -1,0 +1,102 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "log(P/F ratio in 12h)",
+    "metric": "rmse",
+    "ylabel": "RMSE",
+    "target_experiment": "pf_glm",
+    "filename": "n_samples/rmse_glm",
+    "panels": [
+        {       
+            "source": "aumc",
+            "title": "AUMCdb",
+            "xlim": (25, 6400),
+            "ylim": (0.292, 0.31)
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": (25, 6400),
+            "ylim": (0.395, 0.445)
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": (25, 6400),
+            "ylim": (0.3, 0.325)
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III",
+            "xlim": (25, 6400),
+            "ylim": (0.39, 0.43)
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": (25, 6400),
+            "ylim": (0.448, 0.49)
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": (25, 6400),
+            "ylim": (0.325, 0.38)
+        },
+    ],
+    "lines": [
+        {
+            "experiment_name": "pf_glm_n_samples",
+            "result_name": "n_samples",
+            "color": "green",
+            "legend": "Linear model fit on target",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "pf_glm",
+            "result_name": "cv",
+            "color": "black",
+            "legend": "GLM fit on source",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "pf_anchor",
+            "result_name": "cv",
+            "color": "black",
+            "ls": "dashed",
+            "legend": "AR fit on source",
+        },
+        {
+            "experiment_name": "pf_dsl",
+            "result_name": "cv",
+            "color": "black",
+            "ls": "dotted",
+            "legend": "AR fit on source",
+        },
+        {
+            "experiment_name": "pf_glm",
+            "result_name": "refit_linear",
+            "color": "red",
+            "legend": "GLM refit on target data",
+            # "hatch": "//",
+            "ls": "solid",
+        },
+        {
+            "experiment_name": "pf_anchor",
+            "result_name": "refit_linear",
+            "color": "orange",
+            "ls": "dashed",
+            "legend": "AR refit on target data",
+            # "hatch": "\\"
+        },
+        {
+            "experiment_name": "pf_dsl",
+            "result_name": "refit_linear",
+            "color": "#DDAA33",
+            "ls": "dotted",
+            "legend": " DSL refit on target data",
+            # "hatch": "."
+        },
+    ]
+}
+

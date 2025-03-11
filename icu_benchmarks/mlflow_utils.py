@@ -97,9 +97,9 @@ def log_markdown(df, name, client=None, run_id=None):
         cfg.set_tbl_cols(-1)
         cfg.set_tbl_formatting("MARKDOWN")
         text = repr(df)
-    
+
     target_dir, name = os.path.split(name)
-    
+
     with tempfile.TemporaryDirectory() as tmpdir:
         path = f"{tmpdir}/{name}"
         with open(path, "w") as f:
@@ -109,6 +109,7 @@ def log_markdown(df, name, client=None, run_id=None):
             client.log_artifact(run_id, path, target_dir)
         else:
             mlflow.log_artifact(path, target_dir)
+
 
 @gin.configurable
 def setup_mlflow(
@@ -142,13 +143,12 @@ def get_run(tracking_uri, run_id):
     return client, run
 
 
-def get_target_run(tracking_uri, experiment_name, tags=None):
+def get_target_run(client, experiment_name, create_if_not_exists=True):
     """
     Get run with sources tag equal '' in experiment.
 
     If such a run does not exist, create it.
     """
-    client = mlflow.client.MlflowClient(tracking_uri=tracking_uri)
     experiment = client.get_experiment_by_name(experiment_name)
     if experiment is None:
         raise ValueError(f"No experiment {experiment_name}.")
@@ -157,11 +157,15 @@ def get_target_run(tracking_uri, experiment_name, tags=None):
         experiment_ids=[experiment.experiment_id],
         filter_string="tags.sources = ''",
     )
-    if len(target_run) > 0:
-        target_run = target_run[0]
-    else:
+    if len(target_run) == 1:
+        return experiment, target_run[0]
+    elif len(target_run) == 0 and create_if_not_exists:
         target_run = client.create_run(
             experiment_id=experiment.experiment_id,
-            tags={"sources": "", "summary_run": True, **(tags or {})},
+            tags={"sources": "", "summary_run": True},
         )
-    return client, experiment, target_run
+        return experiment, target_run
+    else:
+        raise ValueError(
+            f"Expected exactly one target run for {experiment_name}. Got {len(target_run)}."
+        )

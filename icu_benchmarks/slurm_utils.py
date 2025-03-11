@@ -144,7 +144,7 @@ mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --
     with open(server_file, "w") as f:
         f.write(
             f"""
-ssh euler -L {port+1}:{ip}:{port} "sleep 1; exit" && ssh euler -L {port}:{ip}:{port} -N &
+ssh euler -L {port}:{ip}:{port} -N &
 http://localhost:{port}/
 {datetime.now()}
 """

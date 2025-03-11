@@ -5,6 +5,7 @@ from scipy.stats import gaussian_kde
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
 import matplotlib.colors as mcolors
+
 SOURCE_COLORS = {
     "eicu": "black",
     "mimic": "red",
@@ -48,14 +49,32 @@ LINESTYLES = {
 PARAMETER_NAMES = [
     "alpha",
     "ratio",
+    "num_leaves",
     "l1_ratio",
     "gamma",
-    "num_boost_round",
+    "colsample_bytree",
+    "bagging_fraction",
+    "min_data_in_leaf",
+    # "num_boost_round",
     "num_iteration",
+    "l2_ratio",
     "learning_rate",
-    "num_leaves",
+    # "num_leaves",
 ]
 
+METRICS = [
+    "roc",
+    "auprc",
+    "log_loss",
+    "mse",
+    "rmse",
+    "abs_quantile_0.8",
+    "grouped_mse_quantile_0.5",
+    "grouped_mse_quantile_0.8",
+    "grouped_mse_quantile_0.9",
+    "grouped_mse_quantile_0.6",
+    "grouped_mse_quantile_0.7",
+]
 
 METRIC_NAMES = {
     "brier": "brier score",
@@ -111,6 +130,7 @@ OUTCOME_NAMES = {
     "circulatory_failure_at_8h": "circulatory failure within 8h",
 }
 
+
 def get_method_name(experiment_name):
     if "_dsl" in experiment_name:
         return "DSL"
@@ -120,6 +140,7 @@ def get_method_name(experiment_name):
         return "LGBM"
     elif "_anchor" in experiment_name:
         return "Anchor"
+
 
 def plot_discrete(ax, data, name, missings=True, legend=True, yticklabels=True):
     """
@@ -172,11 +193,15 @@ def plot_discrete(ax, data, name, missings=True, legend=True, yticklabels=True):
                 x_pos = 0.12 if width > 0.08 else width + 0.09
                 text = f"{width * 100:.1f}" if width < 0.9995 else "99.9"
                 ax.text(
-                    x_pos, bar.get_y() + bar.get_height() / 2,
+                    x_pos,
+                    bar.get_y() + bar.get_height() / 2,
                     text,
-                    ha="right", va="center", fontsize=12, color="black"
+                    ha="right",
+                    va="center",
+                    fontsize=12,
+                    color="black",
                 )
-        
+
         elif len(df) == 2 and row[0] is True:
             for bar in bars:
                 width = bar.get_width()
@@ -185,9 +210,13 @@ def plot_discrete(ax, data, name, missings=True, legend=True, yticklabels=True):
                 x_pos = 0.99 if width > 0.08 else 1 - width - 0.01
                 text = f"{width * 100:.1f}" if width < 0.9995 else "99.9"
                 ax.text(
-                    x_pos, bar.get_y() + bar.get_height() / 2,
+                    x_pos,
+                    bar.get_y() + bar.get_height() / 2,
                     text,
-                    ha="right", va="center", fontsize=12, color="black"
+                    ha="right",
+                    va="center",
+                    fontsize=12,
+                    color="black",
                 )
 
         left += row[1:]
@@ -201,7 +230,9 @@ def plot_discrete(ax, data, name, missings=True, legend=True, yticklabels=True):
         )
 
     if legend:
-        ax.legend(ncols=min(3, len(df)), bbox_to_anchor=(0.5, -0.05), loc="lower center")
+        ax.legend(
+            ncols=min(3, len(df)), bbox_to_anchor=(0.5, -0.05), loc="lower center"
+        )
 
     if yticklabels:
         ax.set_yticks(y_pos)
@@ -295,7 +326,7 @@ def plot_by_x(results, x, metric):
 
     param_names = [p for p in PARAMETER_NAMES if p in results.columns]
 
-    aggregations = ["worst", "mean"] # , "median"]
+    aggregations = ["worst", "mean"]  # , "median"]
 
     if results["sources"].dtype == pl.String:
         expr = pl.col("sources").str.replace_all("'", '"').str.json_decode()
@@ -320,12 +351,21 @@ def plot_by_x(results, x, metric):
         cv_results = results_n2.filter(~pl.col("sources").list.contains(target))
         cv_sources = [source for source in sources if source != target]
 
-        result = results_n1.filter(~pl.col("sources").list.contains(target)).select(param_names + [f"{target}/test/{metric}"])
+        result = results_n1.filter(~pl.col("sources").list.contains(target)).select(
+            param_names + [f"{target}/test/{metric}"]
+        )
 
         mult = -1 if metric in GREATER_IS_BETTER else 1
         for source in cv_sources:
             result = result.join(
-                cv_results.filter(~pl.col("sources").list.contains(source)).select(param_names + [(pl.col(f"{source}/train_val/{metric}") * mult).alias(f"{source}/cv_value")]),
+                cv_results.filter(~pl.col("sources").list.contains(source)).select(
+                    param_names
+                    + [
+                        (pl.col(f"{source}/train_val/{metric}") * mult).alias(
+                            f"{source}/cv_value"
+                        )
+                    ]
+                ),
                 on=param_names,
                 how="left",
                 validate="1:1",
@@ -333,7 +373,9 @@ def plot_by_x(results, x, metric):
 
         for aggregation in aggregations:
             if aggregation in ["mean", "mean_0"]:
-                agg = pl.mean_horizontal([f"{source}/cv_value" for source in cv_sources])
+                agg = pl.mean_horizontal(
+                    [f"{source}/cv_value" for source in cv_sources]
+                )
             # elif aggregation == "median":
             #     agg = pl.median([f"{source}/cv_value" for source in cv_sources])
             elif aggregation == "worst":
@@ -342,8 +384,13 @@ def plot_by_x(results, x, metric):
                 raise ValueError(f"Unknown aggregation {aggregation}")
 
             result = result.with_columns(agg.alias("cv_value"))
-        
-            grouped = result.group_by(x).agg(pl.all().top_k_by(k=1, by="cv_value", reverse=True)).select(pl.all().explode()).sort(x)
+
+            grouped = (
+                result.group_by(x)
+                .agg(pl.all().top_k_by(k=1, by="cv_value", reverse=True))
+                .select(pl.all().explode())
+                .sort(x)
+            )
 
             ax.plot(
                 grouped[x],
@@ -435,7 +482,7 @@ def plot_by_x(results, x, metric):
         #         variable
         #     ].max()
 
-        for _, group in result.group_by([p for p in param_names if p!=x]):
+        for _, group in result.group_by([p for p in param_names if p != x]):
             group = group.sort(x)
             # var = group[variable].first() / cur_results_n1[variable].max()
             # color = np.clip((var - var_min) / max(0.01, (var_max - var_min)), 0, 1)
@@ -446,7 +493,7 @@ def plot_by_x(results, x, metric):
                 color="grey",
                 alpha=0.1,
             )
-    
+
         ax.set_ylabel(f"test {METRIC_NAMES[metric]}")
         if x in ["gamma", "alpha", "ratio", "learning_rate"]:
             ax.set_xscale("log")

@@ -19,8 +19,6 @@ logging.basicConfig(
 )
 
 
-
-    
 @click.command()
 @click.option("--experiment_name", type=str)
 @click.option(
@@ -31,7 +29,6 @@ logging.basicConfig(
 def main(experiment_name, tracking_uri):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment = client.get_experiment_by_name(experiment_name)
-
 
     if "mlflow.note.content" in experiment.tags:
         print(experiment.tags["mlflow.note.content"])
@@ -70,7 +67,8 @@ def main(experiment_name, tracking_uri):  # noqa D
         all_results.append(results)
 
     results = pl.concat(all_results, how="diagonal")
-
+    # results = results.filter(pl.col("learning_rate").eq(0.05) & pl.col("gamma").le(50))
+    results = results.filter(pl.col("gamma").ge(1))
     run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"
     )
@@ -82,6 +80,9 @@ def main(experiment_name, tracking_uri):  # noqa D
     print(f"logging to {run.info.run_id}")
     metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
+    metrics = ["mse"]
+    PARAMETER_NAMES = ["gamma"]
+
     for metric in metrics:
         for x in [p for p in PARAMETER_NAMES if p in results.columns]:
             fig = plot_by_x(results, x, metric)

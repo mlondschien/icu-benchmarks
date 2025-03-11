@@ -427,4 +427,21 @@ TASKS: Dict[str, Dict[str, Any]] = {
 
 GREATER_IS_BETTER = ["roc", "auroc", "auc", "auprc", "accuracy", "prc", "r2"]
 
-METRIC_NAMES = ["mse", "rmse", "mae", "abs_quantile_0.8", "abs_quantile_0.9", "abs_quantile_0.95", "roc", "accuracy", "log_loss", "auprc", "brier"]
+METRIC_NAMES = [
+    "mse",
+    "rmse",
+    "mae",
+    "abs_quantile_0.8",
+    "abs_quantile_0.9",
+    "abs_quantile_0.95",
+    "roc",
+    "accuracy",
+    "log_loss",
+    "auprc",
+    "brier",
+    "grouped_mse_quantile_0.5",
+    "grouped_mse_quantile_0.8",
+    "grouped_mse_quantile_0.9",
+    "grouped_mse_quantile_0.6",
+    "grouped_mse_quantile_0.7",
+]
