@@ -14,6 +14,10 @@ SOURCES = [
     "eicu",
     "aumc",
     "sic",
+    "nwicu",
+    "zigong",
+    "picdb",
+    "miived",
 ]
 
 
