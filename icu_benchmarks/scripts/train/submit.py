@@ -28,7 +28,7 @@ SOURCES = [
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
 @click.option(
     "--artifact_location",
@@ -83,7 +83,7 @@ def main(
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 13)
 
-        log_dir = Path("logs2") / experiment_name / "_".join(sorted(sources))
+        log_dir = Path("logs3") / experiment_name / "_".join(sorted(sources))
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 

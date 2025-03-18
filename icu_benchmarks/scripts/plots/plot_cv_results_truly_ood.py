@@ -29,7 +29,7 @@ def get_config(config):  # noqa D
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
 @click.option("--config", type=click.Path(exists=True))
 def main(tracking_uri, config):  # noqa D

@@ -49,7 +49,7 @@ SOURCES = ["aumc", "eicu", "mimic-carevue", "miiv", "sic", "hirid"]
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
 @click.option("--from", "from_", type=str)
 @click.option("--to", type=str)

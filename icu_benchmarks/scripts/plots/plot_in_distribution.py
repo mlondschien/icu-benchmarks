@@ -28,7 +28,7 @@ def get_config(config):  # noqa D
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
 # @click.option("--experiment_name", type=str)
 @click.option("--config", type=str)
