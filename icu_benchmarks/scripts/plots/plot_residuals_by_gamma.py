@@ -66,7 +66,7 @@ def main(tracking_uri, experiment_name):  # noqa D
 
     metrics = [m for m in METRICS if f"eicu/test/{m}" in results.columns]
     for metric in metrics:
-        for x in ["gamma"]: # params:
+        for x in ["gamma"]:  # params:
             mult = -1 if metric in GREATER_IS_BETTER else 1
 
             cv_results = []

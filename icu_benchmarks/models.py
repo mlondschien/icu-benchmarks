@@ -707,7 +707,7 @@ class LGBMAnchorModel(BaseEstimator):
         """
         if isinstance(dataset, pl.Series):
             dataset = dataset.to_numpy()
-    
+
         categorical_features = [c for c in X.columns if "categorical" in c]
 
         dataset_params = {
@@ -718,7 +718,7 @@ class LGBMAnchorModel(BaseEstimator):
             "free_raw_data": False,
             "feature_name": X.columns,
         }
-    
+
         if isinstance(self.objective, str):
             self.params["objective"] = self.objective
             if self.objective == "regression":
@@ -1081,12 +1081,14 @@ class RefitLGBMModelCV(CVMixin, BaseEstimator):
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
 
-        scores = self.model.booster.predict(X, num_iteration=num_iteration, raw_score=True) + self.prior.init_score_
+        scores = (
+            self.model.booster.predict(X, num_iteration=num_iteration, raw_score=True)
+            + self.prior.init_score_
+        )
         if self.objective == "binary":
             return 1 / (1 + np.exp(-scores))
         else:
             return scores
-
 
 
 @gin.configurable

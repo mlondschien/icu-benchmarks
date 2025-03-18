@@ -74,7 +74,6 @@ def main(tracking_uri, config):  # noqa D
     results = pl.concat(all_results, how="diagonal")
     # results = results.filter(pl.col("lambda_l2").eq(0.1))
 
-
     fig, axes = plt.subplots(
         2, 3, figsize=(22, 15), constrained_layout=True, gridspec_kw={"hspace": 0.02}
     )

@@ -1,24 +1,18 @@
 import json
 import logging
 import tempfile
-import numpy as np
+
 import click
 import gin
 import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.constants import GREATER_IS_BETTER,  PARAMETERS
+from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
 
-SOURCES = [
-    "miiv",
-    "mimic-carevue",
-    "aumc",
-    "sic",
-    "eicu",
-    "hirid"
-]
+SOURCES = ["miiv", "mimic-carevue", "aumc", "sic", "eicu", "hirid"]
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -94,14 +88,18 @@ def main(tracking_uri, config):  # noqa D
 
         if "l1_ratio" in results:
             results = results.filter(pl.col("l1_ratio").is_in([0.0, 0.01, 0.5, 1.0]))
-    
+
         results_n2 = results.filter(pl.col("sources").list.len() == 4)
         results_n1 = results.filter(pl.col("sources").list.len() == 5)
         params = [z for z in PARAMETERS if z in results.columns]
         for panel, ax in zip(CONFIG["panels"], axes.flat):
             target = panel["source"]
             cv_results = results_n2.filter(~pl.col("sources").list.contains(target))
-            cv_results = cv_results.with_columns(pl.coalesce(pl.when(~pl.col("sources").list.contains(s)).then(pl.col(f"{s}/train_val/{metric}"))
+            cv_results = cv_results.with_columns(
+                pl.coalesce(
+                    pl.when(~pl.col("sources").list.contains(s)).then(
+                        pl.col(f"{s}/train_val/{metric}")
+                    )
                     for s in SOURCES
                 ).alias("cv_value")
             )
@@ -109,7 +107,7 @@ def main(tracking_uri, config):  # noqa D
             cv_results = results_n1.filter(
                 ~pl.col("sources").list.contains(target)
             ).join(cv_results, on=params, how="full", validate="1:1")
-    
+
             if param not in params:
                 best = cv_results.top_k(
                     1, by="cv_value", reverse=metric not in GREATER_IS_BETTER
@@ -122,7 +120,7 @@ def main(tracking_uri, config):  # noqa D
                     alpha=line["alpha"],
                 )
                 continue
-            
+
             grouped = (
                 cv_results.group_by(param)
                 .agg(

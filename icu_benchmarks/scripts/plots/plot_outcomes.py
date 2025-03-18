@@ -127,21 +127,31 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
     for d in datasets:
         lines.append(Line2D([0], [0], color=SOURCE_COLORS[d], lw=2))
         text.append(SHORT_DATASET_NAMES[d])
-    
+
     lines += [white, white]
     text += ["missing ", "Po2/Fio2"]
 
     for d in datasets:
         lines.append(white)
-        missingness = pl.scan_parquet(data_dir / d / "features.parquet").select(pl.col("log_pf_ratio_in_12h").is_null().mean()).collect().item()
+        missingness = (
+            pl.scan_parquet(data_dir / d / "features.parquet")
+            .select(pl.col("log_pf_ratio_in_12h").is_null().mean())
+            .collect()
+            .item()
+        )
         text.append(f"{missingness:.1%}")
-    
+
     lines += [white, white]
     text += ["values", "lactate"]
 
     for d in datasets:
         lines.append(white)
-        missingness = pl.scan_parquet(data_dir / d / "features.parquet").select(pl.col("log_lactate_in_4h").is_null().mean()).collect().item()
+        missingness = (
+            pl.scan_parquet(data_dir / d / "features.parquet")
+            .select(pl.col("log_lactate_in_4h").is_null().mean())
+            .collect()
+            .item()
+        )
         text.append(f"{missingness:.1%}")
 
     fig.legend(

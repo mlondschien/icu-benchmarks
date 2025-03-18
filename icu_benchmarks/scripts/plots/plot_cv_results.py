@@ -8,9 +8,9 @@ import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
+from icu_benchmarks.constants import PARAMETERS
 from icu_benchmarks.mlflow_utils import log_fig
 from icu_benchmarks.plotting import plot_by_x
-from icu_benchmarks.constants import PARAMETERS
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

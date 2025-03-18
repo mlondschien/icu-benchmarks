@@ -9,7 +9,7 @@ import numpy as np
 import polars as pl
 from sklearn.model_selection import GroupKFold
 
-from icu_benchmarks.constants import METRIC_NAMES, TASKS
+from icu_benchmarks.constants import METRICS, TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, log_dict, setup_mlflow
@@ -159,12 +159,10 @@ def main(config: str):  # noqa D
 
     log_df(cv_results_frame, "cv_results.csv")
 
-    metric_names = [x for x in METRIC_NAMES if f"cv/{x}" in cv_results_frame.columns]
-
     cv_results_frame = cv_results_frame.pivot(
         on="fold_idx",
         index=["parameter_idx", "predict_kwarg_idx"],
-        values=[f"cv/{m}" for m in metric_names],
+        values=[f"cv/{m}" for m in METRICS if f"cv/{m}" in cv_results_frame.columns],
     )
 
     results: list[dict] = []

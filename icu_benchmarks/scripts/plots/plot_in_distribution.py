@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import polars as pl
 from mlflow.tracking import MlflowClient
 
+from icu_benchmarks.constants import PARAMETERS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.plotting import PARAMETER_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -68,7 +68,7 @@ def main(tracking_uri, config):  # noqa D
     sources = results["sources"].explode().unique().to_list()
 
     # mult = -1 if metric in GREATER_IS_BETTER else 1
-    params = [p for p in PARAMETER_NAMES if p in results.columns and p != x]
+    params = [p for p in PARAMETERS if p in results.columns and p != x]
     fig, axes = plt.subplots(
         2, 3, figsize=(12, 8), constrained_layout=True, gridspec_kw={"hspace": 0.02}
     )
