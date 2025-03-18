@@ -9,9 +9,9 @@ import polars as pl
 from matplotlib import colormaps, colors
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.constants import GREATER_IS_BETTER
+from icu_benchmarks.constants import GREATER_IS_BETTER, METRICS, PARAMETERS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.plotting import DATASET_NAMES, METRICS, PARAMETER_NAMES
+from icu_benchmarks.plotting import DATASET_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -58,7 +58,7 @@ def main(tracking_uri, experiment_name):  # noqa D
 
     print(f"logging to {run.info.run_id}")
 
-    params = [p for p in PARAMETER_NAMES if p in results.columns]
+    params = [p for p in PARAMETERS if p in results.columns]
 
     sources = results["sources"].explode().unique().to_list()
     results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)

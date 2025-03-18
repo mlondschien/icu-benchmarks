@@ -5,12 +5,14 @@ import tempfile
 import click
 import gin
 import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.constants import GREATER_IS_BETTER
+from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.plotting import PARAMETER_NAMES
+
+SOURCES = ["miiv", "mimic-carevue", "aumc", "sic", "eicu", "hirid"]
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -83,9 +85,13 @@ def main(tracking_uri, config):  # noqa D
             all_results.append(results)
 
         results = pl.concat(all_results, how="diagonal")
+
+        if "l1_ratio" in results:
+            results = results.filter(pl.col("l1_ratio").is_in([0.0, 0.01, 0.5, 1.0]))
+
         results_n2 = results.filter(pl.col("sources").list.len() == 4)
         results_n1 = results.filter(pl.col("sources").list.len() == 5)
-        params = [z for z in PARAMETER_NAMES if z in results.columns]
+        params = [z for z in PARAMETERS if z in results.columns]
         for panel, ax in zip(CONFIG["panels"], axes.flat):
             target = panel["source"]
             cv_results = results_n2.filter(~pl.col("sources").list.contains(target))
@@ -94,7 +100,7 @@ def main(tracking_uri, config):  # noqa D
                     pl.when(~pl.col("sources").list.contains(s)).then(
                         pl.col(f"{s}/train_val/{metric}")
                     )
-                    for s in sources
+                    for s in SOURCES
                 ).alias("cv_value")
             )
             cv_results = cv_results.group_by(params).agg(pl.mean("cv_value"))
@@ -108,7 +114,7 @@ def main(tracking_uri, config):  # noqa D
                 )[0]
                 ax.hlines(
                     best[f"{target}/test/{metric}"].item(),
-                    *ax.get_xlim(),
+                    *CONFIG["xlim"],
                     color=line["color"],
                     ls=line["ls"],
                     alpha=line["alpha"],
@@ -129,7 +135,6 @@ def main(tracking_uri, config):  # noqa D
             ax.plot(
                 grouped[param],
                 grouped[f"{target}/test/{metric}"],
-                # label=line["label"],
                 color=line["color"],
                 alpha=line["alpha"],
                 ls=line["ls"],
@@ -154,7 +159,7 @@ def main(tracking_uri, config):  # noqa D
                     group[f"{target}/test/{metric}"],
                     color=line["color"],
                     ls="solid",
-                    alpha=0.2 * line["alpha"],
+                    alpha=0.1 * line["alpha"],
                 )
         if param in params:
             legend_elements.append(
@@ -183,7 +188,8 @@ def main(tracking_uri, config):  # noqa D
         ax.set_ylabel(CONFIG["ylabel"])
         ax.set_ylim(*panel["ylim"])
         ax.set_xlabel(param)
-        ax.set_xlim(*CONFIG["xlim"])
+        delta = np.pow(CONFIG["xlim"][1] / CONFIG["xlim"][0], 0.02)
+        ax.set_xlim(CONFIG["xlim"][0] / delta, CONFIG["xlim"][1] * delta)
         ax.set_title(panel["title"])
 
         ax.label_outer()

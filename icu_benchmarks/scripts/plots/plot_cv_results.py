@@ -8,8 +8,9 @@ import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
+from icu_benchmarks.constants import PARAMETERS
 from icu_benchmarks.mlflow_utils import log_fig
-from icu_benchmarks.plotting import PARAMETER_NAMES, plot_by_x
+from icu_benchmarks.plotting import plot_by_x
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -67,8 +68,6 @@ def main(experiment_name, tracking_uri):  # noqa D
         all_results.append(results)
 
     results = pl.concat(all_results, how="diagonal")
-    # results = results.filter(pl.col("learning_rate").eq(0.05) & pl.col("gamma").le(50))
-    results = results.filter(pl.col("gamma").ge(1))
     run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"
     )
@@ -82,7 +81,7 @@ def main(experiment_name, tracking_uri):  # noqa D
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
 
     for metric in metrics:
-        for x in [p for p in PARAMETER_NAMES if p in results.columns]:
+        for x in [p for p in PARAMETERS if p in results.columns]:
             fig = plot_by_x(results, x, metric)
             log_fig(
                 fig,

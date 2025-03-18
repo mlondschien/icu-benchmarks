@@ -106,7 +106,6 @@ def main(tracking_uri, config):  # noqa D
                 color=line["color"],
                 ls=line["ls"],
             )
-
             ax.fill_between(
                 data["n_target"],
                 data["min"],

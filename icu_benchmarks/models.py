@@ -710,8 +710,25 @@ class LGBMAnchorModel(BaseEstimator):
 
         categorical_features = [c for c in X.columns if "categorical" in c]
 
+        dataset_params = {
+            "data": X.to_arrow(),
+            "label": y,
+            "weight": sample_weight,
+            "categorical_feature": categorical_features,
+            "free_raw_data": False,
+            "feature_name": X.columns,
+        }
+
         if isinstance(self.objective, str):
             self.params["objective"] = self.objective
+            if self.objective == "regression":
+                self.init_score_ = np.mean(y)
+            elif self.objective == "binary":
+                p = np.sum(y) / len(y)
+                self.init_score_ = np.log(p / (1 - p))
+            else:
+                raise ValueError(f"Unknown objective: {self.objective}")
+            dataset_params["init_score"] = np.ones(len(y)) * self.init_score_
         else:
             if self.n_components is not None:
                 self.objective = self.objective(
@@ -724,15 +741,10 @@ class LGBMAnchorModel(BaseEstimator):
                     self.gamma, categories=np.unique(dataset)
                 )
             self.params["objective"] = self.objective.objective
+            dataset_params["init_score"] = self.objective.init_score(y)
+            self.init_score_ = dataset_params["init_score"][0]
 
-        data = lgb.Dataset(
-            X.to_arrow(),
-            label=y,
-            weight=sample_weight,
-            categorical_feature=categorical_features,
-            free_raw_data=False,
-            feature_name=X.columns,
-        )
+        data = lgb.Dataset(**dataset_params)
         data.anchor = dataset
 
         self.booster = lgb.train(
@@ -760,7 +772,7 @@ class LGBMAnchorModel(BaseEstimator):
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
 
-        scores = self.booster.predict(X, num_iteration=num_iteration)
+        scores = self.booster.predict(X, num_iteration=num_iteration) + self.init_score_
         if hasattr(self.objective, "predictions"):
             return self.objective.predictions(scores)
         else:
@@ -1043,11 +1055,25 @@ class RefitLGBMModelCV(CVMixin, BaseEstimator):
         self.model.booster.params["objective"] = self.objective
 
         if self.decay_rate < 1:
+            # if self.objective == "regression":
+            #     self.init_score_ = np.mean(y)
+            # elif self.objective == "binary":
+            #     p = np.sum(y) / len(y)
+            #     if p < 1e-12:
+            #         p = 1 / (len(y) + 1)
+            #     elif p > 1 - 1e-12:
+            #         p = 1 - 1 / (len(y) + 1)
+            #     self.init_score_ = np.log(p / (1 - p))
+            # else:
+            #     raise ValueError(f"Unknown objective: {self.objective}")
+
             self.model.booster = self.model.booster.refit(
                 data=X.to_arrow(),
                 label=y,
                 decay_rate=self.decay_rate,
+                init_score=np.ones(len(y), dtype="float64") * self.prior.init_score_,
                 dataset_params={"num_threads": 1, "force_col_wise": True},
+                verbosity=-1,
             )
         return self
 
@@ -1055,7 +1081,14 @@ class RefitLGBMModelCV(CVMixin, BaseEstimator):
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
 
-        return self.model.booster.predict(X, num_iteration=num_iteration)
+        scores = (
+            self.model.booster.predict(X, num_iteration=num_iteration, raw_score=True)
+            + self.prior.init_score_
+        )
+        if self.objective == "binary":
+            return 1 / (1 + np.exp(-scores))
+        else:
+            return scores
 
 
 @gin.configurable

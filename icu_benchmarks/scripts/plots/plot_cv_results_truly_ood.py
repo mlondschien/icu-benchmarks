@@ -10,7 +10,7 @@ from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.plotting import PARAMETER_NAMES
+from icu_benchmarks.plotting import PARAMETERS
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -85,7 +85,7 @@ def main(tracking_uri, config):  # noqa D
         results = pl.concat(all_results, how="diagonal")
         results_n0 = results.filter(pl.col("sources").list.len() == 6)
         cv_results = results.filter(pl.col("sources").list.len() == 5)
-        params = [z for z in PARAMETER_NAMES if z in results.columns]
+        params = [z for z in PARAMETERS if z in results.columns]
 
         SOURCES = [
             "aumc",
