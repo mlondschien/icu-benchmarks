@@ -73,14 +73,12 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         )
 
     bottom_outcomes = [
-        "log_rel_urine_rate_in_2h",
-        "log_lactate_in_4h",
         "log_pf_ratio_in_12h",
+        "log_lactate_in_4h",
     ]
-    ax0 = fig.add_subplot(gs[2, 0])
-    ax1 = fig.add_subplot(gs[2, 1], sharey=ax0)
-    ax2 = fig.add_subplot(gs[2, 2], sharey=ax0)
-    bottom_axes = [ax0, ax1, ax2]
+    ax1 = fig.add_subplot(gs[2, 1])
+    ax2 = fig.add_subplot(gs[2, 2], sharey=ax1)
+    bottom_axes = [ax1, ax2]
 
     for ax, outcome in zip(bottom_axes, bottom_outcomes):
         data = {
@@ -98,7 +96,10 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
             missing_rate=False,
             label=False,
         )
-    ax1.tick_params(axis="y", labelleft=False)  # Hide y-tick labels on ax1
+
+    # ax0 = fig.add_subplot(gs[2, 0])
+
+    ax1.tick_params(axis="y")
     ax2.tick_params(axis="y", labelleft=False)  # Hide y-tick labels on ax2
 
     tab_blue = mcolors.to_rgba("tab:blue", alpha=0.9)
@@ -117,17 +118,42 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
     )
 
     datasets.reverse()
-    lines = [Line2D([0], [0], color=SOURCE_COLORS[d], lw=2) for d in datasets]
+    white = Line2D([], [], color="none", lw=0)
+    lines = [white, white]
+    text = ["", ""]
+
+    # lines = [Line2D([0], [0], color="white", lw=0), Line2D([0], [0], color="white", lw=0)], Line2D([0], [0], color="white", lw=0), Line2D([0], [0], color="white", lw=0), Line2D([0], [0], color="white", lw=0), Line2D([0], [0], color="white", lw=0)]
+    # text = ["", "missings", "", "Po2/Fio2", "lactate"]
+    for d in datasets:
+        lines.append(Line2D([0], [0], color=SOURCE_COLORS[d], lw=2))
+        text.append(SHORT_DATASET_NAMES[d])
+    
+    lines += [white, white]
+    text += ["missing ", "Po2/Fio2"]
+
+    for d in datasets:
+        lines.append(white)
+        missingness = pl.scan_parquet(data_dir / d / "features.parquet").select(pl.col("log_pf_ratio_in_12h").is_null().mean()).collect().item()
+        text.append(f"{missingness:.1%}")
+    
+    lines += [white, white]
+    text += ["values", "lactate"]
+
+    for d in datasets:
+        lines.append(white)
+        missingness = pl.scan_parquet(data_dir / d / "features.parquet").select(pl.col("log_lactate_in_4h").is_null().mean()).collect().item()
+        text.append(f"{missingness:.1%}")
+
     fig.legend(
         lines,
-        [SHORT_DATASET_NAMES[d] for d in datasets],
+        text,
         loc="center",
-        bbox_to_anchor=(0.5, 0.12 / 1.1),  # (x, y), y from the bottom
-        ncol=10,
+        bbox_to_anchor=(0.21, 0.33),  # (x, y), y from the bottom
+        ncol=3,
         fontsize=12,
         handlelength=1.5,  # default is ~2
-        labelspacing=0.3,
-        columnspacing=1.0,
+        labelspacing=0.8,
+        columnspacing=-1,
         handletextpad=0.4,
     )
 

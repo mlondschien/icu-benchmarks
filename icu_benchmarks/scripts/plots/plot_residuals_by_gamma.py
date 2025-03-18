@@ -8,9 +8,9 @@ import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.constants import GREATER_IS_BETTER
+from icu_benchmarks.constants import GREATER_IS_BETTER, METRICS, PARAMETERS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.plotting import DATASET_NAMES, METRICS, PARAMETER_NAMES
+from icu_benchmarks.plotting import DATASET_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -26,10 +26,10 @@ logging.basicConfig(
     type=str,
     default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
 )
-@click.option("--experiment_name", type=click.Path(exists=True))
+@click.option("--experiment_name", type=str)
 def main(tracking_uri, experiment_name):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment, target_run = get_target_run(client, "experiment_name")
+    experiment, target_run = get_target_run(client, experiment_name)
 
     all_results = []
     for run in client.search_runs(experiment_ids=[experiment.experiment_id]):
@@ -53,10 +53,12 @@ def main(tracking_uri, experiment_name):  # noqa D
         all_results.append(results)
 
     results = pl.concat(all_results, how="diagonal")
-
+    results = results.filter(pl.col("gamma") <= 150)
+    # sresults = results.filter(pl.col("gamma") <= 4)
     print(f"logging to {run.info.run_id}")
 
-    params = [p for p in PARAMETER_NAMES if p in results.columns]
+    params = [p for p in PARAMETERS if p in results.columns]
+    # params = ["gamma"]
 
     sources = results["sources"].explode().unique().to_list()
     results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
@@ -64,7 +66,7 @@ def main(tracking_uri, experiment_name):  # noqa D
 
     metrics = [m for m in METRICS if f"eicu/test/{m}" in results.columns]
     for metric in metrics:
-        for x in params:
+        for x in ["gamma"]: # params:
             mult = -1 if metric in GREATER_IS_BETTER else 1
 
             cv_results = []
@@ -111,38 +113,38 @@ def main(tracking_uri, experiment_name):  # noqa D
                 )
                 result = result.with_columns(agg.alias("cv_value"))
                 grouped = (
-                    result.group_by("x")
+                    result.group_by(x)
                     .agg(pl.all().top_k_by(k=1, by="cv_value", reverse=True))
                     .select(pl.all().explode())
-                    .sort("x")
+                    .sort(x)
                 )
 
-                ax.set_xlabel("x")
+                ax.set_xlabel(x)
                 color = "tab:blue"
                 ax.set_ylabel("residuals", color=color)
                 ax.plot(
-                    grouped["x"],
+                    grouped[x],
                     grouped[f"{target}/test/mean_residual"],
                     color="black",
                     label="mean" if idx == 0 else None,
                 )
 
                 ax.plot(
-                    grouped["x"],
-                    np.zeros_like(grouped["x"]),
+                    grouped[x],
+                    np.zeros_like(grouped[x]),
                     color="grey",
                     ls="dotted",
                     alpha=0.5,
                 )
                 ax.plot(
-                    grouped["x"],
+                    grouped[x],
                     grouped[f"{target}/test/quantile_0.5"],
                     color=color,
                     label="median" if idx == 0 else None,
                 )
 
                 ax.fill_between(
-                    grouped["x"],
+                    grouped[x],
                     grouped[f"{target}/test/quantile_0.1"],
                     grouped[f"{target}/test/quantile_0.25"],
                     color=color,
@@ -151,7 +153,7 @@ def main(tracking_uri, experiment_name):  # noqa D
                 )
 
                 ax.fill_between(
-                    grouped["x"],
+                    grouped[x],
                     grouped[f"{target}/test/quantile_0.75"],
                     grouped[f"{target}/test/quantile_0.9"],
                     color=color,
@@ -160,7 +162,7 @@ def main(tracking_uri, experiment_name):  # noqa D
                 )
 
                 ax.fill_between(
-                    grouped["x"],
+                    grouped[x],
                     grouped[f"{target}/test/quantile_0.25"],
                     grouped[f"{target}/test/quantile_0.75"],
                     color=color,
@@ -169,11 +171,11 @@ def main(tracking_uri, experiment_name):  # noqa D
                 )
 
                 best = grouped.select(
-                    pl.col("x").top_k_by(k=1, by="cv_value", reverse=True)
+                    pl.col(x).top_k_by(k=1, by="cv_value", reverse=True)
                 ).item()
                 ax.axvline(best, color="black", ls="dashed", alpha=0.2)
 
-                ax.set_title(DATASET_NAMES["target"])
+                ax.set_title(DATASET_NAMES[target])
                 ax.set_xscale("log")
                 ax.label_outer()
                 ax.yaxis.set_tick_params(
@@ -194,6 +196,7 @@ def main(tracking_uri, experiment_name):  # noqa D
                 client,
                 target_run.info.run_id,
             )
+            plt.close(fig)
 
 
 if __name__ == "__main__":

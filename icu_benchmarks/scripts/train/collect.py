@@ -10,7 +10,7 @@ from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import DATASETS, GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import log_df
-from icu_benchmarks.plotting import PARAMETER_NAMES
+from icu_benchmarks.plotting import PARAMETERS
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -67,7 +67,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
         )
         all_results.append(results)
 
-    parameter_names = [x for x in PARAMETER_NAMES if x in results.columns]
+    parameter_names = [x for x in PARAMETERS if x in results.columns]
 
     for var, val in [
         (None, None),

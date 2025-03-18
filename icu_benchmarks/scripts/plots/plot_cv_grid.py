@@ -10,9 +10,8 @@ import polars as pl
 from matplotlib import colormaps, colors
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.constants import GREATER_IS_BETTER
+from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.plotting import PARAMETER_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -73,7 +72,8 @@ def main(tracking_uri, config):  # noqa D
         all_results.append(results)
 
     results = pl.concat(all_results, how="diagonal")
-    # results = results.filter(pl.col("num_iteration").eq(1000))
+    # results = results.filter(pl.col("lambda_l2").eq(0.1))
+
 
     fig, axes = plt.subplots(
         2, 3, figsize=(22, 15), constrained_layout=True, gridspec_kw={"hspace": 0.02}
@@ -84,7 +84,7 @@ def main(tracking_uri, config):  # noqa D
 
     results_n2 = results.filter(pl.col("sources").list.len() == 4)
     results_n1 = results.filter(pl.col("sources").list.len() == 5)
-    params = [z for z in PARAMETER_NAMES if z in results.columns]
+    params = [z for z in PARAMETERS if z in results.columns]
 
     for panel, ax in zip(CONFIG["panels"], axes.flat):
         target = panel["source"]

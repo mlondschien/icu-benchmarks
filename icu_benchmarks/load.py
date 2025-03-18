@@ -137,7 +137,10 @@ def load(
     if other_columns is None:
         other_columns = []
 
-    columns_to_load = columns + [outcome, "dataset"]
+    columns_to_load = columns + [outcome, "dataset", "stay_id_hash"]
+    if "time_hours" not in columns:
+        columns_to_load += ["time_hours"]
+
     columns_to_load += [c for c in other_columns if c not in columns_to_load]
 
     data_dir = Path(DATA_DIR if data_dir is None else data_dir)
@@ -146,7 +149,7 @@ def load(
             [data_dir / source / "features.parquet" for source in sources],
             filters=filters,
         ).read(columns=columns_to_load)
-    )
+    ).sort(["dataset", "stay_id_hash", "time_hours"])
     # df = df.filter(pl.col("age") >= 18)
 
     if not -1 <= weighting_exponent <= 0:

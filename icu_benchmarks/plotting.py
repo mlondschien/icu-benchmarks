@@ -4,7 +4,7 @@ import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 
-from icu_benchmarks.constants import GREATER_IS_BETTER
+from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS
 
 SOURCE_COLORS = {
     "eicu": "black",
@@ -46,35 +46,6 @@ LINESTYLES = {
     "mimic-carevue": "dashed",
 }
 
-PARAMETER_NAMES = [
-    "alpha",
-    "ratio",
-    "num_leaves",
-    "l1_ratio",
-    "gamma",
-    "colsample_bytree",
-    "bagging_fraction",
-    "min_data_in_leaf",
-    # "num_boost_round",
-    "num_iteration",
-    "l2_ratio",
-    "learning_rate",
-    # "num_leaves",
-]
-
-METRICS = [
-    "roc",
-    "auprc",
-    "log_loss",
-    "mse",
-    "rmse",
-    "abs_quantile_0.8",
-    "grouped_mse_quantile_0.5",
-    "grouped_mse_quantile_0.8",
-    "grouped_mse_quantile_0.9",
-    "grouped_mse_quantile_0.6",
-    "grouped_mse_quantile_0.7",
-]
 
 METRIC_NAMES = {
     "brier": "brier score",
@@ -325,7 +296,7 @@ def plot_by_x(results, x, metric):
         "median": "green",
     }
 
-    param_names = [p for p in PARAMETER_NAMES if p in results.columns]
+    param_names = [p for p in PARAMETERS if p in results.columns]
 
     aggregations = ["worst", "mean"]  # , "median"]
 

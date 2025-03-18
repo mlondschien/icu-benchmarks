@@ -427,7 +427,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
 
 GREATER_IS_BETTER = ["roc", "auroc", "auc", "auprc", "accuracy", "prc", "r2"]
 
-METRIC_NAMES = [
+METRICS = [
     "mse",
     "rmse",
     "mae",
@@ -440,8 +440,27 @@ METRIC_NAMES = [
     "auprc",
     "brier",
     "grouped_mse_quantile_0.5",
-    "grouped_mse_quantile_0.8",
-    "grouped_mse_quantile_0.9",
     "grouped_mse_quantile_0.6",
     "grouped_mse_quantile_0.7",
+    "grouped_mse_quantile_0.8",
+    "grouped_mse_quantile_0.9",
+]
+
+
+PARAMETERS = [
+    "alpha",
+    "ratio",
+    "num_leaves",
+    "l1_ratio",
+    "gamma",
+    "colsample_bytree",
+    "bagging_fraction",
+    "min_data_in_leaf",
+    # "num_boost_round",
+    "num_iteration",
+    "l2_ratio",
+    "learning_rate",
+    # "num_leaves",
+    "lambda_l2",
+    "n_components",
 ]
