@@ -121,6 +121,7 @@ def main(config: str):  # noqa D
             details = {
                 "model_idx": parameter_idx,
                 "seed": seed,
+                "target": get_target(),
                 **parameter,
             }
             jobs.append(

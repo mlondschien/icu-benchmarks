@@ -237,7 +237,6 @@ def features(
     variable_reference = (
         pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"])
         .filter(pl.col("DatasetVersion").is_not_null())
-        .with_columns(pl.col("PossibleValues").str.json_decode())
     )
 
     if variable_versions is not None:

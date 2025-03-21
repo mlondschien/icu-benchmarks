@@ -6,7 +6,7 @@ import gin
 import matplotlib.pyplot as plt
 import polars as pl
 from mlflow.tracking import MlflowClient
-
+import numpy as np
 from icu_benchmarks.mlflow_utils import log_fig
 
 logger = logging.getLogger(__name__)
@@ -88,6 +88,7 @@ def main(tracking_uri, config):  # noqa D
                 )
                 continue
 
+            data = data.filter(pl.col("n_target").le(panel["xlim"][1]) & pl.col("n_target").ge(panel["xlim"][0]))
             data = (
                 data.group_by("n_target")
                 .agg(
@@ -123,7 +124,8 @@ def main(tracking_uri, config):  # noqa D
             ax.xaxis.set_tick_params(labelbottom=True)
 
             ax.set_title(panel["title"])
-            ax.set_xlim(*panel["xlim"])
+            delta = np.pow(panel["xlim"][1] / panel["xlim"][0], 0.02)
+            ax.set_xlim(panel["xlim"][0] / delta, panel["xlim"][1] * delta)
             ax.set_ylim(*panel["ylim"])
 
     fig.legend(loc="outside lower center", ncols=4)

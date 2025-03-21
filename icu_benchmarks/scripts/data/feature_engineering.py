@@ -26,7 +26,6 @@ logging.basicConfig(
 variable_reference = (
     pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"])
     .filter(pl.col("DatasetVersion").is_not_null())
-    .with_columns(pl.col("PossibleValues").str.json_decode())
 )
 
 
@@ -701,8 +700,7 @@ def main(dataset: str, data_dir: str | Path | None):  # noqa D
         # Cast categorical variables to Enum. `samp` is binary. For simplicity, we cast
         # it to string first.
         elif row["DataType"] == "categorical":
-            # enum = pl.Enum(row["PossibleValues"] + [CAT_MISSING_NAME])
-            col = col.cast(pl.String).fill_null(CAT_MISSING_NAME)  # .cast(enum)
+            col = col.cast(pl.String).fill_null(CAT_MISSING_NAME)
             expressions += discrete_features(tag, "time_hours")
 
         elif row["DataType"] == "continuous":

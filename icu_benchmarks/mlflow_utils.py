@@ -143,7 +143,7 @@ def get_run(tracking_uri, run_id):
     run = client.get_run(run_id=run_id)
     return client, run
 
-
+@gin.configurable
 def get_target_run(client, experiment_name, create_if_not_exists=True):
     """
     Get run with sources tag equal '' in experiment.
@@ -163,7 +163,7 @@ def get_target_run(client, experiment_name, create_if_not_exists=True):
     elif len(target_run) == 0 and create_if_not_exists:
         target_run = client.create_run(
             experiment_id=experiment.experiment_id,
-            tags={"sources": "", "summary_run": True},
+            tags={"sources": "", "summary_run": "True"},
         )
         return experiment, target_run
     else:
