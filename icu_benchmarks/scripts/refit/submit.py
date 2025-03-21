@@ -9,14 +9,7 @@ from mlflow.tracking import MlflowClient
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.slurm_utils import setup_mlflow_server
 
-SOURCES6 = [
-    "miiv",
-    "mimic-carevue",
-    "hirid",
-    "eicu",
-    "aumc",
-    "sic"
-]
+SOURCES6 = ["miiv", "mimic-carevue", "hirid", "eicu", "aumc", "sic"]
 
 ALL_SOURCES = [
     "miiv",
@@ -70,7 +63,9 @@ def main(
     for target in ALL_SOURCES:
         sources = [s for s in SOURCES6 if s != target]
         filter_string = " AND ".join([f"tags.sources LIKE '%{s}%'" for s in sources])
-        runs = client.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
+        runs = client.search_runs(
+            experiment_ids=[experiment_id], filter_string=filter_string
+        )
         if len(runs) == 0:
             raise ValueError(f"No runs found for {target}.")
 
@@ -78,7 +73,7 @@ def main(
             run_sources = sorted(json.loads(run.data.tags["sources"].replace("'", '"')))
             if len(run_sources) != len(sources):
                 continue
-        
+
             alpha_max = TASKS[run.data.tags["outcome"]]["alpha_max"]
             alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 13)
 
@@ -88,7 +83,8 @@ def main(
             refit_config_file = log_dir / "config.gin"
 
             with refit_config_file.open("w") as f:
-                f.write(f"""ALPHA = {alpha.tolist()}
+                f.write(
+                    f"""ALPHA = {alpha.tolist()}
 FAMILY = "{TASKS[outcome]["family"]}"
 TASK = "{TASKS[outcome]["task"]}"
 

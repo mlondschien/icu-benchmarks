@@ -92,17 +92,18 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     all_targets = map(re.compile(r"^(.+)\/test\/[a-z]+$").match, results.columns)
     all_targets = np.unique([m.groups()[0] for m in all_targets if m is not None])
 
-    # results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
-    # results_n1 = results.filter(pl.col("sources").list.len() == len(sources) - 1)
-
     cv_results = []
 
-    for target in sorted(all_targets):
+    for target in sorted(all_targets):  # type: ignore
         cv_sources = [source for source in sources if source != target]
         n1 = results.filter(
-            ~pl.col("sources").list.contains(target) & pl.col("sources").list.len().eq(len(cv_sources))
+            ~pl.col("sources").list.contains(target)
+            & pl.col("sources").list.len().eq(len(cv_sources))
         )
-        cv = results.filter(~pl.col("sources").list.contains(target) & pl.col("sources").list.len().eq(len(cv_sources) - 1))
+        cv = results.filter(
+            ~pl.col("sources").list.contains(target)
+            & pl.col("sources").list.len().eq(len(cv_sources) - 1)
+        )
 
         for metric in metrics:
             expr = pl.coalesce(

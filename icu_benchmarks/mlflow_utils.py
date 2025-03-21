@@ -143,6 +143,7 @@ def get_run(tracking_uri, run_id):
     run = client.get_run(run_id=run_id)
     return client, run
 
+
 @gin.configurable
 def get_target_run(client, experiment_name, create_if_not_exists=True):
     """

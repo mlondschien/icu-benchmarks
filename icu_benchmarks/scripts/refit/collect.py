@@ -1,4 +1,3 @@
-import json
 import logging
 import tempfile
 
@@ -36,13 +35,13 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
     _, run = get_target_run(client, experiment_name, create_if_not_exists=False)
     run_id = run.info.run_id
 
-    results = []
+    all_results = []
     with tempfile.TemporaryDirectory() as f:
         for file in client.list_artifacts(run_id, path=f"refit/{result_name}"):
             client.download_artifacts(run_id, f"{file.path}/results.csv", f)
-            results.append(pl.read_csv(f"{f}/{file.path}/results.csv"))
+            all_results.append(pl.read_csv(f"{f}/{file.path}/results.csv"))
 
-    results = pl.concat(results, how="diagonal")
+    results = pl.concat(all_results, how="diagonal")
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
 
     group_by = ["target", "metric", "n_target", "seed"]

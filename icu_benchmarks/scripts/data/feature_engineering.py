@@ -23,10 +23,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-variable_reference = (
-    pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"])
-    .filter(pl.col("DatasetVersion").is_not_null())
-)
+variable_reference = pl.read_csv(
+    VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"]
+).filter(pl.col("DatasetVersion").is_not_null())
 
 
 def switch(col, bounds, values):

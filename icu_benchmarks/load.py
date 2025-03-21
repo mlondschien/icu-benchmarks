@@ -234,10 +234,9 @@ def features(
     if horizons is None:
         horizons = HORIZONS
 
-    variable_reference = (
-        pl.read_csv(VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"])
-        .filter(pl.col("DatasetVersion").is_not_null())
-    )
+    variable_reference = pl.read_csv(
+        VARIABLE_REFERENCE_PATH, separator="\t", null_values=["None"]
+    ).filter(pl.col("DatasetVersion").is_not_null())
 
     if variable_versions is not None:
         variable_reference = variable_reference.filter(

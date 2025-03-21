@@ -14,7 +14,7 @@ from sklearn.model_selection import ParameterGrid
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import get_run, log_df, get_target_run
+from icu_benchmarks.mlflow_utils import get_run, get_target_run, log_df
 from icu_benchmarks.models import (  # noqa F401
     EmpiricalBayesCV,
     PriorPassthroughCV,
@@ -40,7 +40,7 @@ def get_refit_parameters(refit_parameters=gin.REQUIRED):
 
 
 @gin.configurable
-def get_target(target=gin.REQUIRED):
+def get_target(target=gin.REQUIRED):  # noqa D
     return target
 
 
@@ -164,7 +164,10 @@ def main(config: str):  # noqa D
 
     results: list[dict] = sum(parallel_results, [])
     log_df(
-        pl.DataFrame(results), f"refit/{get_name()}/{get_target()}/results.csv", client=client, run_id=target_run.info.run_id
+        pl.DataFrame(results),
+        f"refit/{get_name()}/{get_target()}/results.csv",
+        client=client,
+        run_id=target_run.info.run_id,
     )
 
 
