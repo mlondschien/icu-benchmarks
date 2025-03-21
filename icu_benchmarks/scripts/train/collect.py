@@ -19,13 +19,26 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+ALL_SOURCES = [
+    "miiv",
+    "mimic-carevue",
+    "hirid",
+    "eicu",
+    "aumc",
+    "sic",
+    "nwicu",
+    "zigong",
+    "picdb",
+    "miived",
+]
+
 
 @click.command()
 @click.option("--experiment_name", type=str)
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
 def main(experiment_name: str, tracking_uri: str):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
@@ -69,80 +82,68 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
 
     parameter_names = [x for x in PARAMETERS if x in results.columns]
 
-    for var, val in [
-        (None, None),
-        # ("learning_rate", 0.02),
-        # ("learning_rate", 0.1),
-        # ("colsample_bytree", 0.5),
-        # ("colsample_bytree", 1.0),
-        # ("bagging_fraction", 0.5),
-        # ("bagging_fraction", 1.0),
-        # ("min_data_in_leaf", 20),
-        # ("min_data_in_leaf", 100),
-    ]:
-        results = pl.concat(all_results)
-        # results = results.filter(pl.col("learning_rate").eq(0.1))
-        if var is not None:
-            results = results.filter(pl.col(var).eq(val))
+    results = pl.concat(all_results)
 
-        sources = results["sources"].explode().unique().to_list()
+    sources = results["sources"].explode().unique().to_list()
 
-        metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)
-        metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
+    metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)
+    metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
 
-        # results = results.filter(pl.col("gamma").eq(1))
+    all_targets = map(re.compile(r"^(.+)\/test\/[a-z]+$").match, results.columns)
+    all_targets = np.unique([m.groups()[0] for m in all_targets if m is not None])
 
-        results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
-        results_n1 = results.filter(pl.col("sources").list.len() == len(sources) - 1)
+    cv_results = []
 
-        cv_results = []
+    for target in sorted(all_targets):  # type: ignore
+        cv_sources = [source for source in sources if source != target]
+        n1 = results.filter(
+            ~pl.col("sources").list.contains(target)
+            & pl.col("sources").list.len().eq(len(cv_sources))
+        )
+        cv = results.filter(
+            ~pl.col("sources").list.contains(target)
+            & pl.col("sources").list.len().eq(len(cv_sources) - 1)
+        )
 
-        for target in sorted(sources):
-            cv = results_n2.filter(~pl.col("sources").list.contains(target))
-            cv_sources = [source for source in sources if source != target]
-            for metric in metrics:
-                expr = pl.coalesce(
-                    pl.when(~pl.col("sources").list.contains(t)).then(
-                        pl.col(f"{t}/train_val/{metric}")
-                    )
-                    for t in cv_sources
+        for metric in metrics:
+            expr = pl.coalesce(
+                pl.when(~pl.col("sources").list.contains(t)).then(
+                    pl.col(f"{t}/train_val/{metric}")
                 )
-                col = f"target/train_val/{metric}"
+                for t in cv_sources
+            )
+            col = f"target/train_val/{metric}"
 
-                cv = cv.with_columns(expr.alias(col))
-                cv_grouped = cv.group_by(parameter_names).agg(pl.mean(col))
-                if metric in GREATER_IS_BETTER:
-                    best = cv_grouped[cv_grouped[col].arg_max()]
-                else:
-                    best = cv_grouped[cv_grouped[col].arg_min()]
+            cv = cv.with_columns(expr.alias(col))
+            cv_grouped = cv.group_by(parameter_names).agg(pl.mean(col))
+            if metric in GREATER_IS_BETTER:
+                best = cv_grouped[cv_grouped[col].arg_max()]
+            else:
+                best = cv_grouped[cv_grouped[col].arg_min()]
 
-                model = results_n1.filter(
-                    ~pl.col("sources").list.contains(target)
-                    & pl.all_horizontal(pl.col(p).eq(best[p]) for p in parameter_names)
-                )
-                cv_results.append(
-                    {
-                        **{
-                            "target": target,
-                            "metric": metric,
-                            "cv_value": best[col].item(),
-                            "test_value": model[f"{target}/test/{metric}"].item(),
-                        },
-                        **{p: best[p].item() for p in parameter_names},
-                        **{
-                            f"{source}/train_val/": model[
-                                f"{source}/train_val/{metric}"
-                            ].item()
-                            for source in sorted(DATASETS)
-                            if f"{source}/train_val/{metric}" in model.columns
-                        },
-                    }
-                )
-        cv_results = pl.DataFrame(cv_results)
-        # string = f"{var}:{val}".ljust(22)
-        # for target in sorted(sources):
-        #     string += f"{cv_results.filter(pl.col('target').eq(target) & pl.col('metric').eq('rmse'))['test_value'].item():7.4f} "
-        # print(string)
+            model = n1.filter(
+                pl.all_horizontal(pl.col(p).eq(best[p]) for p in parameter_names)
+            )
+            cv_results.append(
+                {
+                    **{
+                        "target": target,
+                        "metric": metric,
+                        "cv_value": best[col].item(),
+                        "test_value": model[f"{target}/test/{metric}"].item(),
+                    },
+                    **{p: best[p].item() for p in parameter_names},
+                    **{
+                        f"{source}/train_val/": model[
+                            f"{source}/train_val/{metric}"
+                        ].item()
+                        for source in sorted(DATASETS)
+                        if f"{source}/train_val/{metric}" in model.columns
+                    },
+                }
+            )
+    cv_results = pl.DataFrame(cv_results)
+
     target_run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"
     )

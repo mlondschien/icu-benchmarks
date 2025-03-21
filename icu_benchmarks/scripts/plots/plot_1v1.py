@@ -17,7 +17,7 @@ from icu_benchmarks.plotting import METRIC_NAMES, SHORT_DATASET_NAMES, get_metho
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
 def main(experiment_name: str, n_samples_name: str, tracking_uri: str):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)

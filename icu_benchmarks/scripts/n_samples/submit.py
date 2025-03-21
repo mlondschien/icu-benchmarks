@@ -14,6 +14,10 @@ SOURCES = [
     "eicu",
     "aumc",
     "sic",
+    "nwicu",
+    "zigong",
+    "picdb",
+    "miived",
 ]
 
 
@@ -26,7 +30,7 @@ SOURCES = [
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
 @click.option(
     "--artifact_location",
@@ -57,7 +61,7 @@ def main(
     config_text = Path(config).read_text()
 
     for source, outcome in product(SOURCES, outcomes):
-        log_dir = Path("logs2") / experiment_name / source
+        log_dir = Path("logs3") / experiment_name / source
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 
@@ -82,7 +86,7 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
 """
             )
 
-        n_cpus = 16
+        n_cpus = 32
         command_file = log_dir / "command.sh"
         with command_file.open("w") as f:
             f.write(

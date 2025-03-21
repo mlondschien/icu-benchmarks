@@ -31,7 +31,7 @@ def get_config(config):  # noqa D
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
 @click.option("--config", type=click.Path(exists=True))
 def main(tracking_uri, config):  # noqa D
@@ -85,9 +85,6 @@ def main(tracking_uri, config):  # noqa D
             all_results.append(results)
 
         results = pl.concat(all_results, how="diagonal")
-
-        if "l1_ratio" in results:
-            results = results.filter(pl.col("l1_ratio").is_in([0.0, 0.01, 0.5, 1.0]))
 
         results_n2 = results.filter(pl.col("sources").list.len() == 4)
         results_n1 = results.filter(pl.col("sources").list.len() == 5)

@@ -724,7 +724,7 @@ class LGBMAnchorModel(BaseEstimator):
             if self.objective == "regression":
                 self.init_score_ = np.mean(y)
             elif self.objective == "binary":
-                p = np.sum(y) / len(y)
+                p = min(1 - 1e-6, max(1e-6, np.sum(y) / len(y)))
                 self.init_score_ = np.log(p / (1 - p))
             else:
                 raise ValueError(f"Unknown objective: {self.objective}")

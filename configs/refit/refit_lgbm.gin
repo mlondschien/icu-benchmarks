@@ -1,4 +1,4 @@
-get_refit_parameters.refit_parameters = {"decay_rate": [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0]}
+get_refit_parameters.refit_parameters = {"decay_rate": [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]}
 
 get_predict_kwargs.predict_kwargs = {"num_iteration": [200, 400, 600, 800, 1000]}
 

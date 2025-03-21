@@ -14,7 +14,7 @@ from sklearn.model_selection import ParameterGrid
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.load import load
 from icu_benchmarks.metrics import metrics
-from icu_benchmarks.mlflow_utils import get_run, log_df
+from icu_benchmarks.mlflow_utils import get_run, get_target_run, log_df
 from icu_benchmarks.models import (  # noqa F401
     EmpiricalBayesCV,
     PriorPassthroughCV,
@@ -37,6 +37,11 @@ def get_refit_parameters(refit_parameters=gin.REQUIRED):
         return ParameterGrid(refit_parameters)
     else:
         return refit_parameters
+
+
+@gin.configurable
+def get_target(target=gin.REQUIRED):  # noqa D
+    return target
 
 
 @gin.configurable
@@ -75,6 +80,7 @@ def main(config: str):  # noqa D
 
     client, run = get_run()
     run_id = run.info.run_id
+    _, target_run = get_target_run(client=client)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         model_dir = Path(client.download_artifacts(run_id, "models", tmpdir))
@@ -124,14 +130,11 @@ def main(config: str):  # noqa D
                 continue
 
         for refit_parameter in get_refit_parameters():
-            # if get_name() == "refit_linear":
-            #     value = refit_parameter["prior_alpha"]
-            #     if np.abs(np.log10(value) - np.round(np.log10(value))) > 0.1:
-            #         continue
 
             for seed in get_seeds():
                 model = get_model()(prior=prior, **refit_parameter)
                 details = {
+                    "target": get_target(),
                     "model_idx": model_idx,
                     "seed": seed,
                     **refit_parameter,
@@ -161,7 +164,10 @@ def main(config: str):  # noqa D
 
     results: list[dict] = sum(parallel_results, [])
     log_df(
-        pl.DataFrame(results), f"{get_name()}_results.csv", client=client, run_id=run_id
+        pl.DataFrame(results),
+        f"refit/{get_name()}/{get_target()}/results.csv",
+        client=client,
+        run_id=target_run.info.run_id,
     )
 
 

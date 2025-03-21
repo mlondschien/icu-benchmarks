@@ -25,7 +25,7 @@ logging.basicConfig(
 @click.option(
     "--tracking_uri",
     type=str,
-    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns2.db",
+    default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
 @click.option("--experiment_name", type=str)
 def main(tracking_uri, experiment_name):  # noqa D
