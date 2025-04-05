@@ -14,8 +14,8 @@ def fit_monotonic_spline(
     y,
     x_new,
     bspline_degree=3,
-    knot_segments=10,
-    lambda_smoothing=0.1,
+    knot_frequency=0.5,
+    lambda_smoothing=0.01,
     kappa_penalty=10**6,
     maxiter: int = 30,
 ) -> np.ndarray:
@@ -35,11 +35,8 @@ def fit_monotonic_spline(
     bspline_degree: int
         The degree of the B-spline (which is also the degree of the fitted spline
         function). The order of the splines is degree + 1.
-    knot_segments: int
-        number of inter-knot segments between min(x_train) and max(x_train). Defines the
-        number of internal knots, which is knot_segments + 1. The total amount of knots
-        is calculated as `bspline_degree * 2 + knot_segments + 1`; Few knots will be
-        added outside of the `x_train` range to fix boundary effects.
+    knot_frequency: float
+        Number of knots per training data point.
     lambda_smoothing: float
         The smoothing parameter. Higher values will result in smoother curves.
     kappa_penalty: float
@@ -51,7 +48,8 @@ def fit_monotonic_spline(
         converge within this number of iterations, a warning is issued.
     """
     xmin, xmax = min(x), max(x)
-    knot_interval = (xmax - xmin) / knot_segments
+    num_knots = int(len(x) * knot_frequency)
+    knot_interval = (xmax - xmin) / num_knots
 
     # You need to add deg knots on each side of the interval. See, for example,
     # De Leeuw (2017) Computing and Fitting Monotone Splines
@@ -63,7 +61,7 @@ def fit_monotonic_spline(
     knots = np.linspace(
         xmin - (bspline_degree + 1) * knot_interval,
         xmax + (bspline_degree + 1) * knot_interval,
-        bspline_degree * 2 + knot_segments + 1,
+        bspline_degree * 2 + num_knots + 1,
     )
     alphas = np.ones(len(x))
 
@@ -97,7 +95,7 @@ def fit_monotonic_spline(
 
     spl = BSpline(knots, alphas, bspline_degree, extrapolate=False)
 
-    y_new = np.empty_like(x)
+    y_new = np.empty_like(x_new)
     mask = (x_new >= xmin) & (x_new <= xmax)
     y_new[mask] = spl(x_new[mask])
 

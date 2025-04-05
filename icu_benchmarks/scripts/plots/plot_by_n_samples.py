@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-
+from icu_benchmarks.utils import fit_monotonic_spline
 from icu_benchmarks.mlflow_utils import log_fig
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
@@ -21,7 +21,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-
+N_TARGET_VALUES = [25, 35, 50, 70, 100, 140, 200, 280, 400, 560, 800, 1120, 1600, 2250, 3200, 4480, 6400, 8960, 12800, 17920, 25600, 35840, 51200, 71680, 102400]
 @gin.configurable()
 def get_config(config):  # noqa D
     return config
@@ -57,7 +57,7 @@ def main(tracking_uri, config):  # noqa D
 
     ncols = int(len(CONFIG["panels"]) / 3)
     fig = plt.figure(figsize=(3.5 * ncols, 7))
-    gs = gridspec.GridSpec(ncols + 2, 3, height_ratios=[1, 1, -0.27, 1, -0.2], wspace=0.13, hspace=0.68)
+    gs = gridspec.GridSpec(ncols + 2, 3, height_ratios=[1, 1, -0.15, 1, -0.1], wspace=0.13, hspace=0.4)
     axes = [
         fig.add_subplot(
             gs[i, j]
@@ -95,6 +95,8 @@ def main(tracking_uri, config):  # noqa D
             df = df.filter(**line["filter"])
 
         for panel, ax in zip(CONFIG["panels"], axes):
+            xmin, xmax = panel["xlim"]
+            column = f"{panel['source']}/test/{metric}"
             if panel["source"] == "empty":
                 # ax.set_visible(False)
                 continue
@@ -102,9 +104,9 @@ def main(tracking_uri, config):  # noqa D
             data = df.filter(pl.col("target") == panel["source"])
             if len(data) == 1:
                 ax.hlines(
-                    data[f"{panel['source']}/test/{metric}"].first(),
-                    xmin=panel["xlim"][0],
-                    xmax=panel["xlim"][1],
+                    data[column].first(),
+                    xmin=xmin,
+                    xmax=xmax,
                     # label=line["legend"] if idx == 0 else None,
                     color=line["color"],
                     alpha=line.get("alpha", 1),
@@ -112,38 +114,77 @@ def main(tracking_uri, config):  # noqa D
                 )
                 continue
 
-            
-            data = data.filter(
-                pl.col("n_target").le(panel["xlim"][1])
-                & pl.col("n_target").ge(panel["xlim"][0])
-            )
-            data = (
-                data.group_by("n_target")
-                .agg(
-                    [
-                        pl.col(f"test_value/{metric}").median().alias("__score"),
-                        pl.col(f"test_value/{metric}").quantile(0.2).alias("__min"),
-                        pl.col(f"test_value/{metric}").quantile(0.8).alias("__max"),
-                    ]
+            x_new = np.asarray([x for x in N_TARGET_VALUES if xmin <= x <= xmax])
+            y_new = np.empty((len(x_new), len(data["seed"].unique())))
+            data = data.filter(pl.col("n_target").is_in(x_new)).sort("n_target")
+            for seed in data["seed"].unique():
+                y_new[:, seed] = fit_monotonic_spline(
+                    data.filter(pl.col("seed").eq(seed))["n_target"].log(),
+                    data.filter(pl.col("seed").eq(seed))[f"test_value/{metric}"],
+                    np.log(x_new),
                 )
-                .sort("n_target")
-            )
+                # ax.plot(x_new, y_new[:, seed], color=line["color"], alpha=0.1)
+                # ax.scatter(
+                #     data.filter(pl.col("seed").eq(seed))["n_target"],
+                #     data.filter(pl.col("seed").eq(seed))[f"test_value/{metric}"],
+                #     alpha=0.1, color=line["color"],
+                # )
+
+            quantiles = np.quantile(y_new, [0.1, 0.5, 0.9], axis=1)
+            # data = (
+            #     data.group_by("n_target")
+            #     .agg(
+            #         [
+            #             pl.col(f"test_value/{metric}").median().alias("__score"),
+            #             pl.col(f"test_value/{metric}").quantile(0.2).alias("__min"),
+            #             pl.col(f"test_value/{metric}").quantile(0.8).alias("__max"),
+            #         ]
+            #     )
+            #     .sort("n_target")
+            # )
+            idx = x_new.searchsorted(data["n_target"].max())
             ax.plot(
-                data["n_target"],
-                data["__score"],
+                x_new[:idx + 1],
+                # data["n_target"],
+                # data["__score"],
+                quantiles[1, :idx + 1],
                 # label=line["legend"] if idx == 0 else None,
                 color=line["color"],
                 ls=line["ls"],
                 alpha=line.get("alpha", 1),
             )
+            ax.plot(
+                x_new[idx:],
+                # data["n_target"],
+                # data["__score"],
+                quantiles[1, idx:],
+                # label=line["legend"] if idx == 0 else None,
+                color=line["color"],
+                ls="dotted",
+                alpha=line.get("alpha", 1),
+            )
             ax.fill_between(
-                data["n_target"],
-                data["__min"],
-                data["__max"],
+                x_new,
+                # data["n_target"],
+                quantiles[0, :],
+                quantiles[2, :],
+                # data["__min"],
+                # data["__max"],
                 color=line["color"],
                 alpha=line.get("alpha", 1) * 0.1,
                 hatch=line.get("hatch", None),
             )
+            # ax.fill_between(
+            #     x_new[idx:],
+            #     # data["n_target"],
+            #     quantiles[0, idx:],
+            #     quantiles[2, idx:],
+            #     # data["__min"],
+            #     # data["__max"],
+            #     color=line["color"],
+            #     alpha=0.1, #line.get("alpha", 1) * 0.1,
+            #     # hatch=".",
+            # )
         
         ls = "dashed" if isinstance(line["ls"], tuple) else line["ls"]
         handle = Line2D([], [], color=line["color"], ls=ls, alpha=line.get("alpha", 1))
@@ -164,24 +205,29 @@ def main(tracking_uri, config):  # noqa D
         else:
             ax.yaxis.set_major_locator(plt.MaxNLocator(4))
 
-        ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
-        ax.xaxis.set_minor_formatter(NullFormatter())
         if ax.get_subplotspec().colspan == range(0, 1):
             ax.set_ylabel(CONFIG["ylabel"])
         if ax.get_subplotspec().rowspan == range(3, 4):
-            ax.set_xlabel("number of patient stays from target", labelpad=2)
+            # ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
+            # ax.xaxis.set_minor_formatter(NullFormatter())
+            ax.set_xticks(panel["xticks"])
+            ax.set_xticklabels(panel.get("xticklabels", panel["xticks"]))
+            ax.set_xlabel("number of patient stays from target", labelpad=3.5)
+        else:
+            ax.xaxis.set_major_formatter(NullFormatter())
         ax.tick_params(axis="y", which="both", pad=1)
         ax.tick_params(axis="x", which="both", pad=2)
 
+        ax.grid(visible=True, axis="x", alpha=0.2)
         # ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
         # ax.xaxis.set_tick_params(labelbottom=True)
         ax.set_title(panel["title"], y=0.985)
     
     fig.align_xlabels(axes)
     fig.align_ylabels(axes)
-    line = plt.Line2D([0.07, 0.925], [0.378, 0.378], transform=fig.transFigure, color="black", linewidth=2, alpha=0.5)
-    _ = plt.text(0.915, 0.56, "core datasets", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.65)
-    _ = plt.text(0.915, 0.18, "truly OOD", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.65)
+    line = plt.Line2D([0.07, 0.925], [0.388, 0.388], transform=fig.transFigure, color="black", linewidth=2, alpha=0.5)
+    _ = plt.text(0.915, 0.565, "core datasets", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.65)
+    _ = plt.text(0.915, 0.185, "truly OOD", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.65)
     fig.add_artist(line)
 
     fig.legend(legend_handles, labels, loc="outside lower center", ncols=int(len(legend_handles) / 2))
