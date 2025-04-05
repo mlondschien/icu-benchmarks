@@ -19,8 +19,12 @@ def metrics(y, yhat, prefix, task, groups=None):  # noqa D
     y = y.flatten()
     yhat = yhat.flatten()
 
+    if task == "binary" and yhat.max() > 1 or yhat.min() < 0:
+        raise ValueError("Predictions need to be in [0, 1] for binary task")
+
     score_residuals = y - yhat
     quantiles = np.quantile(score_residuals, [0.1, 0.25, 0.5, 0.75, 0.9])
+
     if task == "binary":
         return {
             f"{prefix}roc": roc_auc_score(y, yhat) if np.unique(y).size > 1 else 0.0,
@@ -111,16 +115,15 @@ def get_equivalent_number_of_samples(n_samples, values, metric):
         n_samples["test_value"], increasing=metric in GREATER_IS_BETTER
     ).x
 
-    log_n_target = np.log(n_samples["n_target"])
-    fit = np.polyfit(isotonic_regression[-3:], log_n_target[-3:], 1)
-    y = np.append(log_n_target, [log_n_target[-1] + 4])
-    x = np.append(isotonic_regression, [y[-1] * fit[0] + fit[1]])
-    # min_, max_ = np.log(n_samples["n_target"].min()), np.log(n_samples["n_target"].max())
+    log_n_target = np.log(n_samples["n_target"].to_numpy())
+    fit1 = np.polyfit(isotonic_regression[-6:], log_n_target[-6:], 1)
+    fit2 = np.polyfit(isotonic_regression[:6], log_n_target[:6], 1)
+    y = [log_n_target[0] - 4] + log_n_target.tolist() + [log_n_target[-1] + 4]
+    x = [y[0] * fit2[0] + fit2[1]]+ isotonic_regression.tolist() +  [y[-1] * fit1[0] + fit1[1]]
+
     interp = scipy.interpolate.interp1d(
         x=x,
         y=y,
         kind="linear",
-        # fill_value="extrapolate",
-        # bounds_error=False
     )
     return np.exp(interp(values))
