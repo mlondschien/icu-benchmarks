@@ -162,15 +162,15 @@ def plot_discrete(ax, data, name, missings=True, legend=True, yticklabels=True):
                 width = bar.get_width()
                 if width < 0.005:
                     continue
-                x_pos = 0.12 if width > 0.08 else width + 0.09
+                x_pos = 0.15 if width > 0.1 else width + 0.15
                 text = f"{width * 100:.1f}" if width < 0.9995 else "99.9"
                 ax.text(
                     x_pos,
-                    bar.get_y() + bar.get_height() / 2,
+                    bar.get_y() + bar.get_height() / 2 - 0.05,
                     text,
                     ha="right",
                     va="center",
-                    fontsize=12,
+                    fontsize=13,
                     color="black",
                 )
 
@@ -179,15 +179,15 @@ def plot_discrete(ax, data, name, missings=True, legend=True, yticklabels=True):
                 width = bar.get_width()
                 if width < 0.005:
                     continue
-                x_pos = 0.99 if width > 0.08 else 1 - width - 0.01
+                x_pos = 0.99 if width > 0.1 else 1 - width - 0.01
                 text = f"{width * 100:.1f}" if width < 0.9995 else "99.9"
                 ax.text(
                     x_pos,
-                    bar.get_y() + bar.get_height() / 2,
+                    bar.get_y() + bar.get_height() / 2 - 0.05,
                     text,
                     ha="right",
                     va="center",
-                    fontsize=12,
+                    fontsize=13,
                     color="black",
                 )
 
@@ -487,3 +487,36 @@ def plot_by_x(results, x, metric):
 
     fig.legend(loc="outside lower center", ncols=4)
     return fig
+
+
+def cv_results(results, metric, n_samples_result=None):
+    sources = results["sources"].explode().unique().to_list()
+    cv = results.filter(pl.col("sources").list.len() == len(sources) - 1)
+    params = [p for p in PARAMETERS if p in cv.columns]
+    
+    if n_samples_result is None:
+        cv = cv.with_columns(
+            pl.coalesce(
+                pl.when(~pl.col("sources").list.contains(s)).then(
+                    pl.col(f"{s}/train_val/{metric}")
+                )
+                for s in sources
+            ).alias("__cv_value")
+        )
+        cv = cv.group_by(params).agg(pl.mean("__cv_value"))
+    else:
+        from icu_benchmarks.metrics import get_equivalent_number_of_samples
+        cv = cv.with_columns(
+            pl.coalesce(
+                pl.when(~pl.col("sources").list.contains(s)).then(
+                    np.log(get_equivalent_number_of_samples(n_samples_result.filter(pl.col("target").eq(s)), cv[f"{s}/train_val/{metric}"].to_numpy(), metric))
+                )
+                for s in sources
+            ).alias("__cv_value")
+        )
+        cv = cv.group_by(params).agg(pl.min("__cv_value"))
+
+    target = results.filter(pl.col("sources").list.len() == len(sources))
+    cv = cv.join(target, on=params, how="full")
+
+    return cv

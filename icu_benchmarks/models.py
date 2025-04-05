@@ -772,9 +772,12 @@ class LGBMAnchorModel(BaseEstimator):
         if isinstance(X, pl.DataFrame):
             X = X.to_arrow()
 
-        scores = self.booster.predict(X, num_iteration=num_iteration) + self.init_score_
+        scores = self.booster.predict(X, num_iteration=num_iteration, raw_score=True)
+        
         if hasattr(self.objective, "predictions"):
-            return self.objective.predictions(scores)
+            return self.objective.predictions(scores + self.init_score_)
+        elif self.objective == "binary":
+            return 1 / (1 + np.exp(-scores - self.init_score_))
         else:
             return scores
 
