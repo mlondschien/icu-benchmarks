@@ -1,0 +1,116 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    # "title": "log(lactate in 4h)",
+    "metric": "mse",
+    "ylabel": "OOD MSE",
+    "target_experiment": "plots",
+    "filename": "lact/mse_by_gamma",
+    "x": "gamma",
+    "xlim": (1, 128),
+    "panels": [
+        {
+            "source": "aumc",
+            "title": "AUMCdb",
+            # "ylim": (0.29, 0.31),
+            "ylim": (0.106, 0.13),
+            "yticks": [0.11, 0.12, 0.13],
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.229, 0.247),
+            "yticks":  [0.23, 0.235, 0.24, 0.245],
+            "yticklabels": [0.23, "", 0.24, ""],
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.099, 0.112),
+            "yticks": [0.1, 0.105, 0.11],
+            "yticklabels": ["0.1", "", 0.11],
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CareVue subset)",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.154, 0.160),
+            "yticks": [0.155, 0.1575, 0.16],
+            "yticklabels": [".155", "", ".16"],
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.131, 0.152),
+            "yticks": [0.13, 0.14, 0.15],
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.0742, 0.085),
+            "yticks": [0.075, 0.08, 0.085],
+            "yticklabels": [".075", ".08", ".085"],
+        },
+        {
+            "source": "nwicu",
+            "title": "NWICU",
+            "ylim": (0.142, 0.165),
+            "yticks": [0.14, 0.15, 0.16],
+        },
+        {
+            "source": "picdb",
+            "title": "PICdb",
+            "xlim": None,
+            "ylim": (0.188, 0.208),
+            "yticks": [0.19, 0.2, 0.21],
+            "yticklabels": [0.19, "0.2", 0.21],
+        },
+        {
+            "source": "zigong",
+            "title": "Zigong",
+            "xlim": None,
+            "ylim": (0.209, 0.22),
+            "yticks": [0.21, 0.215, 0.22],
+            "yticklabels": [0.21, "", 0.22],
+        },
+    ],
+    "lines": [
+        {
+            "experiment_name": "lact_algbm",
+            "label": "anchor boosting",
+            "color": "#004488",
+            "ls": "solid",
+            "alpha": 1,
+        },
+        # {
+        #     "experiment_name": "lact_anchor",
+        #     "label": "(linear) anchor regression",
+        #     "color": "black",
+        #     "ls": "solid",
+        #     "alpha": 0.5,
+        # },
+        # {
+        #     "experiment_name": "lact_glm",
+        #     "label": "GLM",
+        #     "color": "black",
+        #     "alpha": 0.5,
+        #     "ls": "solid",
+        # },
+        {
+         "experiment_name": "lact_lgbm",
+            "label": "LGBM",
+            "color": "#BB5566",
+            "ls": (0, (5,3)),
+            "alpha": 1,
+        },
+    ]
+}

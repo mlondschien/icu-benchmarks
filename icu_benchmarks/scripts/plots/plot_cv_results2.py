@@ -8,9 +8,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-
+from matplotlib.ticker import StrMethodFormatter, NullFormatter
 from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS
+from icu_benchmarks.plotting import cv_results
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
+import matplotlib.gridspec as gridspec
 
 SOURCES = ["miiv", "mimic-carevue", "aumc", "sic", "eicu", "hirid"]
 
@@ -20,6 +22,7 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
 
 
 @gin.configurable()
@@ -40,14 +43,19 @@ def main(tracking_uri, config):  # noqa D
     CONFIG = get_config()
 
     metric = CONFIG["metric"]
+    cv_metric = CONFIG.get("cv_metric", metric)
     param = CONFIG["x"]
 
     _, target_run = get_target_run(client, CONFIG["target_experiment"])
 
-    fig, axes = plt.subplots(
-        2, 3, figsize=(12, 8), constrained_layout=True, gridspec_kw={"hspace": 0.02}
-    )
-
+    ncols = int(len(CONFIG["panels"]) / 3)
+    fig = plt.figure(figsize=(3.5 * ncols, 7))
+    gs = gridspec.GridSpec(ncols + 1, 3, height_ratios=[1, 1, -0.1, 1], wspace=0.18, hspace=0.3)
+    axes = [
+        fig.add_subplot(
+            gs[i, j]
+        ) for i in [0, 1, 3] for j in range(ncols)
+    ]
     legend_elements = []
 
     for line in CONFIG["lines"]:
@@ -86,28 +94,35 @@ def main(tracking_uri, config):  # noqa D
 
         results = pl.concat(all_results, how="diagonal")
 
-        results_n2 = results.filter(pl.col("sources").list.len() == 4)
-        results_n1 = results.filter(pl.col("sources").list.len() == 5)
-        params = [z for z in PARAMETERS if z in results.columns]
-        for panel, ax in zip(CONFIG["panels"], axes.flat):
-            target = panel["source"]
-            cv_results = results_n2.filter(~pl.col("sources").list.contains(target))
-            cv_results = cv_results.with_columns(
-                pl.coalesce(
-                    pl.when(~pl.col("sources").list.contains(s)).then(
-                        pl.col(f"{s}/train_val/{metric}")
-                    )
-                    for s in SOURCES
-                ).alias("cv_value")
-            )
-            cv_results = cv_results.group_by(params).agg(pl.mean("cv_value"))
-            cv_results = results_n1.filter(
-                ~pl.col("sources").list.contains(target)
-            ).join(cv_results, on=params, how="full", validate="1:1")
+        if "filter" in line.keys():
+            results = results.filter(**line["filter"])
 
-            if param not in params:
-                best = cv_results.top_k(
-                    1, by="cv_value", reverse=metric not in GREATER_IS_BETTER
+        if "n_samples" in line.keys():
+            n_samples_experiment = client.get_experiment_by_name(line["n_samples"])
+            runs = client.search_runs(experiment_ids=[n_samples_experiment.experiment_id], filter_string="tags.sources = ''")
+            with tempfile.TemporaryDirectory() as f:
+                client.download_artifacts(runs[0].info.run_id, "n_samples_results.csv", f)
+                n_samples_results = pl.read_csv(f"{f}/n_samples_results.csv")
+            n_samples_results = n_samples_results.filter(pl.col("metric").eq(metric)).group_by(["target", "n_target"]).agg(pl.col("test_value").median())
+        else:
+            n_samples_results = None
+
+        for panel, ax in zip(CONFIG["panels"], axes):
+            target = panel["source"]
+
+            if target == "empty":
+                ax.set_visible(False)
+                continue
+
+            cv = cv_results(
+                results.filter(~pl.col("sources").list.contains(target)),
+                cv_metric,
+                n_samples_result=n_samples_results,
+            )
+            
+            if param not in cv.columns or len(cv[param].unique()) == 1:
+                best = cv.top_k(
+                    1, by="__cv_value", reverse=cv_metric not in GREATER_IS_BETTER and n_samples_results is None
                 )[0]
                 ax.hlines(
                     best[f"{target}/test/{metric}"].item(),
@@ -119,10 +134,10 @@ def main(tracking_uri, config):  # noqa D
                 continue
 
             grouped = (
-                cv_results.group_by(param)
+                cv.group_by(param)
                 .agg(
                     pl.all().top_k_by(
-                        k=1, by="cv_value", reverse=metric not in GREATER_IS_BETTER
+                        k=1, by="__cv_value", reverse=cv_metric not in GREATER_IS_BETTER and n_samples_results is None
                     )
                 )
                 .select(pl.all().explode())
@@ -138,7 +153,7 @@ def main(tracking_uri, config):  # noqa D
             )
 
             best = grouped.top_k(
-                1, by="cv_value", reverse=metric not in GREATER_IS_BETTER
+                1, by="__cv_value", reverse=cv_metric not in GREATER_IS_BETTER and n_samples_results is None
             )[0]
             ax.scatter(
                 best[param].item(),
@@ -149,7 +164,8 @@ def main(tracking_uri, config):  # noqa D
                 alpha=line["alpha"],
             )
 
-            for _, group in cv_results.group_by([p for p in params if p != param]):
+            params = [p for p in PARAMETERS if p in cv.columns]
+            for _, group in cv.group_by([p for p in params if p != param]):
                 group = group.sort(param)
                 ax.plot(
                     group[param],
@@ -158,7 +174,14 @@ def main(tracking_uri, config):  # noqa D
                     ls="solid",
                     alpha=0.1 * line["alpha"],
                 )
-        if param in params:
+
+        if param not in cv.columns or len(cv[param].unique()) == 1:
+            legend_elements.append(
+                plt.Line2D(
+                    [], [], color=line["color"], label=line["label"], ls=line["ls"]
+                )
+            )
+        else:
             legend_elements.append(
                 plt.Line2D(
                     [0],
@@ -169,14 +192,10 @@ def main(tracking_uri, config):  # noqa D
                     marker="*",
                 )
             )
-        else:
-            legend_elements.append(
-                plt.Line2D(
-                    [], [], color=line["color"], label=line["label"], ls=line["ls"]
-                )
-            )
 
-    for ax, panel in zip(axes.flat, CONFIG["panels"]):
+    for ax, panel in zip(axes, CONFIG["panels"]):
+        if panel["source"] == "empty":
+            continue
         ax.yaxis.set_major_locator(plt.MaxNLocator(4))
 
         if param in ["gamma", "alpha", "ratio", "learning_rate"]:
@@ -184,19 +203,34 @@ def main(tracking_uri, config):  # noqa D
 
         ax.set_ylabel(CONFIG["ylabel"])
         ax.set_ylim(*panel["ylim"])
-        ax.set_xlabel(param)
+        if panel.get("yticks") is not None:
+            ax.set_yticks(panel["yticks"])
+            ax.set_yticklabels(panel.get("yticklabels", panel["yticks"]))
+        else:
+            ax.yaxis.set_major_locator(plt.MaxNLocator(4))
+        ax.set_xlabel(param, labelpad=2)
         delta = np.pow(CONFIG["xlim"][1] / CONFIG["xlim"][0], 0.02)
         ax.set_xlim(CONFIG["xlim"][0] / delta, CONFIG["xlim"][1] * delta)
-        ax.set_title(panel["title"])
+        ax.set_title(panel["title"], y=0.985)
 
+        ax.tick_params(axis="y", which="both", pad=1)
+        ax.tick_params(axis="x", which="both", pad=2)
+        ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
+        ax.xaxis.set_minor_formatter(NullFormatter())
         ax.label_outer()
         ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
-        ax.xaxis.set_tick_params(labelbottom=True)
-
+        # ax.xaxis.set_tick_params(labelbottom=True)
+    fig.align_ylabels(axes)
+    line = plt.Line2D([0.07, 0.925], [0.37, 0.37], transform=fig.transFigure, color="black", linewidth=2, alpha=0.5)
+    _ = plt.text(0.915, 0.56, "core datasets", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.6)
+    _ = plt.text(0.915, 0.165, "truly OOD", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.6)
+    
+    fig.add_artist(line)
     fig.legend(handles=legend_elements, loc="outside lower center", ncols=4)
-    fig.suptitle(CONFIG["title"], size="x-large")
-    log_fig(fig, f"{CONFIG['filename']}.png", client, run_id=target_run.info.run_id)
-    log_fig(fig, f"{CONFIG['filename']}.pdf", client, run_id=target_run.info.run_id)
+    if CONFIG.get("title") is not None:
+        fig.suptitle(CONFIG["title"], size="x-large", y=0.94)
+    log_fig(fig, f"{CONFIG['filename']}.pdf", client, run_id=target_run.info.run_id, bbox_inches='tight')
+    log_fig(fig, f"{CONFIG['filename']}.png", client, run_id=target_run.info.run_id, bbox_inches='tight')
 
 
 if __name__ == "__main__":

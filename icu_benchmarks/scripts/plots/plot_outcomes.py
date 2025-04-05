@@ -30,7 +30,7 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
     datasets = DATASETS
     datasets.reverse()
 
-    fig = plt.figure(figsize=(14, 10))
+    fig = plt.figure(figsize=(12, 8))
     plt.rcParams.update({"ytick.labelsize": 12, "xtick.labelsize": 12})
     gs = gridspec.GridSpec(4, 3, height_ratios=[1, 0.05, 1, 0.05], wspace=0.05)
 
@@ -114,7 +114,7 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         loc="center",
         bbox_to_anchor=(0.5, 0.59 / 1.1),
         ncol=3,
-        fontsize=12,
+        fontsize=13,
     )
 
     datasets.reverse()
@@ -158,11 +158,11 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         lines,
         text,
         loc="center",
-        bbox_to_anchor=(0.21, 0.33),  # (x, y), y from the bottom
+        bbox_to_anchor=(0.19, 0.33),  # (x, y), y from the bottom
         ncol=3,
-        fontsize=12,
+        fontsize=13,
         handlelength=1.5,  # default is ~2
-        labelspacing=0.8,
+        labelspacing=0.3,
         columnspacing=-1,
         handletextpad=0.4,
     )

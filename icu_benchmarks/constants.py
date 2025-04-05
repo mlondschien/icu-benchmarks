@@ -37,7 +37,6 @@ OUTCOMES = [
     "respiratory_failure_at_24h",
     "circulatory_failure_at_8h",
     "kidney_failure_at_48h",
-    "log_po2",
     "log_pf_ratio_in_12h",
     "log_rel_urine_rate_in_2h",
     "log_lactate_in_4h",
@@ -463,4 +462,5 @@ PARAMETERS = [
     # "num_leaves",
     "lambda_l2",
     "n_components",
+    # "random_state"
 ]

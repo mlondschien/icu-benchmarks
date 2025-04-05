@@ -1,0 +1,110 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "mortality at 24h",
+    "metric": "log_loss",
+    "ylabel": "OOD neg. binom. log-lik.",
+    "cv_metric": "log_loss",
+    "target_experiment": "plots",
+    "filename": "mort/logloss_by_gamma",
+    "x": "gamma",
+    "xlim": (1, 128),
+    "panels": [
+        {
+            "source": "aumc",
+            "title": "AUMCdb",
+            "ylim": (0.294, 0.312),
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": None,
+            "ylim": (0.161, 0.17),
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": None,
+            "ylim": (0.22, 0.24),
+        },
+        # {
+        #     "source": "miived",
+        #     "title": "MIMIV-IV ED",
+        #     "xlim": None,
+        #     "ylim": (0.008, 0.0125),
+        # },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CareVue subset)",
+            "xlim": None,
+            "ylim": (0.188, 0.215),
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": None,
+            "ylim": (0.238, 0.253),
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": None,
+            "ylim": (0.15, 0.17),
+        },
+        {
+            "source": "nwicu",
+            "title": "NWICU",
+            "ylim": (0.15, 0.162),
+        },
+        {
+            "source": "picdb",
+            "title": "PICdb",
+            "xlim": None,
+            "ylim": (0.26, 0.34),
+        },
+        {
+            "source": "zigong",
+            "title": "Zigong",
+            "xlim": None,
+            "ylim": (1.2, 1.35),
+        },
+    ],
+    "lines": [
+        # {
+        #     "experiment_name": "mort_algbm2",
+        #     "label": "anchor boosting",
+        #     "color": "#0072B2",
+        #     "ls": "solid",
+        #     "alpha": 1,
+        # },
+        # {
+        #     "experiment_name": "mort_lgbm2",
+        #     "label": "LGBM",
+        #     "color": "#0072B2",
+        #     "ls": "dashed",
+        #     "alpha": 1,
+        # },
+        # {
+        #     "experiment_name": "mort_algbm",
+        #     "label": "anchor boosting",
+        #     "color": "green",
+        #     "ls": "solid",
+        #     "alpha": 1,
+        #     "n_samples": "mort_lgbm_n_samples"
+        # },
+        {
+            "experiment_name": "mort_algbm2",
+            "label": "anchor boosting",
+            "color": "#004488",
+            "ls": "solid",
+            "alpha": 1,
+        },
+        {
+            "experiment_name": "mort_lgbm2",
+            "label": "standard LightGBM",
+            "color": "#BB5566",
+            "ls":  (0, (5,3)),
+            "alpha": 1,
+        },
+    ]
+}

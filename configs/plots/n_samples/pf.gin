@@ -10,14 +10,14 @@ CONFIG = {
         {
             "source": "aumc",
             "title": "AUMCdb",
-            "xlim": (25, 6400),
+            "xlim": (25, 10000),
             # "ylim": (0.288, 0.32),
             "ylim": (0.083, 0.1025)
         },
         {
             "source": "eicu",
             "title": "eICU",
-            "xlim": (25, 6400),
+            "xlim": (25, 10000),
             # "ylim": (0.395, 0.45),
             "ylim": (0.156, 0.20),
 
@@ -25,21 +25,21 @@ CONFIG = {
         {
             "source": "hirid",
             "title": "HiRID",
-            "xlim": (25, 6400),
+            "xlim": (25, 10000),
             # "ylim": (0.295, 0.34),
             "ylim": (0.087, 0.116),
         },
         {
             "source": "mimic-carevue",
             "title": "MIMIC-III (CV)",
-            "xlim": (25, 6400),
+            "xlim": (25, 10000),
             # "ylim": (None, 0.44),
-            "ylim": (0.0145, 0.20),
+            "ylim": (0.145, 0.20),
         },
         {
             "source": "miiv",
             "title": "MIMIC-IV",
-            "xlim": (25, 6400),
+            "xlim": (25, 10000),
             # "ylim": (None, 0.5),
             "ylim": (0.2, 0.235),
         },
@@ -75,7 +75,7 @@ CONFIG = {
             "ls": "dashed",
         },
         {
-            "experiment_name": "pf_lgbm",
+            "experiment_name": "pf_lgbm5",
             "result_name": "refit_lgbm",
             "color": "#D55E00",
             "legend": "LGBM refit on target data",
@@ -116,7 +116,7 @@ CONFIG = {
             "color": "#0072B2",
             "ls": "solid",
             "legend": "Boosted anchor regression fit on source",
-        }
+        },
     ]
 }
 

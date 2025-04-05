@@ -108,7 +108,7 @@ icu_benchmarks.load.load.sources = ["{target}"]
 
 get_run.run_id = "{run.info.run_id}"
 get_run.tracking_uri = "http://{ip}:{port}"
-    """
+"""
                 )
 
             command_file = log_dir / "command.sh"

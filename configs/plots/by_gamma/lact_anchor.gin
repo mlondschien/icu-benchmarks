@@ -1,0 +1,125 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "log(lactate in 4h)",
+    "metric": "mse",
+    "ylabel": "OOD MSE",
+    "target_experiment": "plots",
+    "filename": "lact/anchor_mse_by_gamma",
+    "x": "gamma",
+    "xlim": (1, 128),
+    "panels": [
+        {
+            "source": "aumc",
+            "title": "AUMCdb",
+            # "ylim": (0.29, 0.31),
+            "ylim": (0.115, 0.118),
+            "yticks": [0.115, 0.116, 0.117, 0.118],
+            "yticklabels": [".115", ".116", ".117", ".118"],
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.251, 0.256),
+            "yticks": [0.251, 0.253, 0.255],
+            "yticklabels": [".251", ".253", ".255"],
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.1063, 0.1085),
+            "yticks": [0.106, 0.107, 0.108],
+            "yticklabels": [".106", ".107", ".108"],
+
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CareVue subset)",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.1735, 0.1775),
+            "yticks": [0.174, 0.175, 0.176, 0.177],
+            "yticklabels": [".174", ".175", ".176", ".177"],
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.142, 0.145),
+            "yticks": [0.142, 0.143, 0.144, 0.145],
+            "yticklabels": [".142", ".143", ".144", ".145"],
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": None,
+            # "ylim": (0, 1)
+            "ylim": (0.078, 0.09),
+            "yticks": [0.08, 0.085, 0.09],
+            "yticklabels": [".08", ".085", ".09"],
+        },
+        {
+            "source": "nwicu",
+            "title": "NWICU",
+            "ylim": (0.143, 0.165),
+            "yticks": [0.14, 0.15, 0.16],
+        },
+        {
+            "source": "picdb",
+            "title": "PICdb",
+            "xlim": None,
+            "ylim": (0.175, 0.3),
+            "yticks": [0.15, 0.2, 0.25, 0.3],
+        },
+        {
+            "source": "zigong",
+            "title": "Zigong",
+            "xlim": None,
+            "ylim": (0.22, 0.27),
+            "yticks": [0.22, 0.24, 0.26],
+        },
+    ],
+    "lines": [
+        # {
+        #     "experiment_name": "lact_algbm",
+        #     "label": "anchor boosting",
+        #     "color": "#004488",
+        #     "ls": "solid",
+        #     "alpha": 1,
+        # },
+        # {
+        #     "experiment_name": "lact_anchor",
+        #     "label": "anchor boosting",
+        #     "color": "green",
+        #     "ls": "solid",
+        #     "alpha": 1,
+        #     "n_samples": "lact_glm_n_samples"
+        # },
+        {
+            "experiment_name": "lact_anchor",
+            "label": "anchor regression",
+            "color": "#004488",
+            "ls": "solid",
+            "alpha": 1,
+        },
+        {
+            "experiment_name": "lact_glm",
+            "label": "linear regression",
+            "color": "#BB5566",
+            "alpha": 1,
+            "ls": (0, (5,3)),
+        },
+        # {
+        #  "experiment_name": "lact_lgbm",
+        #     "label": "LGBM",
+        #     "color": "#BB5566",
+        #     "ls": "solid",
+        #     "alpha": 1,
+        # },
+    ]
+}

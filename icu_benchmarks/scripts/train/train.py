@@ -110,7 +110,9 @@ def main(config: str):  # noqa D
     model_dict = {}
     results = []
     for parameter_idx, parameter in enumerate(get_parameters()):
-        logger.info(f"Fitting the glm with {parameter}")
+        # if parameter["learning_rate"] != 0.025 or parameter.get("gamma", 1) != 1:
+        #     continue
+        logger.info(f"Fitting model with {parameter}")
         model = get_model()(**parameter)
         tic = perf_counter()
 
@@ -132,7 +134,6 @@ def main(config: str):  # noqa D
                     **predict_kwarg,
                 }
             )
-
     log_dict(model_dict, "models.json")
 
     for target in targets:

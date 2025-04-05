@@ -10,7 +10,7 @@ from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import DATASETS, GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import log_df
-from icu_benchmarks.plotting import PARAMETERS
+from icu_benchmarks.plotting import PARAMETERS, cv_results
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -80,69 +80,52 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
         )
         all_results.append(results)
 
+    results = pl.concat(all_results)
     parameter_names = [x for x in PARAMETERS if x in results.columns]
 
-    results = pl.concat(all_results)
-
-    sources = results["sources"].explode().unique().to_list()
+    if "random_state" in results.columns:
+        results = results.filter(pl.col("random_state").eq(0))
 
     metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
 
     all_targets = map(re.compile(r"^(.+)\/test\/[a-z]+$").match, results.columns)
     all_targets = np.unique([m.groups()[0] for m in all_targets if m is not None])
+    
+    out = []
 
-    cv_results = []
-
-    for target in sorted(all_targets):  # type: ignore
-        cv_sources = [source for source in sources if source != target]
-        n1 = results.filter(
-            ~pl.col("sources").list.contains(target)
-            & pl.col("sources").list.len().eq(len(cv_sources))
-        )
-        cv = results.filter(
-            ~pl.col("sources").list.contains(target)
-            & pl.col("sources").list.len().eq(len(cv_sources) - 1)
-        )
-
+    for target in sorted(all_targets):
+        ood_results = results.filter(~pl.col("sources").list.contains(target))
         for metric in metrics:
-            expr = pl.coalesce(
-                pl.when(~pl.col("sources").list.contains(t)).then(
-                    pl.col(f"{t}/train_val/{metric}")
-                )
-                for t in cv_sources
-            )
-            col = f"target/train_val/{metric}"
-
-            cv = cv.with_columns(expr.alias(col))
-            cv_grouped = cv.group_by(parameter_names).agg(pl.mean(col))
+            cv = cv_results(ood_results, metric)
+        
             if metric in GREATER_IS_BETTER:
-                best = cv_grouped[cv_grouped[col].arg_max()]
+                best = cv[cv["__cv_value"].arg_max()]
             else:
-                best = cv_grouped[cv_grouped[col].arg_min()]
-
-            model = n1.filter(
+                best = cv[cv["__cv_value"].arg_min()]
+            model = cv.filter(
                 pl.all_horizontal(pl.col(p).eq(best[p]) for p in parameter_names)
             )
-            cv_results.append(
+            out.append(
                 {
                     **{
                         "target": target,
-                        "metric": metric,
-                        "cv_value": best[col].item(),
+                        "cv_metric": metric,
+                        "cv_value": best["__cv_value"].item(),
                         "test_value": model[f"{target}/test/{metric}"].item(),
                     },
                     **{p: best[p].item() for p in parameter_names},
                     **{
-                        f"{source}/train_val/": model[
-                            f"{source}/train_val/{metric}"
+                        f"{source}/{split}/{m}": model[
+                            f"{source}/{split}/{m}"
                         ].item()
                         for source in sorted(DATASETS)
-                        if f"{source}/train_val/{metric}" in model.columns
+                        for m in metrics
+                        for split in ["train_val", "test"]
+                        if f"{source}/{split}/{m}" in model.columns
                     },
                 }
             )
-    cv_results = pl.DataFrame(cv_results)
 
     target_run = client.search_runs(
         experiment_ids=[experiment_id], filter_string="tags.sources = ''"
@@ -156,7 +139,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
 
     print(f"logging to {target_run.info.run_id}")
     log_df(
-        pl.DataFrame(cv_results),
+        pl.DataFrame(out),
         "cv_results.csv",
         client,
         target_run.info.run_id,

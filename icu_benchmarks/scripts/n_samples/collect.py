@@ -71,14 +71,22 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
         all_results.append(results)
 
     results = pl.concat(all_results, how="diagonal")
-    mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
+    metrics = results["metric"].unique().to_list()
 
-    group_by = ["target", "result_name", "metric", "n_target", "seed"]
-    summary = (
-        results.group_by(group_by)
-        .agg(pl.all().top_k_by(k=1, by=pl.col("cv_value") * mult))
-        .explode([x for x in results.columns if x not in group_by])
-    )
+    mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
+    results = results.with_columns((pl.col("cv_value") * mult).alias("cv_value"))
+    results = results.pivot(values=["cv_value", "test_value"], on=["metric"], separator="/")
+    group_by = ["target", "n_target", "seed"]
+    
+    summaries = []
+    for metric in metrics:
+        summaries.append(
+            results.group_by(group_by)
+            .agg(pl.all().top_k_by(k=1, by=pl.col(f"cv_value/{metric}")))
+            .explode([x for x in results.columns if x not in group_by]).with_columns(pl.lit(metric).alias("cv_metric"))
+        )
+    
+    summary = pl.concat(summaries, how="diagonal")
     log_df(summary, f"{result_name}_results.csv", client, run_id=target_run.info.run_id)
 
 

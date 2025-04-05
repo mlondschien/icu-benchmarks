@@ -123,6 +123,8 @@ def main(config: str):  # noqa D
 
     jobs = []
 
+    min_alpha = min(x.get("prior_alpha", 1) for x in get_refit_parameters())
+
     for model_idx, prior in enumerate(priors):
         if get_name() in ["refit_linear", "refit_lgbm"]:
             value = getattr(prior, "gamma", None) or getattr(prior, "ratio", 1.0)
@@ -130,6 +132,10 @@ def main(config: str):  # noqa D
                 continue
 
         for refit_parameter in get_refit_parameters():
+            if "prior_alpha" in refit_parameter:
+                value = refit_parameter["prior_alpha"] / min_alpha
+                if np.abs(np.log10(value) - np.round(np.log10(value))) > 0.1:
+                    continue
 
             for seed in get_seeds():
                 model = get_model()(prior=prior, **refit_parameter)

@@ -4,7 +4,8 @@ CONFIG = {
     "title": "log(lactate in 4h)",
     "metric": "mse",
     "experiment_name": "lact_anchor",
-    "filename": "residuals/mse_gamma",
+    "filename": "lact/residuals_anchor",
+    "target_experiment": "plots",
     "x": "gamma",
     "panels": [
         {
@@ -26,6 +27,14 @@ CONFIG = {
             "ytest_zoom": 0.2,
         },
         {
+            "target": "nwicu",
+            "title": "NWICU",
+            "y_residuals": (-0.65, 0.65),
+        },
+        {
+            "target": "empty",
+        },
+        {
             "target": "mimic-carevue",
             "title": "MIMIC-III",
             "y_residuals": (-0.65, 0.65),
@@ -42,6 +51,14 @@ CONFIG = {
             "title": "SICdb",
             "y_residuals": (-0.65, 0.65),
             "ytest_zoom": 0.2,
+        },
+        {
+            "target": "picdb",
+            "title": "PICdb",
+        },
+        {
+            "target": "zigong",
+            "title": "Zigong",
         },
     ],
 }
