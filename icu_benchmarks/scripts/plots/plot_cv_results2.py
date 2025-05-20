@@ -1,20 +1,21 @@
 import json
 import logging
+import re
 import tempfile
 
 import click
 import gin
+import matplotlib
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
-import re
 import polars as pl
+from matplotlib.ticker import NullFormatter, StrMethodFormatter
 from mlflow.tracking import MlflowClient
-from matplotlib.ticker import StrMethodFormatter, NullFormatter, FuncFormatter
+
 from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS
-from icu_benchmarks.plotting import cv_results
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-import matplotlib.gridspec as gridspec
-import matplotlib
+from icu_benchmarks.plotting import cv_results
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -22,7 +23,6 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-
 
 
 @gin.configurable()
@@ -49,12 +49,10 @@ def main(tracking_uri, config):  # noqa D
 
     ncols = 3
     fig = plt.figure(figsize=(3.5 * ncols, 7))
-    gs = gridspec.GridSpec(ncols + 1, 3, height_ratios=[1, 1, -0.1, 1], wspace=0.18, hspace=0.3)
-    axes = [
-        fig.add_subplot(
-            gs[i, j]
-        ) for i in [0, 1, 3] for j in range(ncols)
-    ]
+    gs = gridspec.GridSpec(
+        ncols + 1, 3, height_ratios=[1, 1, -0.1, 1], wspace=0.18, hspace=0.3
+    )
+    axes = [fig.add_subplot(gs[i, j]) for i in [0, 1, 3] for j in range(ncols)]
     legend_elements = []
 
     for line in CONFIG["lines"]:
@@ -69,7 +67,7 @@ def main(tracking_uri, config):  # noqa D
             if run.data.tags.get("sources", "") == "":
                 continue
             sources = json.loads(run.data.tags["sources"].replace("'", '"'))
-            if len(sources) == 0:  #  not in [4, 5, 6]:
+            if len(sources) == 0:  # not in [4, 5, 6]:
                 continue
 
             run_id = run.info.run_id
@@ -104,11 +102,20 @@ def main(tracking_uri, config):  # noqa D
 
         if "n_samples" in line.keys():
             n_samples_experiment = client.get_experiment_by_name(line["n_samples"])
-            runs = client.search_runs(experiment_ids=[n_samples_experiment.experiment_id], filter_string="tags.sources = ''")
+            runs = client.search_runs(
+                experiment_ids=[n_samples_experiment.experiment_id],
+                filter_string="tags.sources = ''",
+            )
             with tempfile.TemporaryDirectory() as f:
-                client.download_artifacts(runs[0].info.run_id, "n_samples_results.csv", f)
+                client.download_artifacts(
+                    runs[0].info.run_id, "n_samples_results.csv", f
+                )
                 n_samples_results = pl.read_csv(f"{f}/n_samples_results.csv")
-            n_samples_results = n_samples_results.filter(pl.col("metric").eq(metric)).group_by(["target", "n_target"]).agg(pl.col("test_value").median())
+            n_samples_results = (
+                n_samples_results.filter(pl.col("metric").eq(metric))
+                .group_by(["target", "n_target"])
+                .agg(pl.col("test_value").median())
+            )
         else:
             n_samples_results = None
 
@@ -119,7 +126,9 @@ def main(tracking_uri, config):  # noqa D
                 ax.set_visible(False)
                 continue
 
-            cv_columns = [x for x in results.columns if re.match(rf"^cv/{cv_metric}_\d+$", x)]
+            cv_columns = [
+                x for x in results.columns if re.match(rf"^cv/{cv_metric}_\d+$", x)
+            ]
             if len(cv_columns) > 0:
                 cv = results.filter(~pl.col("sources").list.contains(target))
                 cv = cv.with_columns(
@@ -129,20 +138,34 @@ def main(tracking_uri, config):  # noqa D
                 if "gamma" in results.columns:
                     sources = results["sources"].explode().unique().to_list()
                     results = results.with_columns(
-                        (pl.col(f"{s}/train_val/{cv_metric}") + (pl.col("gamma") - 1) * pl.col(f"{s}/train_val/proj_residuals_sq")).alias(f"{s}/train_val/anchor") for s in sources
+                        (
+                            pl.col(f"{s}/train_val/{cv_metric}")
+                            + (pl.col("gamma") - 1)
+                            * pl.col(f"{s}/train_val/proj_residuals_sq")
+                        ).alias(f"{s}/train_val/anchor")
+                        for s in sources
                     )
 
-                    cv = cv_results( results.filter(~pl.col("sources").list.contains(target)), ["anchor", cv_metric], n_samples_result=n_samples_results)
-                    
+                    cv = cv_results(
+                        results.filter(~pl.col("sources").list.contains(target)),
+                        ["anchor", cv_metric],
+                        n_samples_result=n_samples_results,
+                    )
+
                 else:
                     cv = cv_results(
                         results.filter(~pl.col("sources").list.contains(target)),
                         [cv_metric],
                         n_samples_result=n_samples_results,
                     )
-            
+
             if param not in cv.columns or len(cv[param].unique()) == 1:
-                best = cv.top_k(1, by=f"__cv_{cv_metric}", reverse=cv_metric not in GREATER_IS_BETTER and n_samples_results is None             )[0]
+                best = cv.top_k(
+                    1,
+                    by=f"__cv_{cv_metric}",
+                    reverse=cv_metric not in GREATER_IS_BETTER
+                    and n_samples_results is None,
+                )[0]
                 ax.hlines(
                     best[f"{target}/test/{metric}"].item(),
                     *CONFIG["xlim"],
@@ -150,16 +173,14 @@ def main(tracking_uri, config):  # noqa D
                     ls=line["ls"],
                     alpha=line["alpha"],
                 )
-                print(f"{line['experiment_name']}, {target}: {best[f'{target}/test/{metric}'].item()}")
+                print(
+                    f"{line['experiment_name']}, {target}: {best[f'{target}/test/{metric}'].item()}"
+                )
                 continue
 
             grouped = (
                 cv.group_by(param)
-                .agg(
-                    pl.all().top_k_by(
-                        k=1, by="__cv_anchor", reverse=True
-                    )
-                )
+                .agg(pl.all().top_k_by(k=1, by="__cv_anchor", reverse=True))
                 .select(pl.all().explode())
                 .sort(param)
             )
@@ -172,7 +193,10 @@ def main(tracking_uri, config):  # noqa D
             )
 
             best = grouped.top_k(
-                1, by=f"__cv_{cv_metric}", reverse=cv_metric not in GREATER_IS_BETTER and n_samples_results is None
+                1,
+                by=f"__cv_{cv_metric}",
+                reverse=cv_metric not in GREATER_IS_BETTER
+                and n_samples_results is None,
             )[0]
             ax.scatter(
                 best[param].item(),
@@ -182,7 +206,9 @@ def main(tracking_uri, config):  # noqa D
                 s=100,
                 alpha=line["alpha"],
             )
-            print(f"{line['experiment_name']}, {target}: {best[f'{target}/test/{metric}'].item()}")
+            print(
+                f"{line['experiment_name']}, {target}: {best[f'{target}/test/{metric}'].item()}"
+            )
 
             if line.get("plot_all", True):
                 params = [p for p in PARAMETERS if p in cv.columns]
@@ -190,7 +216,13 @@ def main(tracking_uri, config):  # noqa D
                 for _, group in cv.group_by([p for p in params if p != param]):
                     # val = (np.log(group["alpha"].first()) - np.log(cv["alpha"].min())) / np.log(cv["alpha"].max() / cv["alpha"].min())
                     # np.max([np.max([val, 0]), 1])
-                    val = (-(results["lambda_l2"]+0.01).log().min() + (group["lambda_l2"]+0.01).log().first()) / ((results["lambda_l2"]+0.01).log().max() - (results["lambda_l2"]+0.01).log().min())
+                    val = (
+                        -(results["lambda_l2"] + 0.01).log().min()
+                        + (group["lambda_l2"] + 0.01).log().first()
+                    ) / (
+                        (results["lambda_l2"] + 0.01).log().max()
+                        - (results["lambda_l2"] + 0.01).log().min()
+                    )
                     group = group.sort(param)
                     ax.plot(
                         group[param],
@@ -212,7 +244,6 @@ def main(tracking_uri, config):  # noqa D
             #     ls="dotted",
             #     alpha=1 * line["alpha"],
             # )
-
 
         if param not in cv.columns or len(cv[param].unique()) == 1:
             legend_elements.append(
@@ -243,7 +274,7 @@ def main(tracking_uri, config):  # noqa D
         ax.set_ylabel(CONFIG["ylabel"])
         if "ylim" in panel:
             ax.set_ylim(*panel["ylim"])
-    
+
         if panel.get("yticks") is not None:
             ax.set_yticks(panel["yticks"])
             ax.set_yticklabels(panel.get("yticklabels", panel["yticks"]))
@@ -256,22 +287,57 @@ def main(tracking_uri, config):  # noqa D
 
         ax.tick_params(axis="y", which="both", pad=1)
         ax.tick_params(axis="x", which="both", pad=2)
-        ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
+        ax.xaxis.set_major_formatter(StrMethodFormatter("{x:.0f}"))
         ax.xaxis.set_minor_formatter(NullFormatter())
         ax.label_outer()
         ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
         # ax.xaxis.set_tick_params(labelbottom=True)
     fig.align_ylabels(axes)
-    line = plt.Line2D([0.07, 0.925], [0.37, 0.37], transform=fig.transFigure, color="black", linewidth=2, alpha=0.5)
-    _ = plt.text(0.915, 0.56, "core datasets", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.6)
-    _ = plt.text(0.915, 0.165, "truly OOD", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.6)
-    
+    line = plt.Line2D(
+        [0.07, 0.925],
+        [0.37, 0.37],
+        transform=fig.transFigure,
+        color="black",
+        linewidth=2,
+        alpha=0.5,
+    )
+    _ = plt.text(
+        0.915,
+        0.56,
+        "core datasets",
+        transform=fig.transFigure,
+        fontsize=12,
+        rotation=90,
+        alpha=0.6,
+    )
+    _ = plt.text(
+        0.915,
+        0.165,
+        "truly OOD",
+        transform=fig.transFigure,
+        fontsize=12,
+        rotation=90,
+        alpha=0.6,
+    )
+
     fig.add_artist(line)
     fig.legend(handles=legend_elements, loc="outside lower center", ncols=4)
     if CONFIG.get("title") is not None:
         fig.suptitle(CONFIG["title"], size="x-large", y=0.94)
-    log_fig(fig, f"{CONFIG['filename']}.pdf", client, run_id=target_run.info.run_id, bbox_inches='tight')
-    log_fig(fig, f"{CONFIG['filename']}.png", client, run_id=target_run.info.run_id, bbox_inches='tight')
+    log_fig(
+        fig,
+        f"{CONFIG['filename']}.pdf",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_inches="tight",
+    )
+    log_fig(
+        fig,
+        f"{CONFIG['filename']}.png",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_inches="tight",
+    )
 
 
 if __name__ == "__main__":

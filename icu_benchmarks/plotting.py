@@ -26,7 +26,7 @@ SOURCE_COLORS = {
     "data_old/nwicu": "orange",
     "data/nwicu": "red",
     "data/miiv": "purple",
-    "data_old/miiv": "blue"
+    "data_old/miiv": "blue",
 }
 
 # https://personal.sron.nl/~pault/#sec:qualitative
@@ -495,7 +495,7 @@ def plot_by_x(results, x, metric):
     return fig
 
 
-def cv_results(results, metrics, n_samples_result=None):
+def cv_results(results, metrics, n_samples_result=None):  # noqa D
     params = [p for p in PARAMETERS if p in results.columns]
 
     if len(params) == 0:
@@ -520,10 +520,17 @@ def cv_results(results, metrics, n_samples_result=None):
 
     else:
         from icu_benchmarks.metrics import get_equivalent_number_of_samples
+
         cv = cv.with_columns(
             pl.coalesce(
                 pl.when(~pl.col("sources").list.contains(s)).then(
-                    np.log(get_equivalent_number_of_samples(n_samples_result.filter(pl.col("target").eq(s)), cv[f"{s}/train_val/{metric}"].to_numpy(), metric))
+                    np.log(
+                        get_equivalent_number_of_samples(
+                            n_samples_result.filter(pl.col("target").eq(s)),
+                            cv[f"{s}/train_val/{metric}"].to_numpy(),
+                            metric,
+                        )
+                    )
                 )
                 for s in sources
             ).alias("__cv_value")

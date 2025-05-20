@@ -3,16 +3,18 @@ import logging
 import tempfile
 
 import click
+import gin
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from matplotlib.ticker import NullFormatter, StrMethodFormatter
 from mlflow.tracking import MlflowClient
-from matplotlib.ticker import StrMethodFormatter, NullFormatter, FuncFormatter
-from icu_benchmarks.constants import GREATER_IS_BETTER, METRICS, PARAMETERS
+
+from icu_benchmarks.constants import GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
 from icu_benchmarks.plotting import cv_results
-import gin
-import matplotlib.gridspec as gridspec
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -24,6 +26,7 @@ logging.basicConfig(
 @gin.configurable()
 def get_config(config):  # noqa D
     return config
+
 
 @click.command()
 @click.option(
@@ -68,15 +71,13 @@ def main(tracking_uri, config):  # noqa D
 
     if "filter" in CONFIG.keys():
         results = results.filter(**CONFIG["filter"])
-    
+
     ncols = 3
     fig = plt.figure(figsize=(3.5 * ncols, 7))
-    gs = gridspec.GridSpec(ncols + 1, 3, height_ratios=[1, 1, -0.1, 1], wspace=0.18, hspace=0.3)
-    axes = [
-        fig.add_subplot(
-            gs[i, j]
-        ) for i in [0, 1, 3] for j in range(ncols)
-    ]
+    gs = gridspec.GridSpec(
+        ncols + 1, 3, height_ratios=[1, 1, -0.1, 1], wspace=0.18, hspace=0.3
+    )
+    axes = [fig.add_subplot(gs[i, j]) for i in [0, 1, 3] for j in range(ncols)]
 
     for idx, (panel, ax) in enumerate(zip(CONFIG["panels"], axes)):
         target = panel["target"]
@@ -85,10 +86,20 @@ def main(tracking_uri, config):  # noqa D
             ax.set_visible(False)
             continue
 
-        cv = cv_results(
-            results.filter(~pl.col("sources").list.contains(target)),
-            cv_metric,
-        ).group_by("gamma").agg(pl.all().top_k_by(k=1, by="__cv_value", reverse=cv_metric not in GREATER_IS_BETTER)).select(pl.all().explode()).sort("gamma")
+        cv = (
+            cv_results(
+                results.filter(~pl.col("sources").list.contains(target)),
+                cv_metric,
+            )
+            .group_by("gamma")
+            .agg(
+                pl.all().top_k_by(
+                    k=1, by="__cv_value", reverse=cv_metric not in GREATER_IS_BETTER
+                )
+            )
+            .select(pl.all().explode())
+            .sort("gamma")
+        )
 
         ax.plot(
             cv["gamma"],
@@ -168,12 +179,11 @@ def main(tracking_uri, config):  # noqa D
         ax.set_xlabel("gamma", labelpad=2)
         ax.set_ylabel("residuals")
 
-        ax.set_title(panel["title"],y=0.985)
+        ax.set_title(panel["title"], y=0.985)
         ax.set_xscale("log")
 
         def my_formatter(x, _):
             return f"{x:.0f}".lstrip("0")
-    
 
         # ax.xaxis.set_tick_params(labelbottom=True)
 
@@ -188,7 +198,7 @@ def main(tracking_uri, config):  # noqa D
 
         ax.tick_params(axis="y", which="both", pad=1)
         ax.tick_params(axis="x", which="both", pad=2)
-        
+
         ax.xaxis.set_major_formatter(StrMethodFormatter("{x:.0f}"))
         ax.xaxis.set_minor_formatter(NullFormatter())
         ax.yaxis.set_tick_params(labelleft=True)  # manually add y ticks again
@@ -196,21 +206,56 @@ def main(tracking_uri, config):  # noqa D
         ax.label_outer()
         ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
         ax.xaxis.set_tick_params(labelbottom=True)
-        
+
     fig.align_ylabels(axes)
-        
-    line = plt.Line2D([0.07, 0.925], [0.37, 0.37], transform=fig.transFigure, color="black", linewidth=2, alpha=0.5)
-    _ = plt.text(0.915, 0.56, "core datasets", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.6)
-    _ = plt.text(0.915, 0.165, "truly OOD", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.6)
-    
+
+    line = plt.Line2D(
+        [0.07, 0.925],
+        [0.37, 0.37],
+        transform=fig.transFigure,
+        color="black",
+        linewidth=2,
+        alpha=0.5,
+    )
+    _ = plt.text(
+        0.915,
+        0.56,
+        "core datasets",
+        transform=fig.transFigure,
+        fontsize=12,
+        rotation=90,
+        alpha=0.6,
+    )
+    _ = plt.text(
+        0.915,
+        0.165,
+        "truly OOD",
+        transform=fig.transFigure,
+        fontsize=12,
+        rotation=90,
+        alpha=0.6,
+    )
+
     fig.add_artist(line)
     # fig.legend(handles=legend_elements, loc="outside lower center", ncols=4)
     if CONFIG.get("title") is not None:
         fig.suptitle(CONFIG["title"], size="x-large", y=0.94)
     fig.legend(loc="outside lower center", ncols=4)
-    
-    log_fig(fig, f"{CONFIG['filename']}.pdf", client, run_id=target_run.info.run_id, bbox_inches='tight')
-    log_fig(fig, f"{CONFIG['filename']}.png", client, run_id=target_run.info.run_id, bbox_inches='tight')
+
+    log_fig(
+        fig,
+        f"{CONFIG['filename']}.pdf",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_inches="tight",
+    )
+    log_fig(
+        fig,
+        f"{CONFIG['filename']}.png",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_inches="tight",
+    )
 
     plt.close(fig)
 

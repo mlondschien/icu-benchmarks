@@ -6,16 +6,12 @@ import gin
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from matplotlib.patches import FancyArrowPatch, Patch
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.mlflow_utils import log_fig, get_target_run
 from icu_benchmarks.constants import GREATER_IS_BETTER, SHORT_DATASET_NAMES
-from matplotlib.patches import Patch
-from matplotlib.lines import Line2D
-from matplotlib.ticker import StrMethodFormatter, NullFormatter
-import matplotlib.gridspec as gridspec
-from icu_benchmarks.utils import fit_monotonic_spline, find_intersection
-from matplotlib.patches import FancyArrowPatch
+from icu_benchmarks.mlflow_utils import get_target_run, log_fig
+from icu_benchmarks.utils import find_intersection, fit_monotonic_spline
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -24,7 +20,36 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-N_TARGET_VALUES = np.array([25, 35, 50, 70, 100, 140, 200, 280, 400, 560, 800, 1120, 1600, 2250, 3200, 4480, 6400, 8960, 12800, 17920, 25600, 35840, 51200, 71680, 102400])
+N_TARGET_VALUES = np.array(
+    [
+        25,
+        35,
+        50,
+        70,
+        100,
+        140,
+        200,
+        280,
+        400,
+        560,
+        800,
+        1120,
+        1600,
+        2250,
+        3200,
+        4480,
+        6400,
+        8960,
+        12800,
+        17920,
+        25600,
+        35840,
+        51200,
+        71680,
+        102400,
+    ]
+)
+
 
 @gin.configurable()
 def get_config(config):  # noqa D
@@ -46,11 +71,8 @@ def main(tracking_uri, config):  # noqa D
 
     _, target_run = get_target_run(client, CONFIG["target_experiment"])
 
-    fig, ax = plt.subplots(
-        figsize=(3.5 * 2, 5), constrained_layout=True, sharex=True
-    )
+    fig, ax = plt.subplots(figsize=(3.5 * 2, 5), constrained_layout=True, sharex=True)
 
-    rng = np.random.default_rng(0)
     # ncols = int(len(CONFIG["panels"]) / 3)
     # fig = plt.figure(figsize=(3.5 * ncols, 7))# , constrained_layout=True,sharex=True)
     # gs = gridspec.GridSpec(ncols + 2, 3, height_ratios=[1, 1, -0.27, 1, -0.2], wspace=0.13, hspace=0.68)
@@ -65,30 +87,36 @@ def main(tracking_uri, config):  # noqa D
 
     # legend_handles = []
     # labels = []
-    
+
     datasets = CONFIG["datasets"]
     datasets.reverse()
 
     legend_handles = []
     labels = []
     for experient_idx, experiment in enumerate(CONFIG["experiments"]):
-        legend_handles.append((Patch(color=experiment["color"])))
+        legend_handles.append(Patch(color=experiment["color"]))
         labels.append(experiment["name"])
 
         group_shift = -0.3 + 0.6 * experient_idx / (len(CONFIG["experiments"]) - 1)
         # scatter = 0.4 / (len(CONFIG["experiments"]) - 1) / 3
 
-        _, run = get_target_run(client, experiment["cv_experiment_name"], create_if_not_exists=False)
+        _, run = get_target_run(
+            client, experiment["cv_experiment_name"], create_if_not_exists=False
+        )
         with tempfile.TemporaryDirectory() as f:
-            client.download_artifacts(run.info.run_id, f"cv_results.csv", f)
+            client.download_artifacts(run.info.run_id, "cv_results.csv", f)
             cv_data = pl.read_csv(f"{f}/cv_results.csv")
 
-        _, run = get_target_run(client, experiment["n_samples_experiment_name"], create_if_not_exists=False)
+        _, run = get_target_run(
+            client, experiment["n_samples_experiment_name"], create_if_not_exists=False
+        )
         with tempfile.TemporaryDirectory() as f:
-            client.download_artifacts(run.info.run_id, f"n_samples_results.csv", f)
+            client.download_artifacts(run.info.run_id, "n_samples_results.csv", f)
             n_samples_data = pl.read_csv(f"{f}/n_samples_results.csv")
 
-        _, run = get_target_run(client, experiment["refit_experiment_name"], create_if_not_exists=False)
+        _, run = get_target_run(
+            client, experiment["refit_experiment_name"], create_if_not_exists=False
+        )
         with tempfile.TemporaryDirectory() as f:
             file_name = f"{experiment['refit_result_name']}_results.csv"
             client.download_artifacts(run.info.run_id, file_name, f)
@@ -107,8 +135,20 @@ def main(tracking_uri, config):  # noqa D
             ).alias(column)
         )
 
-        data = cv_data.join(n_samples_data, on=["target"], how="full", validate="1:m", suffix="_n_samples")
-        data = data.join(refit_data, on=["target", "n_target", "seed"], how="full", validate="1:1", suffix="_refit")
+        data = cv_data.join(
+            n_samples_data,
+            on=["target"],
+            how="full",
+            validate="1:m",
+            suffix="_n_samples",
+        )
+        data = data.join(
+            refit_data,
+            on=["target", "n_target", "seed"],
+            how="full",
+            validate="1:1",
+            suffix="_refit",
+        )
 
         val = (pl.col("n_target") / 100).log() / np.log(np.sqrt(2))
         data = data.filter((val - val.round()).abs() < 0.01)
@@ -231,21 +271,27 @@ def main(tracking_uri, config):  # noqa D
             n_samples_new = np.median(n_samples_new, axis=1)
             refit_new = np.median(refit_new, axis=1)
 
-            cv_vs_n_samples = np.exp(find_intersection(
-                np.log(N_TARGET_VALUES),
-                n_samples_new - df[column].first(),
-                increasing=metric in GREATER_IS_BETTER,
-            ))
-            cv_vs_refit = np.exp(find_intersection(
-                np.log(N_TARGET_VALUES),
-                refit_new - df[column].first(),
-                increasing=metric in GREATER_IS_BETTER,
-            ))
-            n_samples_vs_refit = np.exp(find_intersection(
-                np.log(N_TARGET_VALUES),
-                n_samples_new - refit_new,
-                increasing=metric in GREATER_IS_BETTER,
-            ))
+            cv_vs_n_samples = np.exp(
+                find_intersection(
+                    np.log(N_TARGET_VALUES),
+                    n_samples_new - df[column].first(),
+                    increasing=metric in GREATER_IS_BETTER,
+                )
+            )
+            cv_vs_refit = np.exp(
+                find_intersection(
+                    np.log(N_TARGET_VALUES),
+                    refit_new - df[column].first(),
+                    increasing=metric in GREATER_IS_BETTER,
+                )
+            )
+            n_samples_vs_refit = np.exp(
+                find_intersection(
+                    np.log(N_TARGET_VALUES),
+                    n_samples_new - refit_new,
+                    increasing=metric in GREATER_IS_BETTER,
+                )
+            )
 
             n_max = df["n_target"].max()
             if np.isnan(cv_vs_refit):
@@ -271,7 +317,7 @@ def main(tracking_uri, config):  # noqa D
                     s=50,
                     zorder=4,
                 )
-            
+
             if n_samples_vs_refit <= n_max * 6:
                 ax.scatter(
                     n_samples_vs_refit,
@@ -284,7 +330,7 @@ def main(tracking_uri, config):  # noqa D
                 )
             else:
                 n_samples_vs_refit = n_max * 5.6
-            
+
             # cv_vs_n_samples
             # ax.scatter(
             #     value,
@@ -307,7 +353,7 @@ def main(tracking_uri, config):  # noqa D
             #         alpha = 0.5
             #     else:
             #         alpha = 1
-            
+
             #     ax.scatter(
             #         value,
             #         target_idx + group_shift,
@@ -400,9 +446,6 @@ def main(tracking_uri, config):  # noqa D
             #     zorder=4,
             # )
 
-
-
-
             # for seed in df["seed"].unique():
             #     filtered = df.filter(pl.col("seed") == seed)
             #     n_target_equiv = np.exp(
@@ -427,7 +470,12 @@ def main(tracking_uri, config):  # noqa D
             #         increasing=metric in GREATER_IS_BETTER,
             #     )
             # )
-    fig.legend(legend_handles, labels, loc="outside lower center", ncols=int(len(legend_handles)/2))
+    fig.legend(
+        legend_handles,
+        labels,
+        loc="outside lower center",
+        ncols=int(len(legend_handles) / 2),
+    )
     ax.set_xscale("log")
 
     ax.set_xticks([25, 100, 1000, 10_000, 100_000])
@@ -439,8 +487,13 @@ def main(tracking_uri, config):  # noqa D
         [SHORT_DATASET_NAMES[x] for x in datasets],
         fontsize=12,
     )
-    log_fig(fig, "regimes.pdf", client, run_id=target_run.info.run_id, bbox_inches="tight")
-    log_fig(fig, "regimes.png", client, run_id=target_run.info.run_id, bbox_inches="tight")
+    log_fig(
+        fig, "regimes.pdf", client, run_id=target_run.info.run_id, bbox_inches="tight"
+    )
+    log_fig(
+        fig, "regimes.png", client, run_id=target_run.info.run_id, bbox_inches="tight"
+    )
+
 
 if __name__ == "__main__":
     main()

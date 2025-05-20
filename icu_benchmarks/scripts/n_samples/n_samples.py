@@ -140,9 +140,9 @@ def main(config: str):  # noqa D
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
-    
+
     print(len(jobs))
-    
+
     with Parallel(n_jobs=-1, prefer="processes") as parallel:
         parallel_results = parallel(jobs)
 

@@ -54,6 +54,3 @@ def get_preprocessing(model, df):  # noqa D
         raise ValueError(f"Unknown model {model}")
 
     return preprocessor
-
-
-

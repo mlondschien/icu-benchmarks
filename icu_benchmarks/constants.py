@@ -46,7 +46,7 @@ ANCHORS = [
     "dataset",
     "hospital_id",
     "ward",
-    "year", 
+    "year",
     "adm",
     "insurance",
     "icd10_blocks",
@@ -200,7 +200,7 @@ MELD_VARIABLES = [  # from Manuel
     "age",
     "height",
     "weight",
-    "sex"
+    "sex",
 ]
 
 
@@ -610,7 +610,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "alpha_max": 0.16,
         "variables": MELD_VARIABLES,
         "horizons": [24],
-    }
+    },
 }
 
 GREATER_IS_BETTER = ["roc", "auroc", "auc", "auprc", "accuracy", "prc", "r2"]

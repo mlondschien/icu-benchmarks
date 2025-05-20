@@ -7,11 +7,11 @@ import polars as pl
 import scipy
 import tabmat
 from glum import GeneralizedLinearRegressor
+from ivmodels.utils import proj
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
-from ivmodels.utils import proj
-from line_profiler import profile
+
 
 @gin.configurable
 class GeneralizedLinearModel(GeneralizedLinearRegressor):
@@ -103,7 +103,9 @@ class GeneralizedLinearModel(GeneralizedLinearRegressor):
             cat_missing_name=cat_missing_name,
         )
 
-    def fit(self, X, y, sample_weight=None, Z=None, offset=None, X_proj=None, y_proj=None):
+    def fit(
+        self, X, y, sample_weight=None, Z=None, offset=None, X_proj=None, y_proj=None
+    ):
         """
         Fit method that can handle constant y's.
 
@@ -429,7 +431,7 @@ class AnchorRegression(GeneralizedLinearRegressor):
             cat_missing_name=cat_missing_name,
         )
         self.gamma = gamma
-        self.exogenous_regex=exogenous_regex
+        self.exogenous_regex = exogenous_regex
 
     def fit(self, X, y, sample_weight=None, Z=None, X_proj=None, y_proj=None, **kwargs):
         """
@@ -474,7 +476,7 @@ class AnchorRegression(GeneralizedLinearRegressor):
             X_proj = proj(Z, Xt)
         if y_proj is None:
             y_proj = proj(Z, yt)
-        
+
         Xt = mult * Xt + (1 - mult) * X_proj
         yt = mult * yt + (1 - mult) * y_proj
 
@@ -739,7 +741,8 @@ class LGBMAnchorModel(BaseEstimator):
                 )
             else:
                 self.objective = self.objective(
-                    self.gamma, categories=categories,
+                    self.gamma,
+                    categories=categories,
                 )
             self.params["objective"] = self.objective.objective
             dataset_params["init_score"] = self.objective.init_score(y)
@@ -774,7 +777,7 @@ class LGBMAnchorModel(BaseEstimator):
             X = X.to_arrow()
 
         scores = self.booster.predict(X, num_iteration=num_iteration, raw_score=True)
-        
+
         if hasattr(self.objective, "predictions"):
             return self.objective.predictions(scores + self.init_score_)
         elif self.objective == "binary":
@@ -1163,19 +1166,20 @@ class PipelineCV(CVMixin, Pipeline):  # noqa D
     def __init__(self, steps, cv=5):
         super().__init__(cv=cv, steps=steps)
 
+
 @gin.configurable
-class FFill():
+class FFill:
     """Predict an outcome by forward filling the last value."""
 
-    def __init__(self, outcome=None):
+    def __init__(self, outcome=None):  # noqa D
         self.outcome = outcome
         self.mean = None
 
-    def fit(self, X, y=None, **kwargs):
+    def fit(self, X, y=None, **kwargs):  # noqa: D
         self.mean = np.mean(y)
         return self
 
-    def predict(self, X, **kwargs):
+    def predict(self, X, **kwargs):  # noqa: D
         if self.outcome == "log_lactate_in_4h":
             yhat = X["continuous__log_lact_ffilled"].to_numpy()
 

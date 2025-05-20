@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import warnings
 
-import numpy as np
-from scipy.interpolate import BSpline
-import scipy
 import formulaic
+import numpy as np
 import pandas as pd
-from icu_benchmarks.constants import ANCHORS
+import scipy
+from scipy.interpolate import BSpline
 from sklearn.preprocessing import MultiLabelBinarizer
 
+from icu_benchmarks.constants import ANCHORS
 
-class MaxIterationWarning(UserWarning): ...
+
+class MaxIterationWarning(UserWarning): ...  # noqa D
 
 
 def fit_monotonic_spline(
@@ -59,7 +60,15 @@ def fit_monotonic_spline(
     """
     if not increasing:
         return -fit_monotonic_spline(
-            x, -y, x_new, bspline_degree, knot_frequency, lambda_smoothing, kappa_penalty, maxiter, True
+            x,
+            -y,
+            x_new,
+            bspline_degree,
+            knot_frequency,
+            lambda_smoothing,
+            kappa_penalty,
+            maxiter,
+            True,
         )
 
     xmin, xmax = min(x), max(x)
@@ -83,7 +92,7 @@ def fit_monotonic_spline(
     # Introduced in scipy 1.8.0
     B = BSpline.design_matrix(x=x, t=knots, k=bspline_degree).toarray()
     n_base_funcs = B.shape[1]
-    I = np.eye(n_base_funcs)
+    I = np.eye(n_base_funcs)  # noqa: E741
     D3 = np.diff(I, n=3, axis=0)
     D1 = np.diff(I, n=1, axis=0)
 
@@ -121,21 +130,28 @@ def fit_monotonic_spline(
 
     y_new[x_new < xmin] = f_min + (x_new[x_new < xmin] - xmin) * df_min
     y_new[x_new > xmax] = f_max + (x_new[x_new > xmax] - xmax) * df_max
-    
+
     return y_new
 
-def get_model_matrix(df, formula):
+
+def get_model_matrix(df, formula):  # noqa: D
     if "interactions only" in formula:  # Return numpy array with categorical codes.
-        codes = pd.factorize(pd.Series(list(zip(*[df["dataset"]] + [df[x] for x in ANCHORS if x in formula]))))[0]
+        codes = pd.factorize(
+            pd.Series(
+                list(zip(*[df["dataset"]] + [df[x] for x in ANCHORS if x in formula]))
+            )
+        )[0]
         return np.max(codes) + 1, codes
-    
+
     Zs = []
     datasets = df["dataset"].unique()
 
     for dataset in datasets:
         mask = df["dataset"] == dataset
         if formula == "icd10_blocks":
-            df.loc[mask, "icd10_blocks"] = df.loc[mask, "icd10_blocks"].apply(lambda x: x.tolist() + [dataset])
+            df.loc[mask, "icd10_blocks"] = df.loc[mask, "icd10_blocks"].apply(
+                lambda x: x.tolist() + [dataset]
+            )
             Zs.append(MultiLabelBinarizer().fit_transform(df[mask]["icd10_blocks"]))
         else:
             Zs.append(formulaic.Formula(formula).get_model_matrix(df[mask]).to_numpy())
@@ -143,9 +159,10 @@ def get_model_matrix(df, formula):
     csum = np.cumsum([0] + [Z.shape[1] for Z in Zs])
     Z = np.zeros((df.shape[0], csum[-1]), dtype=np.float64)
     for i, (dataset, Zi) in enumerate(zip(datasets, Zs)):
-        Z[df["dataset"] == dataset, csum[i]:csum[i+1]] = Zi
+        Z[df["dataset"] == dataset, csum[i] : csum[i + 1]] = Zi
 
     return None, Z
+
 
 def find_intersection(x, values, increasing):
     """Find the point x where values intercepts the x-axis."""
@@ -167,4 +184,3 @@ def find_intersection(x, values, increasing):
 
     interp = scipy.interpolate.interp1d(x=iso_values, y=x, kind="linear")
     return interp(0.0)
-

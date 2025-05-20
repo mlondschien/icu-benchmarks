@@ -7,25 +7,21 @@ import gin
 import mlflow
 import numpy as np
 import polars as pl
+from anchorboosting import AnchorBooster  # noqa F401
 from sklearn.model_selection import ParameterGrid
-import formulaic
-from icu_benchmarks.constants import TASKS, ANCHORS
+
+from icu_benchmarks.constants import ANCHORS, TASKS
 from icu_benchmarks.gin import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, log_dict, log_pickle, setup_mlflow
-from sklearn.preprocessing import OneHotEncoder
 from icu_benchmarks.models import (  # noqa F401
     AnchorRegression,
     DataSharedLasso,
-    GeneralizedLinearModel,
-    LGBMAnchorModel,
     FFill,
+    GeneralizedLinearModel,
 )
-import re
-from anchorboosting import AnchorBooster
-from icu_benchmarks.utils import get_model_matrix
 from icu_benchmarks.preprocessing import get_preprocessing
-from anchorboosting.utils import proj
+from icu_benchmarks.utils import get_model_matrix
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -73,10 +69,11 @@ def get_predict_kwargs(predict_kwargs=gin.REQUIRED):
     else:
         return predict_kwargs
 
+
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
 @click.option("--anchor_formula", type=str, default=None)
-def main(config: str=None, anchor_formula:str = None):  # noqa D
+def main(config: str = "", anchor_formula: str = ""):  # noqa D
     gin.parse_config_file(config)
 
     outcome, sources, targets = get_outcome(), get_sources(), get_targets()
@@ -106,7 +103,7 @@ def main(config: str=None, anchor_formula:str = None):  # noqa D
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
     preprocessor = get_preprocessing(get_model(), df)
-    
+
     df_anchor = df_anchor.fill_null(2010).fill_null("other").to_pandas()
     n_categories, Z = get_model_matrix(df_anchor, anchor_formula)
     tic = perf_counter()
@@ -130,10 +127,12 @@ def main(config: str=None, anchor_formula:str = None):  # noqa D
     for parameter_idx, parameter in enumerate(get_parameters()):
         logger.info(f"Fitting model with {parameter}")
         model = get_model()(**parameter)
-        
+
         categorical_features = [c for c in df.columns if "categorical" in c]
         tic = perf_counter()
-        model.fit(df, y, Z=Z, categorical_feature=categorical_features) # , X_proj=X_proj, y_proj=y_proj)
+        model.fit(
+            df, y, Z=Z, categorical_feature=categorical_features
+        )  # , X_proj=X_proj, y_proj=y_proj)
         toc = perf_counter()
         logger.info(f"Fitting the model with {parameter} took {toc - tic:.1f} seconds")
         models.append(model)
@@ -158,11 +157,11 @@ def main(config: str=None, anchor_formula:str = None):  # noqa D
                 sources=[target],
                 outcome=outcome,
                 split=split,
-                other_columns=[x for x in ANCHORS if x in anchor_formula + "dataset"]
+                other_columns=[x for x in ANCHORS if x in anchor_formula + "dataset"],
             )
             df_anchor = df_anchor.fill_null(2010).fill_null("other").to_pandas()
             n_categories, Z = get_model_matrix(df_anchor, anchor_formula)
-            
+
             toc = perf_counter()
             logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
@@ -180,7 +179,14 @@ def main(config: str=None, anchor_formula:str = None):  # noqa D
                 yhat = model.predict(df, **result["predict_kwarg"])
                 results[result_idx] = {
                     **result,
-                    **metrics(y, yhat, f"{target}/{split}/", TASKS[outcome]["task"], Z=Z, n_categories=n_categories),
+                    **metrics(
+                        y,
+                        yhat,
+                        f"{target}/{split}/",
+                        TASKS[outcome]["task"],
+                        Z=Z,
+                        n_categories=n_categories,
+                    ),
                 }
 
     for result_idx in range(len(results)):

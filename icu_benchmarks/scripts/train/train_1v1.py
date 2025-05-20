@@ -124,7 +124,6 @@ def main(config: str):  # noqa D
         df_train, df_val = df[train_idx, :], df[val_idx, :]
         y_train, y_val = y[train_idx], y[val_idx]
         anchor_train = anchor[train_idx]
-        split_by_val = split_by[val_idx]
 
         preprocessor = get_preprocessing(get_model(), df)
         df_train = preprocessor.fit_transform(df_train)
@@ -150,7 +149,7 @@ def main(config: str):  # noqa D
                             y_val_hat,
                             "cv/",
                             TASKS[outcome]["task"],
-                            groups=split_by_val,
+                            # groups=split_by_val,
                         ),
                     }
                 )
@@ -188,9 +187,7 @@ def main(config: str):  # noqa D
                     "predict_kwarg_idx": predict_kwarg_idx,
                     **parameter,
                     **predict_kwarg,
-                    **metrics(
-                        y, yhat, "train/", TASKS[outcome]["task"], groups=split_by
-                    ),
+                    **metrics(y, yhat, "train/", TASKS[outcome]["task"]),
                 }
             )
             if "objective" in results[-1].keys():
@@ -228,7 +225,7 @@ def main(config: str):  # noqa D
                         yhat,
                         f"{target}/test/",
                         TASKS[outcome]["task"],
-                        groups=split_by,
+                        # groups=split_by,
                     ),
                 }
                 idx += 1

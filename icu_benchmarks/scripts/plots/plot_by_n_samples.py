@@ -3,17 +3,18 @@ import tempfile
 
 import click
 import gin
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from mlflow.tracking import MlflowClient
-from icu_benchmarks.utils import fit_monotonic_spline
-from icu_benchmarks.mlflow_utils import log_fig
-from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from matplotlib.ticker import NullFormatter, StrMethodFormatter
-import matplotlib.gridspec as gridspec
+from mlflow.tracking import MlflowClient
+
 from icu_benchmarks.constants import GREATER_IS_BETTER
+from icu_benchmarks.mlflow_utils import log_fig
+from icu_benchmarks.utils import fit_monotonic_spline
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -22,7 +23,35 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-N_TARGET_VALUES = [25, 35, 50, 70, 100, 140, 200, 280, 400, 560, 800, 1120, 1600, 2250, 3200, 4480, 6400, 8960, 12800, 17920, 25600, 35840, 51200, 71680, 102400]
+N_TARGET_VALUES = [
+    25,
+    35,
+    50,
+    70,
+    100,
+    140,
+    200,
+    280,
+    400,
+    560,
+    800,
+    1120,
+    1600,
+    2250,
+    3200,
+    4480,
+    6400,
+    8960,
+    12800,
+    17920,
+    25600,
+    35840,
+    51200,
+    71680,
+    102400,
+]
+
+
 @gin.configurable()
 def get_config(config):  # noqa D
     return config
@@ -58,12 +87,10 @@ def main(tracking_uri, config):  # noqa D
 
     ncols = int(len(CONFIG["panels"]) / 3)
     fig = plt.figure(figsize=(3.5 * ncols, 7))
-    gs = gridspec.GridSpec(ncols + 2, 3, height_ratios=[1, 1, -0.15, 1, -0.1], wspace=0.13, hspace=0.4)
-    axes = [
-        fig.add_subplot(
-            gs[i, j]
-        ) for i in [0, 1, 3] for j in range(ncols)
-    ]
+    gs = gridspec.GridSpec(
+        ncols + 2, 3, height_ratios=[1, 1, -0.15, 1, -0.1], wspace=0.13, hspace=0.4
+    )
+    axes = [fig.add_subplot(gs[i, j]) for i in [0, 1, 3] for j in range(ncols)]
 
     metric = CONFIG["metric"]
     cv_metric = CONFIG["cv_metric"]
@@ -149,10 +176,10 @@ def main(tracking_uri, config):  # noqa D
             # )
             idx = x_new.searchsorted(data["n_target"].max())
             ax.plot(
-                x_new[:idx + 1],
+                x_new[: idx + 1],
                 # data["n_target"],
                 # data["__score"],
-                quantiles[1, :idx + 1],
+                quantiles[1, : idx + 1],
                 # label=line["legend"] if idx == 0 else None,
                 color=line["color"],
                 ls=line["ls"],
@@ -190,11 +217,13 @@ def main(tracking_uri, config):  # noqa D
             #     alpha=0.1, #line.get("alpha", 1) * 0.1,
             #     # hatch=".",
             # )
-        
+
         ls = "dashed" if isinstance(line["ls"], tuple) else line["ls"]
         handle = Line2D([], [], color=line["color"], ls=ls, alpha=line.get("alpha", 1))
         if len(data) > 1:
-            legend_handles.append((handle, Patch(color=line["color"], alpha=0.1*line.get("alpha", 1))))
+            legend_handles.append(
+                (handle, Patch(color=line["color"], alpha=0.1 * line.get("alpha", 1)))
+            )
         else:
             legend_handles.append(handle)
         labels.append(line["legend"])
@@ -213,7 +242,7 @@ def main(tracking_uri, config):  # noqa D
         if ax.get_subplotspec().colspan == range(0, 1):
             ax.set_ylabel(CONFIG["ylabel"])
         if ax.get_subplotspec().rowspan == range(3, 4):
-            ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
+            ax.xaxis.set_major_formatter(StrMethodFormatter("{x:.0f}"))
             ax.xaxis.set_minor_formatter(NullFormatter())
             ax.set_xticks(panel["xticks"])
             ax.set_xticklabels(panel.get("xticklabels", panel["xticks"]))
@@ -227,19 +256,54 @@ def main(tracking_uri, config):  # noqa D
         # ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
         # ax.xaxis.set_tick_params(labelbottom=True)
         ax.set_title(panel["title"], y=0.985)
-    
+
     fig.align_xlabels(axes)
     fig.align_ylabels(axes)
-    line = plt.Line2D([0.07, 0.925], [0.388, 0.388], transform=fig.transFigure, color="black", linewidth=2, alpha=0.5)
-    _ = plt.text(0.915, 0.565, "core datasets", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.65)
-    _ = plt.text(0.915, 0.185, "truly OOD", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.65)
+    line = plt.Line2D(
+        [0.07, 0.925],
+        [0.388, 0.388],
+        transform=fig.transFigure,
+        color="black",
+        linewidth=2,
+        alpha=0.5,
+    )
+    _ = plt.text(
+        0.915,
+        0.565,
+        "core datasets",
+        transform=fig.transFigure,
+        fontsize=12,
+        rotation=90,
+        alpha=0.65,
+    )
+    _ = plt.text(
+        0.915,
+        0.185,
+        "truly OOD",
+        transform=fig.transFigure,
+        fontsize=12,
+        rotation=90,
+        alpha=0.65,
+    )
     fig.add_artist(line)
 
     fig.legend(legend_handles, labels, loc="outside lower center", ncols=2)
     if CONFIG.get("title") is not None:
         fig.suptitle(CONFIG["title"], size="x-large", y=0.94)
-    log_fig(fig, f"{CONFIG['filename']}.png", client, run_id=target_run.info.run_id, bbox_inches='tight')
-    log_fig(fig, f"{CONFIG['filename']}.pdf", client, run_id=target_run.info.run_id, bbox_inches='tight')
+    log_fig(
+        fig,
+        f"{CONFIG['filename']}.png",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_inches="tight",
+    )
+    log_fig(
+        fig,
+        f"{CONFIG['filename']}.pdf",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_inches="tight",
+    )
 
 
 if __name__ == "__main__":

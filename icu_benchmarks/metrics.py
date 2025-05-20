@@ -1,12 +1,10 @@
 import numpy as np
 import scipy
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    roc_auc_score,
-)
 from anchorboosting.utils import proj
+from sklearn.metrics import accuracy_score, average_precision_score, roc_auc_score
+
 from icu_benchmarks.constants import GREATER_IS_BETTER
+
 
 def metrics(y, yhat, prefix, task, Z=None, n_categories=None):  # noqa D
     if not isinstance(y, np.ndarray):
@@ -34,13 +32,13 @@ def metrics(y, yhat, prefix, task, Z=None, n_categories=None):  # noqa D
 
     if task == "binary":
         yhat = yhat.clip(1e-14, 1 - 1e-14)
-        log_losses = np.where(y==1, - np.log(yhat), - np.log(1 - yhat))
+        log_losses = np.where(y == 1, -np.log(yhat), -np.log(1 - yhat))
         if np.unique(y).size > 1:
             out[f"{prefix}roc"] = roc_auc_score(y, yhat)
             out[f"{prefix}accuracy"] = accuracy_score(y, yhat >= 0.5)
             out[f"{prefix}log_loss"] = np.mean(log_losses)
             out[f"{prefix}auprc"] = average_precision_score(y, yhat)
-            out[f"{prefix}brier"] = np.mean(score_residuals ** 2)
+            out[f"{prefix}brier"] = np.mean(score_residuals**2)
         else:
             out[f"{prefix}roc"] = np.nan
             out[f"{prefix}accuracy"] = np.nan
@@ -50,7 +48,9 @@ def metrics(y, yhat, prefix, task, Z=None, n_categories=None):  # noqa D
 
         q = [0.8, 0.9, 0.95]
         losses_q = np.quantile(log_losses, q)
-        losses_qb = np.quantile(log_losses[y==1], q) + np.quantile(log_losses[y==0], q)
+        losses_qb = np.quantile(log_losses[y == 1], q) + np.quantile(
+            log_losses[y == 0], q
+        )
         for i, q in enumerate(q):
             out[f"{prefix}log_loss_quantile_{q}"] = losses_q[i]
             out[f"{prefix}log_loss_balanced_quantile_{q}"] = losses_qb[i]
@@ -68,7 +68,7 @@ def metrics(y, yhat, prefix, task, Z=None, n_categories=None):  # noqa D
 
         for i, q in enumerate(q):
             out[f"{prefix}abs_quantile_{q}"] = abs_quantiles[i]
-            out[f"{prefix}mse_quantile_{q}"] = abs_quantiles[i]**2
+            out[f"{prefix}mse_quantile_{q}"] = abs_quantiles[i] ** 2
 
     if Z is not None:
         if task == "binary":
@@ -80,15 +80,16 @@ def metrics(y, yhat, prefix, task, Z=None, n_categories=None):  # noqa D
             out[f"{prefix}proj_logloss"] = np.mean(logloss_proj)
 
         residuals_proj = proj(Z, score_residuals, n_categories=n_categories)
-        errors = residuals_proj ** 2
+        errors = residuals_proj**2
         q = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
         error_quantiles = np.quantile(errors, q)
-        for i, q in enumerate(q):  
+        for i, q in enumerate(q):
             out[f"{prefix}proj_residuals_sq_quantile_{q}"] = error_quantiles[i]
 
         out[f"{prefix}proj_residuals_sq"] = np.mean(errors)
 
     return out
+
 
 def get_equivalent_number_of_samples(n_samples, values, metric):
     """
@@ -119,7 +120,11 @@ def get_equivalent_number_of_samples(n_samples, values, metric):
     fit1 = np.polyfit(isotonic_regression[-6:], log_n_target[-6:], 1)
     fit2 = np.polyfit(isotonic_regression[:6], log_n_target[:6], 1)
     y = [log_n_target[0] - 4] + log_n_target.tolist() + [log_n_target[-1] + 4]
-    x = [y[0] * fit2[0] + fit2[1]]+ isotonic_regression.tolist() +  [y[-1] * fit1[0] + fit1[1]]
+    x = (
+        [y[0] * fit2[0] + fit2[1]]
+        + isotonic_regression.tolist()
+        + [y[-1] * fit1[0] + fit1[1]]
+    )
 
     interp = scipy.interpolate.interp1d(
         x=x,

@@ -87,8 +87,6 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
 
     results = pl.concat(all_results)
 
-    results = results.filter(pl.col("gamma").eq(1.0)) ## remove
-
     parameter_names = [x for x in PARAMETERS if x in results.columns]
 
     if "random_state" in results.columns:
@@ -99,14 +97,14 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
 
     all_targets = map(re.compile(r"^(.+)\/test\/[a-z]+$").match, results.columns)
     all_targets = np.unique([m.groups()[0] for m in all_targets if m is not None])
-    
+
     out = []
 
-    for target in sorted(all_targets):
+    for target in all_targets:
         ood_results = results.filter(~pl.col("sources").list.contains(target))
         for metric in metrics:
             cv = cv_results(ood_results, [metric])
-        
+
             if metric in GREATER_IS_BETTER:
                 best = cv[cv[f"__cv_{metric}"].arg_max()]
             else:
@@ -124,9 +122,7 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
                     },
                     **{p: best[p].item() for p in parameter_names},
                     **{
-                        f"{source}/{split}/{m}": model[
-                            f"{source}/{split}/{m}"
-                        ].item()
+                        f"{source}/{split}/{m}": model[f"{source}/{split}/{m}"].item()
                         for source in sorted(DATASETS)
                         for m in metrics
                         for split in ["train_val", "test"]

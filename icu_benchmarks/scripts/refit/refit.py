@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import pickle
@@ -10,7 +11,7 @@ import numpy as np
 import polars as pl
 from joblib import Parallel, delayed
 from sklearn.model_selection import ParameterGrid
-import json
+
 from icu_benchmarks.constants import TASKS
 from icu_benchmarks.gin import load
 from icu_benchmarks.metrics import metrics
@@ -72,9 +73,11 @@ def get_model(model=gin.REQUIRED):  # noqa D
 def get_name(name="refit"):  # noqa D
     return name
 
+
 @gin.configurable
 def get_filter(filter_=dict()):  # noqa D
     return filter_
+
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -86,8 +89,8 @@ def main(config: str):  # noqa D
     _, target_run = get_target_run(client=client)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        client.download_artifacts(run.info.run_id, f"models.json", tmpdir)
-        with open(f"{tmpdir}/models.json", "r") as f:
+        client.download_artifacts(run.info.run_id, "models.json", tmpdir)
+        with open(f"{tmpdir}/models.json") as f:
             model_json = json.load(f)
 
         model_dir = Path(client.download_artifacts(run_id, "models", tmpdir))
