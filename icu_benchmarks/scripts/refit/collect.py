@@ -56,8 +56,6 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
         pl.DataFrame([{"model_idx": int(i), **params} for i, params in models.items()]),
         on="model_idx",
     )
-    if "gamma" in results.columns:
-        results = results.filter(pl.col("gamma").eq(8))
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
     results = results.with_columns((pl.col("cv_value") * mult).alias("cv_value"))
     results = results.pivot(values=["cv_value", "test_value"], on=["metric"], separator="/")
@@ -71,10 +69,7 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
             .explode([x for x in results.columns if x not in group_by]).with_columns(pl.lit(metric).alias("cv_metric"))
         )
 
-    if "gamma" in results.columns:
-        log_df(pl.concat(summaries, how="diagonal"), f"{result_name}8_results.csv", client, run_id=target_run.info.run_id)
-    else:
-        log_df(pl.concat(summaries, how="diagonal"), f"{result_name}_results.csv", client, run_id=target_run.info.run_id)
+    log_df(pl.concat(summaries, how="diagonal"), f"{result_name}_results.csv", client, run_id=target_run.info.run_id)
 
 
 if __name__ == "__main__":

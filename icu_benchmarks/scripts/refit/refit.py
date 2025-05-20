@@ -10,9 +10,9 @@ import numpy as np
 import polars as pl
 from joblib import Parallel, delayed
 from sklearn.model_selection import ParameterGrid
-
+import json
 from icu_benchmarks.constants import TASKS
-from icu_benchmarks.load import load
+from icu_benchmarks.gin import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import get_run, get_target_run, log_df
 from icu_benchmarks.models import (  # noqa F401
@@ -72,6 +72,9 @@ def get_model(model=gin.REQUIRED):  # noqa D
 def get_name(name="refit"):  # noqa D
     return name
 
+@gin.configurable
+def get_filter(filter_=dict()):  # noqa D
+    return filter_
 
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
@@ -83,25 +86,33 @@ def main(config: str):  # noqa D
     _, target_run = get_target_run(client=client)
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        client.download_artifacts(run.info.run_id, f"models.json", tmpdir)
+        with open(f"{tmpdir}/models.json", "r") as f:
+            model_json = json.load(f)
+
         model_dir = Path(client.download_artifacts(run_id, "models", tmpdir))
         with open(model_dir / "preprocessor.pkl", "rb") as f:
             preprocessor = pickle.load(f)
 
         priors = []
         for model_idx in range(len(list(model_dir.glob("model_*.pkl")))):
+            for k, v in get_filter().items():
+                if model_json[str(model_idx)][k] not in v:
+                    continue
             with open(model_dir / f"model_{model_idx}.pkl", "rb") as f:
                 priors.append(pickle.load(f))
 
     outcome = run.data.tags["outcome"]
 
-    df, y, _, hashes = load(
-        split="train_val", outcome=outcome, other_columns=["stay_id_hash"]
+    df, y, hashes = load(
+        split="train_val", outcome=outcome, other_columns=["patient_id_hash"]
     )
     df = preprocessor.transform(df)
+    hashes = hashes["patient_id_hash"]
 
     unique_hashes = hashes.unique().sort()
     data = {}
-    n_target = np.unique(np.clip(get_n_target(), 0, len(unique_hashes)))
+    n_target = [x for x in get_n_target() if x <= len(unique_hashes)]
     for seed in get_seeds():
         sampled_hashes = unique_hashes.sample(max(n_target), seed=seed, shuffle=True)
         # For a single seed, the data increases monotonicly. We pass the data, including
@@ -143,6 +154,7 @@ def main(config: str):  # noqa D
                     "target": get_target(),
                     "model_idx": model_idx,
                     "seed": seed,
+                    **model_json[str(model_idx)],
                     **refit_parameter,
                 }
                 jobs.append(
@@ -191,7 +203,6 @@ def _fit(
         df = data_train["df"].filter(mask)
         y = data_train["y"][mask]
         groups = data_train["hashes"].filter(mask)
-
         yhat = model.fit_predict_cv(df, y, groups=groups, predict_kwargs=kwargs)
         cv_scores = [metrics(y, yhat[:, idx], "", task) for idx in range(len(kwargs))]
 

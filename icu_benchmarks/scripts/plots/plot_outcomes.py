@@ -36,8 +36,10 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
 
     top_outcomes = [
         "mortality_at_24h",
-        "respiratory_failure_at_24h",
         "circulatory_failure_at_8h",
+        "respiratory_failure_at_24h",
+        # "respiratory_failure_at_24h",
+        # "severe_meld_at_48h"
     ]
     top_axes = [fig.add_subplot(gs[0, i]) for i in range(len(top_outcomes))]
 
@@ -73,8 +75,13 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         )
 
     bottom_outcomes = [
-        "log_pf_ratio_in_12h",
+        # "log_pf_ratio_in_12h",
+        # "log_lactate_in_4h",
+        # "meld_score_in_24h_3",
+        # "meld_score_in_24h",
+        # "meld_score_in_24h"
         "log_lactate_in_4h",
+        "log_bili_in_24h",
     ]
     ax1 = fig.add_subplot(gs[2, 1])
     ax2 = fig.add_subplot(gs[2, 2], sharey=ax1)
@@ -129,26 +136,26 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         text.append(SHORT_DATASET_NAMES[d])
 
     lines += [white, white]
-    text += ["missing ", "Po2/Fio2"]
-
-    for d in datasets:
-        lines.append(white)
-        missingness = (
-            pl.scan_parquet(data_dir / d / "features.parquet")
-            .select(pl.col("log_pf_ratio_in_12h").is_null().mean())
-            .collect()
-            .item()
-        )
-        text.append(f"{missingness:.1%}")
-
-    lines += [white, white]
-    text += ["values", "lactate"]
+    text += ["missing ", "lactate"]
 
     for d in datasets:
         lines.append(white)
         missingness = (
             pl.scan_parquet(data_dir / d / "features.parquet")
             .select(pl.col("log_lactate_in_4h").is_null().mean())
+            .collect()
+            .item()
+        )
+        text.append(f"{missingness:.1%}")
+
+    lines += [white, white]
+    text += ["values", "bilirubin"]
+
+    for d in datasets:
+        lines.append(white)
+        missingness = (
+            pl.scan_parquet(data_dir / d / "features.parquet")
+            .select(pl.col("log_bili_in_24h").is_null().mean())
             .collect()
             .item()
         )
@@ -167,8 +174,8 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         handletextpad=0.4,
     )
 
-    fig.savefig(OUTPUT_PATH / "outcomes.png", bbox_inches="tight", pad_inches=0.1)
-    fig.savefig(OUTPUT_PATH / "outcomes.pdf", bbox_inches="tight", pad_inches=0.1)
+    fig.savefig(OUTPUT_PATH / "outcomes_m.png", bbox_inches="tight", pad_inches=0.1)
+    fig.savefig(OUTPUT_PATH / "outcomes_m.pdf", bbox_inches="tight", pad_inches=0.1)
     plt.close(fig)
 
 

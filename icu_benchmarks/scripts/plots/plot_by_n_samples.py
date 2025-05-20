@@ -11,8 +11,9 @@ from icu_benchmarks.utils import fit_monotonic_spline
 from icu_benchmarks.mlflow_utils import log_fig
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
-from matplotlib.ticker import StrMethodFormatter, NullFormatter
+from matplotlib.ticker import NullFormatter, StrMethodFormatter
 import matplotlib.gridspec as gridspec
+from icu_benchmarks.constants import GREATER_IS_BETTER
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -102,6 +103,9 @@ def main(tracking_uri, config):  # noqa D
                 continue
 
             data = df.filter(pl.col("target") == panel["source"])
+            if len(data) == 0:
+                logger.warning(f"No data for {line}: {panel['source']}.")
+                continue
             if len(data) == 1:
                 ax.hlines(
                     data[column].first(),
@@ -122,6 +126,7 @@ def main(tracking_uri, config):  # noqa D
                     data.filter(pl.col("seed").eq(seed))["n_target"].log(),
                     data.filter(pl.col("seed").eq(seed))[f"test_value/{metric}"],
                     np.log(x_new),
+                    increasing=metric in GREATER_IS_BETTER,
                 )
                 # ax.plot(x_new, y_new[:, seed], color=line["color"], alpha=0.1)
                 # ax.scatter(
@@ -208,8 +213,8 @@ def main(tracking_uri, config):  # noqa D
         if ax.get_subplotspec().colspan == range(0, 1):
             ax.set_ylabel(CONFIG["ylabel"])
         if ax.get_subplotspec().rowspan == range(3, 4):
-            # ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
-            # ax.xaxis.set_minor_formatter(NullFormatter())
+            ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
+            ax.xaxis.set_minor_formatter(NullFormatter())
             ax.set_xticks(panel["xticks"])
             ax.set_xticklabels(panel.get("xticklabels", panel["xticks"]))
             ax.set_xlabel("number of patient stays from target", labelpad=3.5)
@@ -230,7 +235,7 @@ def main(tracking_uri, config):  # noqa D
     _ = plt.text(0.915, 0.185, "truly OOD", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.65)
     fig.add_artist(line)
 
-    fig.legend(legend_handles, labels, loc="outside lower center", ncols=int(len(legend_handles) / 2))
+    fig.legend(legend_handles, labels, loc="outside lower center", ncols=2)
     if CONFIG.get("title") is not None:
         fig.suptitle(CONFIG["title"], size="x-large", y=0.94)
     log_fig(fig, f"{CONFIG['filename']}.png", client, run_id=target_run.info.run_id, bbox_inches='tight')

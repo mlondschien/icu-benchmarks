@@ -35,6 +35,12 @@ SOURCES = [
     type=str,
     default="file:///cluster/work/math/lmalte/mlflow/artifacts",
 )
+@click.option(
+    "--anchor_formula",
+    type=str,
+    default="",
+)
+@click.option("--suffix", type=str, default="")
 def main(
     config: str,
     hours: int,
@@ -44,6 +50,8 @@ def main(
     style: str,
     tracking_uri: str,
     artifact_location: str,
+    anchor_formula: str,
+    suffix: str = "",
 ):  # noqa D
     ip, port = setup_mlflow_server(
         tracking_uri=tracking_uri,
@@ -83,7 +91,7 @@ def main(
         alpha_max = TASKS[outcome]["alpha_max"]
         alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 13)
 
-        log_dir = Path("logs3") / experiment_name / "_".join(sorted(sources))
+        log_dir = Path("logs3") / experiment_name / ("_".join(sorted(sources)) + suffix)
         log_dir.mkdir(parents=True, exist_ok=True)
         config_file = log_dir / "config.gin"
 
@@ -104,8 +112,8 @@ TASK = "{TASKS[outcome]["task"]}"
 FAMILY = "{TASKS[outcome]["family"]}"
 ALPHA = {alpha.tolist()}
 
-icu_benchmarks.load.load.variables = {TASKS[outcome].get("variables")}
-icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
+load.variables = {TASKS[outcome].get("variables")}
+load.horizons = {TASKS[outcome].get("horizons")}
 """
             )
 
@@ -121,11 +129,11 @@ icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --time={hours}:00:00
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem-per-cpu=2G
 #SBATCH --job-name="{experiment_name}_{"_".join(sorted(sources))}"
 #SBATCH --output="{log_dir}/slurm.out"
 
-python icu_benchmarks/scripts/train/{script} --config {config_file.resolve()}"""
+python icu_benchmarks/scripts/train/{script} --config {config_file.resolve()} --anchor_formula "{anchor_formula}" """
             )
 
         subprocess.run(["sbatch", str(command_file.resolve())])

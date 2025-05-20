@@ -1,0 +1,8 @@
+import icu_benchmarks.gin
+
+get_model.model = @FFill
+get_predict_kwargs.predict_kwargs = {}
+
+get_parameters.parameters = {
+    "outcome": ["log_lactate_in_4h"],
+}

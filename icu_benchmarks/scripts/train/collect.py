@@ -40,7 +40,9 @@ ALL_SOURCES = [
     type=str,
     default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
-def main(experiment_name: str, tracking_uri: str):  # noqa D
+@click.option("--result_name", default="results")
+@click.option("--output_name", default="cv_results")
+def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment = client.get_experiment_by_name(experiment_name)
 
@@ -54,6 +56,9 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
 
     runs = client.search_runs(experiment_ids=[experiment_id], max_results=10_000)
 
+    result_file = f"{result_name}.csv"
+    output_file = f"{output_name}.csv"
+
     all_results = []
     for run in runs:
         run_id = run.info.run_id
@@ -66,12 +71,12 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                 continue
 
         with tempfile.TemporaryDirectory() as f:
-            if "results.csv" not in [x.path for x in client.list_artifacts(run_id)]:
-                logger.warning(f"Run {run_id} has no results.csv")
+            if result_file not in [x.path for x in client.list_artifacts(run_id)]:
+                logger.warning(f"Run {run_id} has no {result_file}")
                 continue
 
-            client.download_artifacts(run_id, "results.csv", f)
-            results = pl.read_csv(f"{f}/results.csv")
+            client.download_artifacts(run_id, result_file, f)
+            results = pl.read_csv(f"{f}/{result_file}")
 
         results = results.with_columns(
             pl.lit(run_id).alias("run_id"),
@@ -81,6 +86,9 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
         all_results.append(results)
 
     results = pl.concat(all_results)
+
+    results = results.filter(pl.col("gamma").eq(1.0)) ## remove
+
     parameter_names = [x for x in PARAMETERS if x in results.columns]
 
     if "random_state" in results.columns:
@@ -97,12 +105,12 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     for target in sorted(all_targets):
         ood_results = results.filter(~pl.col("sources").list.contains(target))
         for metric in metrics:
-            cv = cv_results(ood_results, metric)
+            cv = cv_results(ood_results, [metric])
         
             if metric in GREATER_IS_BETTER:
-                best = cv[cv["__cv_value"].arg_max()]
+                best = cv[cv[f"__cv_{metric}"].arg_max()]
             else:
-                best = cv[cv["__cv_value"].arg_min()]
+                best = cv[cv[f"__cv_{metric}"].arg_min()]
             model = cv.filter(
                 pl.all_horizontal(pl.col(p).eq(best[p]) for p in parameter_names)
             )
@@ -111,7 +119,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
                     **{
                         "target": target,
                         "cv_metric": metric,
-                        "cv_value": best["__cv_value"].item(),
+                        "cv_value": best[f"__cv_{metric}"].item(),
                         "test_value": model[f"{target}/test/{metric}"].item(),
                     },
                     **{p: best[p].item() for p in parameter_names},
@@ -140,7 +148,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
     print(f"logging to {target_run.info.run_id}")
     log_df(
         pl.DataFrame(out),
-        "cv_results.csv",
+        output_file,
         client,
         target_run.info.run_id,
     )

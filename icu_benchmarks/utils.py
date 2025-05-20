@@ -5,6 +5,11 @@ import warnings
 import numpy as np
 from scipy.interpolate import BSpline
 import scipy
+import formulaic
+import pandas as pd
+from icu_benchmarks.constants import ANCHORS
+from sklearn.preprocessing import MultiLabelBinarizer
+
 
 class MaxIterationWarning(UserWarning): ...
 
@@ -18,6 +23,7 @@ def fit_monotonic_spline(
     lambda_smoothing=0.01,
     kappa_penalty=10**6,
     maxiter: int = 30,
+    increasing: bool = True,
 ) -> np.ndarray:
     """
     Fit a monotonic spline.
@@ -46,7 +52,16 @@ def fit_monotonic_spline(
     maxiter: int
         Maximum number of iterations for the algorithm. If the algorithm does not
         converge within this number of iterations, a warning is issued.
+    increasing: bool
+        Whether the fitted spline should be increasing or decreasing. If True, the
+        fitted spline will be increasing. If False, the fitted spline will be
+        decreasing.
     """
+    if not increasing:
+        return -fit_monotonic_spline(
+            x, -y, x_new, bspline_degree, knot_frequency, lambda_smoothing, kappa_penalty, maxiter, True
+        )
+
     xmin, xmax = min(x), max(x)
     num_knots = int(len(x) * knot_frequency)
     knot_interval = (xmax - xmin) / num_knots
@@ -109,10 +124,31 @@ def fit_monotonic_spline(
     
     return y_new
 
+def get_model_matrix(df, formula):
+    if "interactions only" in formula:  # Return numpy array with categorical codes.
+        codes = pd.factorize(pd.Series(list(zip(*[df["dataset"]] + [df[x] for x in ANCHORS if x in formula]))))[0]
+        return np.max(codes) + 1, codes
+    
+    Zs = []
+    datasets = df["dataset"].unique()
 
+    for dataset in datasets:
+        mask = df["dataset"] == dataset
+        if formula == "icd10_blocks":
+            df.loc[mask, "icd10_blocks"] = df.loc[mask, "icd10_blocks"].apply(lambda x: x.tolist() + [dataset])
+            Zs.append(MultiLabelBinarizer().fit_transform(df[mask]["icd10_blocks"]))
+        else:
+            Zs.append(formulaic.Formula(formula).get_model_matrix(df[mask]).to_numpy())
+
+    csum = np.cumsum([0] + [Z.shape[1] for Z in Zs])
+    Z = np.zeros((df.shape[0], csum[-1]), dtype=np.float64)
+    for i, (dataset, Zi) in enumerate(zip(datasets, Zs)):
+        Z[df["dataset"] == dataset, csum[i]:csum[i+1]] = Zi
+
+    return None, Z
 
 def find_intersection(x, values, increasing):
-    """Find the point where x where values intercepts the x-axis."""
+    """Find the point x where values intercepts the x-axis."""
     argsort = np.argsort(x)
     values = values[argsort]
     x = x[argsort]
@@ -121,10 +157,10 @@ def find_intersection(x, values, increasing):
     if (increasing and iso_values[0] > 0) or (not increasing and iso_values[0] < 0):
         return np.min(x)
 
-    if (increasing and iso_values[-1] < 0) or (not increasing and iso_values[-1] > 0):
-        fit = np.polynomial.polynomial.Polynomial.fit(x[:-6], values[:-6], 1)
-        x = x.tolist() + [x[-1] + 10]
-        iso_values = iso_values.tolist() + [fit(x[-1])]
+    # if (increasing and iso_values[-1] < 0) or (not increasing and iso_values[-1] > 0):
+    #     fit = np.polynomial.polynomial.Polynomial.fit(x[:-6], values[:-6], 1)
+    #     x = x.tolist() + [x[-1] + 10]
+    #     iso_values = iso_values.tolist() + [fit(x[-1])]
 
     if (iso_values[-1] < 0 and increasing) or (iso_values[-1] > 0 and not increasing):
         return np.nan

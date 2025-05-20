@@ -7,11 +7,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-from matplotlib.ticker import StrMethodFormatter, NullFormatter
+from matplotlib.ticker import StrMethodFormatter, NullFormatter, FuncFormatter
 from icu_benchmarks.constants import GREATER_IS_BETTER, METRICS, PARAMETERS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
 from icu_benchmarks.plotting import cv_results
 import gin
+import matplotlib.gridspec as gridspec
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -32,10 +33,13 @@ def get_config(config):  # noqa D
 )
 @click.option("--config", type=click.Path(exists=True))
 def main(tracking_uri, config):  # noqa D
+
     gin.parse_config_file(config)
     CONFIG = get_config()
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment, run = get_target_run(client, CONFIG["experiment_name"])
+    metric = CONFIG["metric"]
+    cv_metric = CONFIG.get("cv_metric", metric)
 
     _, target_run = get_target_run(client, CONFIG["target_experiment"])
 
@@ -62,12 +66,19 @@ def main(tracking_uri, config):  # noqa D
 
     results = pl.concat(all_results, how="diagonal")
 
-    ncols = int(len(CONFIG["panels"]) / 2)
-    fig, axes = plt.subplots(
-        2, ncols, figsize=(3 * ncols, 5), constrained_layout=True, gridspec_kw={"hspace": 0.02}#, sharex=True
-    )
+    if "filter" in CONFIG.keys():
+        results = results.filter(**CONFIG["filter"])
+    
+    ncols = 3
+    fig = plt.figure(figsize=(3.5 * ncols, 7))
+    gs = gridspec.GridSpec(ncols + 1, 3, height_ratios=[1, 1, -0.1, 1], wspace=0.18, hspace=0.3)
+    axes = [
+        fig.add_subplot(
+            gs[i, j]
+        ) for i in [0, 1, 3] for j in range(ncols)
+    ]
 
-    for idx, (panel, ax) in enumerate(zip(CONFIG["panels"], axes.flat)):
+    for idx, (panel, ax) in enumerate(zip(CONFIG["panels"], axes)):
         target = panel["target"]
 
         if target == "empty":
@@ -76,8 +87,8 @@ def main(tracking_uri, config):  # noqa D
 
         cv = cv_results(
             results.filter(~pl.col("sources").list.contains(target)),
-            CONFIG["metric"],
-        ).group_by("gamma").agg(pl.all().top_k_by(k=1, by="__cv_value", reverse=CONFIG["metric"] not in GREATER_IS_BETTER)).select(pl.all().explode()).sort("gamma")
+            cv_metric,
+        ).group_by("gamma").agg(pl.all().top_k_by(k=1, by="__cv_value", reverse=cv_metric not in GREATER_IS_BETTER)).select(pl.all().explode()).sort("gamma")
 
         ax.plot(
             cv["gamma"],
@@ -129,36 +140,78 @@ def main(tracking_uri, config):  # noqa D
             alpha=0.2,
             label="25% - 75%" if idx == 0 else None,
         )
+        # twin_ax = ax.twinx()
+        # twin_ax.plot(
+        #     cv["gamma"],
+        #     cv[f"{target}/test/mse"],
+        #     color="red",
+        #     alpha=1,
+        # )
+        # twin_ax.plot(
+        #     cv["gamma"],
+        #     cv[f"{target}/test/mse"] - cv[f"{target}/test/mean_residual"].pow(2),
+        #     color="red",
+        #     alpha=1,
+        # )
+        # twin_ax.plot(
+        #     cv["gamma"],
+        #     cv[f"{target}/test/mean_residual"].pow(2),
+        #     color="red",
+        #     alpha=1,
+        # )
 
         best = cv.select(
             pl.col("gamma").top_k_by(k=1, by="__cv_value", reverse=True)
         ).item()
         ax.axvline(best, color="black", ls="dashed", alpha=0.2)
 
-        ax.set_xlabel("gamma")
+        ax.set_xlabel("gamma", labelpad=2)
         ax.set_ylabel("residuals")
 
-        ax.set_title(panel["title"])
+        ax.set_title(panel["title"],y=0.985)
         ax.set_xscale("log")
-        ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
-        ax.xaxis.set_minor_formatter(NullFormatter())
-        ax.label_outer()
-        ax.yaxis.set_tick_params(labelleft=True)  # manually add y ticks again
+
+        def my_formatter(x, _):
+            return f"{x:.0f}".lstrip("0")
+    
+
         # ax.xaxis.set_tick_params(labelbottom=True)
 
+        if panel["target"] == "empty":
+            continue
+
+        # if panel.get("yticks") is not None:
+        #     ax.set_yticks(panel["yticks"])
+        #     ax.set_yticklabels(panel.get("yticklabels", panel["yticks"]))
+        # else:
+        #     ax.yaxis.set_major_locator(plt.MaxNLocator(4))
+
+        ax.tick_params(axis="y", which="both", pad=1)
+        ax.tick_params(axis="x", which="both", pad=2)
+        
+        ax.xaxis.set_major_formatter(StrMethodFormatter("{x:.0f}"))
+        ax.xaxis.set_minor_formatter(NullFormatter())
+        ax.yaxis.set_tick_params(labelleft=True)  # manually add y ticks again
+
+        ax.label_outer()
+        ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
+        ax.xaxis.set_tick_params(labelbottom=True)
+        
+    fig.align_ylabels(axes)
+        
+    line = plt.Line2D([0.07, 0.925], [0.37, 0.37], transform=fig.transFigure, color="black", linewidth=2, alpha=0.5)
+    _ = plt.text(0.915, 0.56, "core datasets", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.6)
+    _ = plt.text(0.915, 0.165, "truly OOD", transform=fig.transFigure, fontsize=12, rotation=90, alpha=0.6)
+    
+    fig.add_artist(line)
+    # fig.legend(handles=legend_elements, loc="outside lower center", ncols=4)
+    if CONFIG.get("title") is not None:
+        fig.suptitle(CONFIG["title"], size="x-large", y=0.94)
     fig.legend(loc="outside lower center", ncols=4)
-    log_fig(
-        fig,
-        f"{CONFIG['filename']}.png",
-        client,
-        target_run.info.run_id,
-    )
-    log_fig(
-        fig,
-        f"{CONFIG['filename']}.pdf",
-        client,
-        target_run.info.run_id,
-    )
+    
+    log_fig(fig, f"{CONFIG['filename']}.pdf", client, run_id=target_run.info.run_id, bbox_inches='tight')
+    log_fig(fig, f"{CONFIG['filename']}.png", client, run_id=target_run.info.run_id, bbox_inches='tight')
+
     plt.close(fig)
 
 

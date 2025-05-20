@@ -21,7 +21,6 @@ ALL_SOURCES = [
     "nwicu",
     "zigong",
     "picdb",
-    "miived",
 ]
 
 
@@ -102,9 +101,9 @@ icu_benchmarks.mlflow_utils.get_target_run.experiment_name = "{experiment_name}"
 icu_benchmarks.mlflow_utils.get_target_run.create_if_not_exists = True
 
 
-icu_benchmarks.load.load.variables = {TASKS[outcome].get("variables")}
-icu_benchmarks.load.load.horizons = {TASKS[outcome].get("horizons")}
-icu_benchmarks.load.load.sources = ["{target}"]
+load.variables = {TASKS[outcome].get("variables")}
+load.horizons = {TASKS[outcome].get("horizons")}
+load.sources = ["{target}"]
 
 get_run.run_id = "{run.info.run_id}"
 get_run.tracking_uri = "http://{ip}:{port}"

@@ -23,6 +23,10 @@ SOURCE_COLORS = {
     "ehrshot": "gray",
     "miived": "cyan",
     "nwicu": "yellow",
+    "data_old/nwicu": "orange",
+    "data/nwicu": "red",
+    "data/miiv": "purple",
+    "data_old/miiv": "blue"
 }
 
 # https://personal.sron.nl/~pault/#sec:qualitative
@@ -84,7 +88,7 @@ SHORT_DATASET_NAMES = {
     "mimic-carevue": "MIMIC-III (CV)",
     "hirid": "HiRID",
     "nwicu": "NWICU",
-    "zigong": "Zigong",
+    "zigong": "Zigong EHR",
     "picdb": "PICdb",
     "miived": "MIMIC-IV ED",
 }
@@ -99,6 +103,7 @@ OUTCOME_NAMES = {
     "mortality_at_24h": "mortality at 24h",
     "respiratory_failure_at_24h": "respiratory failure within 24h",
     "circulatory_failure_at_8h": "circulatory failure within 8h",
+    "log_bili_in_24h": "log(bilirubin in 24h [mg/dL])",
 }
 
 
@@ -213,7 +218,7 @@ def plot_discrete(ax, data, name, missings=True, legend=True, yticklabels=True):
         ax.set_yticklabels([])
         ax.set_yticks([])
 
-    ax.set_title(OUTCOME_NAMES[name], fontsize=14)
+    ax.set_title(OUTCOME_NAMES.get(name, name), fontsize=14)
     return ax
 
 
@@ -250,7 +255,8 @@ def plot_continuous(ax, data, name, label=True, legend=True, missing_rate=True):
 
         kwargs = {
             "label": label,
-            "color": SOURCE_COLORS[dataset],
+            "color": SOURCE_COLORS[dataset.split(":")[0]],
+            "linestyle": "solid" if "inr_pt" in dataset else "dashed",
             # "linestyle": LINESTYLES.get(dataset, "solid"),
         }
 
@@ -265,7 +271,7 @@ def plot_continuous(ax, data, name, label=True, legend=True, missing_rate=True):
             bandwidth = (max_ - min_) / 100 / df.std()
             density = gaussian_kde(df, bw_method=lambda x: bandwidth)
 
-            linspace = np.linspace(df.min(), df.max(), num=100)
+            linspace = np.linspace(df.min(), df.max(), num=300)
 
             ax.plot(linspace, density(linspace), **kwargs)
 
@@ -489,21 +495,29 @@ def plot_by_x(results, x, metric):
     return fig
 
 
-def cv_results(results, metric, n_samples_result=None):
+def cv_results(results, metrics, n_samples_result=None):
+    params = [p for p in PARAMETERS if p in results.columns]
+
+    if len(params) == 0:
+        results = results.with_columns(pl.lit(0).alias("__param"))
+        params = ["__param"]
+
     sources = results["sources"].explode().unique().to_list()
+    sources = [s for s in sources if f"{s}/train_val/{metrics[0]}" in results.columns]
     cv = results.filter(pl.col("sources").list.len() == len(sources) - 1)
-    params = [p for p in PARAMETERS if p in cv.columns]
-    
+
     if n_samples_result is None:
-        cv = cv.with_columns(
-            pl.coalesce(
-                pl.when(~pl.col("sources").list.contains(s)).then(
-                    pl.col(f"{s}/train_val/{metric}")
-                )
-                for s in sources
-            ).alias("__cv_value")
-        )
-        cv = cv.group_by(params).agg(pl.mean("__cv_value"))
+        for metric in metrics:
+            cv = cv.with_columns(
+                pl.coalesce(
+                    pl.when(~pl.col("sources").list.contains(s)).then(
+                        pl.col(f"{s}/train_val/{metric}")
+                    )
+                    for s in sources
+                ).alias(f"__cv_{metric}")
+            )
+        cv = cv.group_by(params).agg(pl.mean(f"__cv_{metric}") for metric in metrics)
+
     else:
         from icu_benchmarks.metrics import get_equivalent_number_of_samples
         cv = cv.with_columns(
@@ -517,6 +531,6 @@ def cv_results(results, metric, n_samples_result=None):
         cv = cv.group_by(params).agg(pl.min("__cv_value"))
 
     target = results.filter(pl.col("sources").list.len() == len(sources))
-    cv = cv.join(target, on=params, how="full")
+    cv = cv.join(target, on=params, how="full", coalesce=True)
 
     return cv

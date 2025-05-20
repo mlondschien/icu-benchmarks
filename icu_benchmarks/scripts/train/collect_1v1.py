@@ -91,7 +91,7 @@ def main(experiment_name: str, tracking_uri: str):  # noqa D
             )
             .explode([x for x in results.columns if x != "sources"])
         )
-        grouped = grouped.with_columns(pl.lit(metric).alias("metric"))
+        grouped = grouped.with_columns(pl.lit(metric).alias("cv_metric"))
         grouped = grouped.with_columns(
             pl.coalesce(
                 pl.when(~pl.col("sources").list.contains(t)).then(pl.lit(t))

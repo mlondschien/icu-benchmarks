@@ -10,7 +10,8 @@ from glum import GeneralizedLinearRegressor
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
-
+from ivmodels.utils import proj
+from line_profiler import profile
 
 @gin.configurable
 class GeneralizedLinearModel(GeneralizedLinearRegressor):
@@ -102,7 +103,7 @@ class GeneralizedLinearModel(GeneralizedLinearRegressor):
             cat_missing_name=cat_missing_name,
         )
 
-    def fit(self, X, y, sample_weight=None, dataset=None, offset=None):
+    def fit(self, X, y, sample_weight=None, Z=None, offset=None, X_proj=None, y_proj=None):
         """
         Fit method that can handle constant y's.
 
@@ -381,6 +382,7 @@ class AnchorRegression(GeneralizedLinearRegressor):
         categorical_format="{name}[{category}]",
         cat_missing_method="fail",
         cat_missing_name="(MISSING)",
+        exogenous_regex=None,
     ):
         if gamma != 1 and family not in ["gaussian", "normal"]:
             raise ValueError(f"Family {family} not supported for AnchorRegression.")
@@ -427,8 +429,9 @@ class AnchorRegression(GeneralizedLinearRegressor):
             cat_missing_name=cat_missing_name,
         )
         self.gamma = gamma
+        self.exogenous_regex=exogenous_regex
 
-    def fit(self, X, y, sample_weight=None, dataset=None):  # noqa: D
+    def fit(self, X, y, sample_weight=None, Z=None, X_proj=None, y_proj=None, **kwargs):
         """
         Fit the Anchor Regression model.
 
@@ -440,9 +443,8 @@ class AnchorRegression(GeneralizedLinearRegressor):
             The outcome.
         sample_weight : np.ndarray, optional
             The sample weights.
-        dataset : np.ndarray
-            Array of dataset indicators. Each unique value is assumed to correspond to a
-            single environment. The anchor then is a one-hot encoding of this.
+        anchor : np.ndarray
+            Anchors.
         """
         if self.gamma == 1:
             if isinstance(X, pl.DataFrame):
@@ -454,36 +456,35 @@ class AnchorRegression(GeneralizedLinearRegressor):
         # 1 - kappa = 1 - (gamma - 1) / gamma = 1 / gamma
         mult = np.sqrt(1 / self.gamma)
 
-        self.fit_datasets_ = np.sort(np.unique(dataset))
-
         if not isinstance(y, np.ndarray):
             y = y.to_numpy()
 
         if isinstance(X, pl.DataFrame):
-            X_tilde = X.to_numpy()
+            Xt = X.to_numpy()
         else:
-            X_tilde = X
+            Xt = X
 
         y_mean = y.mean()
-        y_tilde = y - y_mean
+        yt = y - y_mean
 
-        x_mean = X_tilde.mean(axis=0)
-        X_tilde = X_tilde - x_mean
+        x_mean = Xt.mean(axis=0)
+        Xt = Xt - x_mean
 
-        for d in self.fit_datasets_:
-            mask = dataset == d
-            y_tilde[mask] = mult * y_tilde[mask] + (1 - mult) * y_tilde[mask].mean()
-            X_tilde[mask, :] = mult * X_tilde[mask, :] + (1 - mult) * X_tilde[
-                mask, :
-            ].mean(axis=0)
+        if X_proj is None:
+            X_proj = proj(Z, Xt)
+        if y_proj is None:
+            y_proj = proj(Z, yt)
+        
+        Xt = mult * Xt + (1 - mult) * X_proj
+        yt = mult * yt + (1 - mult) * y_proj
 
-        X_tilde = X_tilde + x_mean
-        y_tilde = y_tilde + y_mean
+        Xt = Xt + x_mean
+        yt = yt + y_mean
 
-        if isinstance(X, pl.DataFrame):  # glum does not support polars yet
-            X_tilde = tabmat.from_df(pl.DataFrame(X_tilde, schema=X.columns))
+        if isinstance(X, pl.DataFrame):  # glum does not support polars yet, tabmat does
+            Xt = tabmat.from_df(pl.DataFrame(Xt, schema=X.columns))
 
-        super().fit(X_tilde, y_tilde, sample_weight=sample_weight)
+        super().fit(Xt, yt, sample_weight=sample_weight)
 
         return self
 
@@ -656,7 +657,7 @@ class LGBMAnchorModel(BaseEstimator):
 
     Parameters
     ----------
-    objective : objective of anchorboost
+    objective : objective of anchorboosting
         Needs to have an `objective` and a `score` method.
     params : dict
         Parameters for the LightGBM model.
@@ -689,7 +690,7 @@ class LGBMAnchorModel(BaseEstimator):
         self.booster = None
         self.n_components = n_components
 
-    def fit(self, X, y, sample_weight=None, dataset=None):
+    def fit(self, X, y, sample_weight=None, Z=None, categories=None):
         """
         Fit the model.
 
@@ -701,12 +702,12 @@ class LGBMAnchorModel(BaseEstimator):
             The outcome.
         sample_weight : np.ndarray, optional
             The sample weights.
-        dataset : np.ndarray
+        anchor : np.ndarray
             Array of dataset indicators. Each unique value is assumed to correspond to a
             single environment. The anchor then is a one-hot encoding of this.
         """
-        if isinstance(dataset, pl.Series):
-            dataset = dataset.to_numpy()
+        # if isinstance(dataset, pl.Series):
+        #     dataset = dataset.to_numpy()
 
         categorical_features = [c for c in X.columns if "categorical" in c]
 
@@ -733,19 +734,19 @@ class LGBMAnchorModel(BaseEstimator):
             if self.n_components is not None:
                 self.objective = self.objective(
                     self.gamma,
-                    categories=np.unique(dataset),
+                    categories=categories,
                     n_components=self.n_components,
                 )
             else:
                 self.objective = self.objective(
-                    self.gamma, categories=np.unique(dataset)
+                    self.gamma, categories=categories,
                 )
             self.params["objective"] = self.objective.objective
             dataset_params["init_score"] = self.objective.init_score(y)
             self.init_score_ = dataset_params["init_score"][0]
 
         data = lgb.Dataset(**dataset_params)
-        data.anchor = dataset
+        data.anchor = Z
 
         self.booster = lgb.train(
             params=self.params,
@@ -779,7 +780,7 @@ class LGBMAnchorModel(BaseEstimator):
         elif self.objective == "binary":
             return 1 / (1 + np.exp(-scores - self.init_score_))
         else:
-            return scores
+            return scores + self.init_score_
 
 
 class CVMixin:
@@ -1161,3 +1162,22 @@ class PriorPassthroughCV(CVMixin):
 class PipelineCV(CVMixin, Pipeline):  # noqa D
     def __init__(self, steps, cv=5):
         super().__init__(cv=cv, steps=steps)
+
+@gin.configurable
+class FFill():
+    """Predict an outcome by forward filling the last value."""
+
+    def __init__(self, outcome=None):
+        self.outcome = outcome
+        self.mean = None
+
+    def fit(self, X, y=None, **kwargs):
+        self.mean = np.mean(y)
+        return self
+
+    def predict(self, X, **kwargs):
+        if self.outcome == "log_lactate_in_4h":
+            yhat = X["continuous__log_lact_ffilled"].to_numpy()
+
+        yhat[np.isnan(yhat)] = self.mean
+        return yhat

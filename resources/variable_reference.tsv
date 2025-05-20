@@ -31,7 +31,7 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 30	crp	C-reactive protein	observation	v0.0	infection	None	mg/L	continuous	0.0	2000.0	Inflammation marker	True	0.01	None	None
 31	dbp	Diastolic blood pressure	observation	v0.0	circulatory	None	mmHg	continuous	0.0	200.0	Diastolic blood pressure, blood pressure when heart rests	False	None	None	None
 32	fgn	Fibrinogen	observation	v0.0	circulatory	None	mg/dL	continuous	0.0	1500.0	None	False	None	None	None
-33	glu	Glucose	observation	v0.0	metabolic_renal	None	mg/dL	continuous	0.0	1000.0	None	False	None	None	None
+33	glu	Glucose	observation	v0.0	metabolic_renal	None	mg/dL	continuous	0.0	1000.0	None	True	1	None	None
 34	hgb	Hemoglobin	observation	v0.0	circulatory	None	g/dL	continuous	4.0	18.0	Oxygen carrying protein	False	None	None	None
 35	inr_pt	Prothrombin	observation	v0.0	circulatory	None	None	continuous	0.0	50.0	Prothrombin time/international normalized ratio	True	0.01	None	None
 36	k	Potassium	observation	v0.0	metabolic_renal	None	mmol/l	continuous	0.0	10.0	None	False	None	None	None
@@ -64,7 +64,7 @@ VariableID	VariableTag	VariableName	VariableType	DatasetVersion	OrganSystem	Trea
 63	rass	Richmond Agitation Sedation Scale	observation	v0.0	neuro	None	None	continuous	-5.0	4.0	Scale used to measure the agitation or sedation level of a person	False	None	[-5, -4, -3, -2, -1, 0, 1, 2, 3, 4]	None
 64	hbco	Carboxyhemoglobin	observation	v0.0	circulatory	None	None	continuous	0.0	100.0	Hemoglobin in which the sites usually bound to oxygen are bound to carbon monoxide.	True	0.1	None	None
 65	esr	Erythrocyte sedimentation rate	observation	v0.0	infection	None	None	continuous	0.0	200.0	Erythrocyte sedimentation rate	True	0.1	None	None
-66	pt	Prothrombine time	observation	None	circulatory	None	sec	continuous	0	250	Prothrombine time	TRUE	0.1	None	None
+66	pt	Prothrombine time	observation	v0.0	circulatory	None	sec	continuous	0	250	Prothrombine time	TRUE	0.01	None	None
 67	tco2	Totcal CO2	observation	None	None	None	mEq/L	continuous	5	60	Total Serum CO2	FALSE	None	None	None
 68	adm	Patient admission type	static	v0.0	demographic	None	None	categorical	None	None	Patient admission type	False	None	"[""surg"", ""med"", ""other""]"	None
 69	hba1c	Hemoglobin A1C	observation	v0.0	metabolic_renal	None	%	continuous	0.0	100.0	A1C is a blood test for type 2 diabetes and prediabetes.	True	0.01	None	None

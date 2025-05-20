@@ -1,6 +1,7 @@
-import anchorboost
+import anchorboosting
 import gin
 import glum
+import icu_features
 
 # From https://github.com/google/gin-config/blob/master/docs/index.md#making-existing-c\
 # lasses-or-functions-configurable:
@@ -14,20 +15,15 @@ GeneralizedLinearRegressor = gin.external_configurable(
     glum.GeneralizedLinearRegressor, module="glum"
 )
 AnchorRegressionObjective = gin.external_configurable(
-    anchorboost.AnchorRegressionObjective, module="anchorboost"
+    anchorboosting.objectives.AnchorRegressionObjective, module="anchorboosting"
 )
 AnchorKookClassificationObjective = gin.external_configurable(
-    anchorboost.AnchorKookClassificationObjective, module="anchorboost"
-)
-AnchorLiuClassificationObjective = gin.external_configurable(
-    anchorboost.AnchorLiuClassificationObjective, module="anchorboost"
+    anchorboosting.objectives.AnchorKookClassificationObjective, module="anchorboosting"
 )
 
 
-AnchorLiuClassificationObjective = gin.external_configurable(
-    anchorboost.AntiAnchorRegressionObjective, module="anchorboost"
+load = gin.external_configurable(
+    icu_features.load, module="icu_features.load"
 )
 
-AnchorHSICRegressionObjective = gin.external_configurable(
-    anchorboost.AnchorHSICRegressionObjective, module="anchorboost"
-)
+AnchorBooster = gin.external_configurable(anchorboosting.AnchorBooster, module="anchorboosting")

@@ -7,7 +7,7 @@ from pathlib import Path
 from time import sleep
 from typing import Optional
 
-from icu_benchmarks.constants import DATASETS, OBSERVATIONS_PER_GB, OUTCOMES, TASKS
+from icu_benchmarks.constants import DATASETS, OUTCOMES, TASKS
 
 
 def free_port():
