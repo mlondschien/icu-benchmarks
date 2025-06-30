@@ -8,11 +8,10 @@ import numpy as np
 import polars as pl
 from matplotlib.patches import FancyArrowPatch, Patch
 from mlflow.tracking import MlflowClient
-
-from icu_benchmarks.constants import GREATER_IS_BETTER, SHORT_DATASET_NAMES
+import scipy
+from icu_benchmarks.constants import GREATER_IS_BETTER, VERY_SHORT_DATASET_NAMES
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.utils import find_intersection, fit_monotonic_spline
-
+from icu_benchmarks.utils import fit_monotonic_spline, find_intersection
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -71,22 +70,7 @@ def main(tracking_uri, config):  # noqa D
 
     _, target_run = get_target_run(client, CONFIG["target_experiment"])
 
-    fig, ax = plt.subplots(figsize=(3.5 * 2, 5), constrained_layout=True, sharex=True)
-
-    # ncols = int(len(CONFIG["panels"]) / 3)
-    # fig = plt.figure(figsize=(3.5 * ncols, 7))# , constrained_layout=True,sharex=True)
-    # gs = gridspec.GridSpec(ncols + 2, 3, height_ratios=[1, 1, -0.27, 1, -0.2], wspace=0.13, hspace=0.68)
-    # axes = [
-    #     fig.add_subplot(
-    #         gs[i, j] #, sharex=gs[0,j] if i > 0 else None, sharey=gs[0,j] if j > 0 else None
-    #     ) for i in [0, 1, 3] for j in range(ncols)
-    # ]
-
-    # metric = CONFIG["metric"]
-    # cv_metric = CONFIG["cv_metric"]
-
-    # legend_handles = []
-    # labels = []
+    fig, ax = plt.subplots(figsize=(6, 3.5), constrained_layout=True, sharex=True)
 
     datasets = CONFIG["datasets"]
     datasets.reverse()
@@ -98,7 +82,6 @@ def main(tracking_uri, config):  # noqa D
         labels.append(experiment["name"])
 
         group_shift = -0.3 + 0.6 * experient_idx / (len(CONFIG["experiments"]) - 1)
-        # scatter = 0.4 / (len(CONFIG["experiments"]) - 1) / 3
 
         _, run = get_target_run(
             client, experiment["cv_experiment_name"], create_if_not_exists=False
@@ -135,40 +118,25 @@ def main(tracking_uri, config):  # noqa D
             ).alias(column)
         )
 
-        data = cv_data.join(
-            n_samples_data,
-            on=["target"],
-            how="full",
-            validate="1:m",
-            suffix="_n_samples",
-        )
-        data = data.join(
-            refit_data,
-            on=["target", "n_target", "seed"],
-            how="full",
-            validate="1:1",
-            suffix="_refit",
-        )
-
-        val = (pl.col("n_target") / 100).log() / np.log(np.sqrt(2))
-        data = data.filter((val - val.round()).abs() < 0.01)
-
         for target_idx, target in enumerate(datasets):
-            df = data.filter(pl.col("target") == target)
-
-            n_samples_new = np.empty((len(N_TARGET_VALUES), len(df["seed"].unique())))
-            refit_new = np.empty((len(N_TARGET_VALUES), len(df["seed"].unique())))
-
-            for seed_idx, seed in enumerate(df["seed"].unique()):
+            df = n_samples_data.filter(pl.col("target") == target)
+            seeds = n_samples_data["seed"].unique().to_list()
+            n_samples_new = np.empty((len(N_TARGET_VALUES), len(seeds)))
+            for seed_idx, seed in enumerate(seeds):
                 n_samples_new[:, seed_idx] = fit_monotonic_spline(
                     df.filter(pl.col("seed") == seed)["n_target"].log().to_numpy(),
-                    df.filter(pl.col("seed") == seed)[f"{column}_n_samples"].to_numpy(),
+                    df.filter(pl.col("seed") == seed)[column].to_numpy(),
                     np.log(N_TARGET_VALUES),
                     increasing=metric in GREATER_IS_BETTER,
                 )
+
+            df = refit_data.filter(pl.col("target") == target)
+            seeds = refit_data["seed"].unique().to_list()
+            refit_new = np.empty((len(N_TARGET_VALUES), len(seeds)))
+            for seed_idx, seed in enumerate(seeds):
                 refit_new[:, seed_idx] = fit_monotonic_spline(
                     df.filter(pl.col("seed") == seed)["n_target"].log().to_numpy(),
-                    df.filter(pl.col("seed") == seed)[f"{column}_refit"].to_numpy(),
+                    df.filter(pl.col("seed") == seed)[column].to_numpy(),
                     np.log(N_TARGET_VALUES),
                     increasing=metric in GREATER_IS_BETTER,
                 )
@@ -268,68 +236,69 @@ def main(tracking_uri, config):  # noqa D
                 #     )
                 #     ax.add_patch(patch)
 
-            n_samples_new = np.median(n_samples_new, axis=1)
-            refit_new = np.median(refit_new, axis=1)
+            n_samples = np.median(n_samples_new, axis=1)
 
+            refit = np.median(refit_new, axis=1)
+            refit_std = np.std(refit_new, axis=1)
+            mult = 0.02 if metric in GREATER_IS_BETTER else -0.1
+            
+            cv = cv_data.filter(pl.col("target").eq(target))[column].item()
             cv_vs_n_samples = np.exp(
                 find_intersection(
-                    np.log(N_TARGET_VALUES),
-                    n_samples_new - df[column].first(),
-                    increasing=metric in GREATER_IS_BETTER,
+                n_samples - cv,
+                np.log(N_TARGET_VALUES),
+                increasing=metric in GREATER_IS_BETTER,
                 )
             )
             cv_vs_refit = np.exp(
-                find_intersection(
-                    np.log(N_TARGET_VALUES),
-                    refit_new - df[column].first(),
-                    increasing=metric in GREATER_IS_BETTER,
-                )
+                find_intersection( refit - mult * refit_std - cv, np.log(N_TARGET_VALUES), increasing=metric in GREATER_IS_BETTER)
             )
             n_samples_vs_refit = np.exp(
                 find_intersection(
+                    n_samples - refit,
                     np.log(N_TARGET_VALUES),
-                    n_samples_new - refit_new,
                     increasing=metric in GREATER_IS_BETTER,
                 )
             )
 
             n_max = df["n_target"].max()
-            if np.isnan(cv_vs_refit):
-                cv_vs_refit = np.min(N_TARGET_VALUES)
-            else:
+
+            if np.isfinite(cv_vs_refit) and cv_vs_refit > 0:
                 ax.scatter(
                     cv_vs_refit,
                     target_idx + group_shift,
                     marker="o",
                     color=experiment["color"],
                     alpha=1,
-                    s=50,
+                    s=25,
                     zorder=4,
                 )
+            elif cv_vs_refit == 0:
+                cv_vs_refit = np.min(N_TARGET_VALUES)
 
-            if ~np.isnan(cv_vs_n_samples) and cv_vs_n_samples < n_max:
+            if cv_vs_n_samples > 0 and cv_vs_n_samples <= n_max * 4:
                 ax.scatter(
                     cv_vs_n_samples,
                     target_idx + group_shift,
                     marker="X",
                     color=experiment["color"],
                     alpha=1,
-                    s=50,
+                    s=25,
                     zorder=4,
                 )
 
-            if n_samples_vs_refit <= n_max * 6:
+            if n_samples_vs_refit > 0 and n_samples_vs_refit <= n_max * 4:
                 ax.scatter(
                     n_samples_vs_refit,
                     target_idx + group_shift,
                     marker="s",
                     color=experiment["color"],
                     alpha=1,
-                    s=50,
+                    s=25,
                     zorder=4,
                 )
-            else:
-                n_samples_vs_refit = n_max * 5.6
+            elif n_samples_vs_refit > 0:
+                n_samples_vs_refit = n_max * 4
 
             # cv_vs_n_samples
             # ax.scatter(
@@ -392,14 +361,21 @@ def main(tracking_uri, config):  # noqa D
             #     n_samples_vs_refit = np.max(N_TARGET_VALUES)
             # if np.isnan(cv_vs_refit):
             #     cv_vs_refit = np.min(N_TARGET_VALUES)
+            if not np.isfinite(cv_vs_refit):
+                continue
+            if not np.isfinite(n_samples_vs_refit):
+                continue
+
             if n_samples_vs_refit > n_max:
+                if cv_vs_refit < 25:
+                    breakpoint()
                 patch = FancyArrowPatch(
                     posA=(cv_vs_refit, target_idx + group_shift),
                     posB=(n_max, target_idx + group_shift),
                     arrowstyle="-",
                     ls="solid",
-                    color="black",
-                    lw=1,
+                    color=experiment["color"],
+                    lw=1.5,
                     alpha=0.5,
                 )
                 ax.add_patch(patch)
@@ -408,9 +384,9 @@ def main(tracking_uri, config):  # noqa D
                     posA=(n_max, target_idx + group_shift),
                     posB=(n_samples_vs_refit, target_idx + group_shift),
                     arrowstyle="-",
-                    ls="dashed",
-                    color="black",
-                    lw=1,
+                    ls=(0, (4, 4)),
+                    color=experiment["color"],
+                    lw=1.5,
                     alpha=0.5,
                 )
                 ax.add_patch(patch)
@@ -420,7 +396,7 @@ def main(tracking_uri, config):  # noqa D
                     posB=(n_samples_vs_refit, target_idx + group_shift),
                     arrowstyle="-",
                     # ls="solid",
-                    color="black",
+                    color=experiment["color"],
                     lw=1,
                     alpha=0.5,
                 )
@@ -470,30 +446,35 @@ def main(tracking_uri, config):  # noqa D
             #         increasing=metric in GREATER_IS_BETTER,
             #     )
             # )
+    legend_handles = [legend_handles[1], legend_handles[0], legend_handles[3], legend_handles[2]]
+    labels = [labels[1], labels[0], labels[3], labels[2]]
     fig.legend(
         legend_handles,
         labels,
         loc="outside lower center",
         ncols=int(len(legend_handles) / 2),
+        fontsize=10,
+        frameon=False,
     )
     ax.set_xscale("log")
-
-    ax.set_xticks([25, 100, 1000, 10_000, 100_000])
-    ax.set_xticklabels(["25", "100", "1k", "10k", "100k"])
-    ax.set_xlabel("number of patient stays from target", labelpad=3.5)
+    ax.set_xlim(CONFIG["xlim"])
+    ax.set_xticks(CONFIG["xticks"])
+    ax.set_xticklabels(CONFIG["xticklabels"], fontsize=10)
+    ax.set_xlabel("number of patients from target", labelpad=3.5, fontsize=10)
 
     ax.set_yticks(np.arange(len(CONFIG["datasets"])))
     ax.set_yticklabels(
-        [SHORT_DATASET_NAMES[x] for x in datasets],
-        fontsize=12,
+        [VERY_SHORT_DATASET_NAMES[x] for x in datasets],
+        fontsize=11,
     )
     log_fig(
-        fig, "regimes.pdf", client, run_id=target_run.info.run_id, bbox_inches="tight"
-    )
-    log_fig(
-        fig, "regimes.png", client, run_id=target_run.info.run_id, bbox_inches="tight"
+        fig, f"{CONFIG['filename']}.pdf", client, run_id=target_run.info.run_id, bbox_inches="tight"
     )
 
 
 if __name__ == "__main__":
     main()
+
+
+
+

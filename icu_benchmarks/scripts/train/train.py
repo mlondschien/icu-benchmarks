@@ -9,7 +9,11 @@ import numpy as np
 import polars as pl
 from anchorboosting import AnchorBooster  # noqa F401
 from sklearn.model_selection import ParameterGrid
-
+import json
+from mlflow.tracking import MlflowClient
+import tempfile
+import pickle
+from pathlib import Path
 from icu_benchmarks.constants import ANCHORS, TASKS
 from icu_benchmarks.gin import load
 from icu_benchmarks.metrics import metrics
@@ -73,7 +77,8 @@ def get_predict_kwargs(predict_kwargs=gin.REQUIRED):
 @click.command()
 @click.option("--config", type=click.Path(exists=True))
 @click.option("--anchor_formula", type=str, default=None)
-def main(config: str = "", anchor_formula: str = ""):  # noqa D
+@click.option("--continue_run", type=str, default=None)
+def main(config: str = "", anchor_formula: str = "", continue_run=None):  # noqa D
     gin.parse_config_file(config)
 
     outcome, sources, targets = get_outcome(), get_sources(), get_targets()
@@ -105,7 +110,8 @@ def main(config: str = "", anchor_formula: str = ""):  # noqa D
     preprocessor = get_preprocessing(get_model(), df)
 
     df_anchor = df_anchor.fill_null(2010).fill_null("other").to_pandas()
-    n_categories, Z = get_model_matrix(df_anchor, anchor_formula)
+    Z = get_model_matrix(df_anchor, anchor_formula)
+
     tic = perf_counter()
     df = preprocessor.fit_transform(df)
     toc = perf_counter()
@@ -117,25 +123,50 @@ def main(config: str = "", anchor_formula: str = ""):  # noqa D
 
     # Z = np.hstack([Z, df[exogenous_mask].to_numpy()])
 
-    # X = df.to_numpy()
-    # X_proj = proj(Z, X - X.mean(axis=0), n_categories=n_categories)
-    # y_proj = proj(Z, y - y.mean(axis=0), n_categories=n_categories)
+    if any(x in str(get_model()) for x in ["GeneralizedLinear", "AnchorRegression", "DataSharedLasso"]):
+        from anchorboosting.models import Proj
+        X = df.to_numpy()
+        proj = Proj(Z)
+        X_proj = np.zeros_like(X)
+        for j in range(X.shape[1]):
+            X_proj[:, j] = proj(X[:, j] - X[:, j].mean())
+        y_proj = proj(y - y.mean(axis=0))
 
     models = []
+    if continue_run is not None:
+        client = MlflowClient()
+
+        run = client.get_run(continue_run)
+        if not run.data.tags["sources"] == str(sources):
+            raise ValueError
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            model_dir = Path(client.download_artifacts(continue_run, "models", tmpdir))
+            for model_idx in range(len(list(model_dir.glob("model_*.pkl")))):
+                with open(model_dir / f"model_{model_idx}.pkl", "rb") as f:
+                    models.append(pickle.load(f))
+    
     model_dict = {}
     results = []
     for parameter_idx, parameter in enumerate(get_parameters()):
         logger.info(f"Fitting model with {parameter}")
-        model = get_model()(**parameter)
+        if len(models) > parameter_idx:
+            logger.info(f"Using existing model {parameter_idx}")
+            model = models[parameter_idx]
+        else:
+            model = get_model()(**parameter)
 
-        categorical_features = [c for c in df.columns if "categorical" in c]
-        tic = perf_counter()
-        model.fit(
-            df, y, Z=Z, categorical_feature=categorical_features
-        )  # , X_proj=X_proj, y_proj=y_proj)
-        toc = perf_counter()
-        logger.info(f"Fitting the model with {parameter} took {toc - tic:.1f} seconds")
-        models.append(model)
+            categorical_features = [c for c in df.columns if "categorical" in c]
+            tic = perf_counter()
+
+            if "AnchorBooster" in str(model):
+                model.fit(             df, y, Z=Z, categorical_feature=categorical_features)
+            else:
+                model.fit(            df, y, Z=Z, X_proj=X_proj, y_proj=y_proj)
+
+            toc = perf_counter()
+            logger.info(f"Fitting the model with {parameter} took {toc - tic:.1f} seconds")
+            models.append(model)
         model_dict[parameter_idx] = parameter
         log_pickle(model, f"models/model_{parameter_idx}.pkl")
         for predict_kwarg in get_predict_kwargs():
@@ -160,7 +191,7 @@ def main(config: str = "", anchor_formula: str = ""):  # noqa D
                 other_columns=[x for x in ANCHORS if x in anchor_formula + "dataset"],
             )
             df_anchor = df_anchor.fill_null(2010).fill_null("other").to_pandas()
-            n_categories, Z = get_model_matrix(df_anchor, anchor_formula)
+            Z = get_model_matrix(df_anchor, anchor_formula)
 
             toc = perf_counter()
             logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
@@ -185,7 +216,6 @@ def main(config: str = "", anchor_formula: str = ""):  # noqa D
                         f"{target}/{split}/",
                         TASKS[outcome]["task"],
                         Z=Z,
-                        n_categories=n_categories,
                     ),
                 }
 

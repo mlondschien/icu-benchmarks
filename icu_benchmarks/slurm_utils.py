@@ -119,7 +119,7 @@ python {python_script.resolve()}
 echo $(hostname -i)
 echo "{port}"
 echo $(hostname -i) > {ip_file.resolve()}
-mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --default-artifact-root={artifact_location}" --artifacts-destinations {artifact_location}" --serve-artifacts"""
+mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --default-artifact-root={artifact_location} --artifacts-destination {artifact_location} --serve-artifacts"""
         )
 
     cmd = [

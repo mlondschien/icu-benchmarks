@@ -14,16 +14,10 @@ import icu_features
 GeneralizedLinearRegressor = gin.external_configurable(
     glum.GeneralizedLinearRegressor, module="glum"
 )
-AnchorRegressionObjective = gin.external_configurable(
-    anchorboosting.objectives.AnchorRegressionObjective, module="anchorboosting"
-)
-AnchorKookClassificationObjective = gin.external_configurable(
-    anchorboosting.objectives.AnchorKookClassificationObjective, module="anchorboosting"
-)
-
 
 load = gin.external_configurable(icu_features.load, module="icu_features.load")
 
 AnchorBooster = gin.external_configurable(
     anchorboosting.AnchorBooster, module="anchorboosting"
 )
+

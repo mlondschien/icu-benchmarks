@@ -36,10 +36,10 @@ def get_config(config):  # noqa D
 )
 @click.option("--config", type=click.Path(exists=True))
 def main(tracking_uri, config):  # noqa D
-
     gin.parse_config_file(config)
     CONFIG = get_config()
     client = MlflowClient(tracking_uri=tracking_uri)
+    
     experiment, run = get_target_run(client, CONFIG["experiment_name"])
     metric = CONFIG["metric"]
     cv_metric = CONFIG.get("cv_metric", metric)
@@ -85,16 +85,16 @@ def main(tracking_uri, config):  # noqa D
         if target == "empty":
             ax.set_visible(False)
             continue
-
+        cv = results.filter(~pl.col("sources").list.contains(target))
         cv = (
             cv_results(
-                results.filter(~pl.col("sources").list.contains(target)),
-                cv_metric,
+                cv,
+                [cv_metric],
             )
             .group_by("gamma")
             .agg(
                 pl.all().top_k_by(
-                    k=1, by="__cv_value", reverse=cv_metric not in GREATER_IS_BETTER
+                    k=1, by=f"__cv_{cv_metric}", reverse=cv_metric not in GREATER_IS_BETTER
                 )
             )
             .select(pl.all().explode())
@@ -172,7 +172,7 @@ def main(tracking_uri, config):  # noqa D
         # )
 
         best = cv.select(
-            pl.col("gamma").top_k_by(k=1, by="__cv_value", reverse=True)
+            pl.col("gamma").top_k_by(k=1, by=f"__cv_{cv_metric}", reverse=True)
         ).item()
         ax.axvline(best, color="black", ls="dashed", alpha=0.2)
 

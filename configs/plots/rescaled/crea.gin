@@ -1,0 +1,38 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "filename": "paper/crea_rescaled",
+    "target_experiment_name": "plots",
+    "title": "log(creatinine) in 24h",
+    "panels": [
+        {
+            "xlim": (1, 16),
+            "xticks": [1, 2, 4, 8, 16],
+            "yticks": ([1000, 10000], [80, 100]),
+            "yticklabels": (["1k", "10k"], ["80", "100"]),
+            "break_y_axis": True,
+            "ylim": ((910, 10000), (80, 110)),
+            "title": "anchor boosting",
+            "cv_metric": "mse",
+            "metric": "mse",
+            "experiment_name": "crea_algbm_7_d",
+            "result_name": "results",
+            "n_samples_experiment_name": "crea_algbm_n_samples_7_1",
+            "n_samples_result_name": "n_samples_results",
+        },
+        {
+            "xlim": (1, 256),
+            "xticks": [1, 4, 16, 64, 256],
+            "ylim": (20, 5000),
+            "yticks": [20, 100, 1000, 5000],
+            "yticklabels": ["20", "100", "1k", "5k"],
+            "title": "anchor regression",
+            "cv_metric": "mse",
+            "metric": "mse",
+            "experiment_name": "crea_anchor_7_d",
+            "result_name": "results",
+            "n_samples_experiment_name": "crea_anchor_n_samples_7_1",
+            "n_samples_result_name": "n_samples_results",
+        }
+    ]
+}

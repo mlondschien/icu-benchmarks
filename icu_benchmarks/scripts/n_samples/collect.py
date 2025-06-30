@@ -7,7 +7,7 @@ import polars as pl
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
-from icu_benchmarks.mlflow_utils import get_target_run, log_df
+from icu_benchmarks.mlflow_utils import get_target_run, log_df, get_results
 
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 
@@ -33,44 +33,12 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
 
     logger.info(f"logging to {target_run.info.run_id}")
 
-    experiment_id = experiment.experiment_id
-
-    runs = client.search_runs(experiment_ids=[experiment_id])
-
-    all_results = []
-    for run in runs:
-        if "target" in run.data.tags:
-            target = run.data.tags.get("target")
-            if target == "":
-                continue
-        else:
-            sources = run.data.tags.get("sources", "")
-            if sources == "":
-                continue
-
-            sources = json.loads(run.data.tags["sources"].replace("'", '"'))
-            if len(sources) != 5:
-                continue
-            target = [t for t in SOURCES if t not in sources][0]
-
-        run_id = run.info.run_id
-        result_file = f"{result_name}_results.csv"
-        with tempfile.TemporaryDirectory() as f:
-            if result_file not in [x.path for x in client.list_artifacts(run_id)]:
-                logger.warning(f"Run {run_id} has no {result_file}")
-                continue
-
-            client.download_artifacts(run_id, result_file, f)
-            results = pl.read_csv(f"{f}/{result_file}")
-
-        results = results.with_columns(
-            pl.lit(run_id).alias("run_id"),
-            pl.lit(result_name).alias("result_name"),
-            pl.lit(target).alias("target"),
-        )
-        all_results.append(results)
-
-    results = pl.concat(all_results, how="diagonal")
+    results = get_results(
+        client,
+        experiment_name,
+        f"{result_name}_results.csv",
+    )
+        
     metrics = results["metric"].unique().to_list()
 
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
@@ -79,7 +47,6 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
         values=["cv_value", "test_value"], on=["metric"], separator="/"
     )
     group_by = ["target", "n_target", "seed"]
-
     summaries = []
     for metric in metrics:
         summaries.append(

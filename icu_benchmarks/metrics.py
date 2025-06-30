@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from anchorboosting.utils import proj
+from anchorboosting.models import Proj
 from sklearn.metrics import accuracy_score, average_precision_score, roc_auc_score
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
@@ -48,16 +48,12 @@ def metrics(y, yhat, prefix, task, Z=None, n_categories=None):  # noqa D
 
         q = [0.8, 0.9, 0.95]
         losses_q = np.quantile(log_losses, q)
-        losses_qb = np.quantile(log_losses[y == 1], q) + np.quantile(
-            log_losses[y == 0], q
-        )
         for i, q in enumerate(q):
             out[f"{prefix}log_loss_quantile_{q}"] = losses_q[i]
-            out[f"{prefix}log_loss_balanced_quantile_{q}"] = losses_qb[i]
 
     elif task == "regression":
         abs_residuals = np.abs(score_residuals)
-        q = [0.8, 0.9, 0.95]
+        q = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
         abs_quantiles = np.quantile(abs_residuals, q)
         se = score_residuals**2
         mse = np.mean(se)
@@ -71,15 +67,16 @@ def metrics(y, yhat, prefix, task, Z=None, n_categories=None):  # noqa D
             out[f"{prefix}mse_quantile_{q}"] = abs_quantiles[i] ** 2
 
     if Z is not None:
+        proj = Proj(Z)
         if task == "binary":
-            logloss_proj = proj(Z, log_losses, n_categories=n_categories)
+            logloss_proj = proj(log_losses)
             q = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
             logloss_quantiles = np.quantile(logloss_proj, q)
             for i, q in enumerate(q):
                 out[f"{prefix}proj_logloss_quantile_{q}"] = logloss_quantiles[i]
             out[f"{prefix}proj_logloss"] = np.mean(logloss_proj)
 
-        residuals_proj = proj(Z, score_residuals, n_categories=n_categories)
+        residuals_proj = proj(score_residuals)
         errors = residuals_proj**2
         q = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
         error_quantiles = np.quantile(errors, q)

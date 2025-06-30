@@ -68,6 +68,8 @@ def main(tracking_uri, config):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
     gin.parse_config_file(config)
 
+    import matplotlib as mpl
+    # mpl.rcParams['pdf.fonttype'] = 42
     CONFIG = get_config()
 
     experiment = client.get_experiment_by_name(CONFIG["target_experiment"])
@@ -86,9 +88,9 @@ def main(tracking_uri, config):  # noqa D
     target_run = target_runs[0]
 
     ncols = int(len(CONFIG["panels"]) / 3)
-    fig = plt.figure(figsize=(3.5 * ncols, 7))
+    fig = plt.figure(figsize=(3.2 * ncols, 5))
     gs = gridspec.GridSpec(
-        ncols + 2, 3, height_ratios=[1, 1, -0.15, 1, -0.1], wspace=0.13, hspace=0.4
+        ncols + 2, 3, height_ratios=[1, 1, -0.15, 1, 0], wspace=0.19, hspace=0.4
     )
     axes = [fig.add_subplot(gs[i, j]) for i in [0, 1, 3] for j in range(ncols)]
 
@@ -109,6 +111,7 @@ def main(tracking_uri, config):  # noqa D
             raise ValueError(
                 f"Expected exactly one run for {line['experiment_name']}. Got {runs:}"
             )
+
         run = runs[0]
 
         with tempfile.TemporaryDirectory() as f:
@@ -123,11 +126,11 @@ def main(tracking_uri, config):  # noqa D
             df = df.filter(**line["filter"])
 
         for panel, ax in zip(CONFIG["panels"], axes):
+            if panel["source"] == "empty":
+                continue
+
             xmin, xmax = panel["xlim"]
             column = f"{panel['source']}/test/{metric}"
-            if panel["source"] == "empty":
-                # ax.set_visible(False)
-                continue
 
             data = df.filter(pl.col("target") == panel["source"])
             if len(data) == 0:
@@ -148,33 +151,17 @@ def main(tracking_uri, config):  # noqa D
             x_new = np.asarray([x for x in N_TARGET_VALUES if xmin <= x <= xmax])
             y_new = np.empty((len(x_new), len(data["seed"].unique())))
             data = data.filter(pl.col("n_target").is_in(x_new)).sort("n_target")
-            for seed in data["seed"].unique():
-                y_new[:, seed] = fit_monotonic_spline(
+            seeds = data["seed"].unique().to_numpy()
+            for idx, seed in enumerate(seeds):
+                y_new[:, idx] = fit_monotonic_spline(
                     data.filter(pl.col("seed").eq(seed))["n_target"].log(),
                     data.filter(pl.col("seed").eq(seed))[f"test_value/{metric}"],
-                    np.log(x_new),
+                    np.log(x_new[:]),
                     increasing=metric in GREATER_IS_BETTER,
                 )
-                # ax.plot(x_new, y_new[:, seed], color=line["color"], alpha=0.1)
-                # ax.scatter(
-                #     data.filter(pl.col("seed").eq(seed))["n_target"],
-                #     data.filter(pl.col("seed").eq(seed))[f"test_value/{metric}"],
-                #     alpha=0.1, color=line["color"],
-                # )
-
             quantiles = np.quantile(y_new, [0.1, 0.5, 0.9], axis=1)
-            # data = (
-            #     data.group_by("n_target")
-            #     .agg(
-            #         [
-            #             pl.col(f"test_value/{metric}").median().alias("__score"),
-            #             pl.col(f"test_value/{metric}").quantile(0.2).alias("__min"),
-            #             pl.col(f"test_value/{metric}").quantile(0.8).alias("__max"),
-            #         ]
-            #     )
-            #     .sort("n_target")
-            # )
             idx = x_new.searchsorted(data["n_target"].max())
+
             ax.plot(
                 x_new[: idx + 1],
                 # data["n_target"],
@@ -232,36 +219,37 @@ def main(tracking_uri, config):  # noqa D
         ax.set_xscale("log")
         delta = np.pow(panel["xlim"][1] / panel["xlim"][0], 0.02)
         ax.set_xlim(panel["xlim"][0] / delta, panel["xlim"][1] * delta)
-        ax.set_ylim(*panel["ylim"])
+        if "ylim" in panel:
+            ax.set_ylim(*panel["ylim"])
         if panel.get("yticks") is not None:
             ax.set_yticks(panel["yticks"])
-            ax.set_yticklabels(panel.get("yticklabels", panel["yticks"]))
+            ax.set_yticklabels(panel.get("yticklabels", panel["yticks"]), fontsize=10)
         else:
             ax.yaxis.set_major_locator(plt.MaxNLocator(4))
 
         if ax.get_subplotspec().colspan == range(0, 1):
-            ax.set_ylabel(CONFIG["ylabel"])
+            ax.set_ylabel(CONFIG["ylabel"], fontsize=10)
         if ax.get_subplotspec().rowspan == range(3, 4):
             ax.xaxis.set_major_formatter(StrMethodFormatter("{x:.0f}"))
             ax.xaxis.set_minor_formatter(NullFormatter())
             ax.set_xticks(panel["xticks"])
-            ax.set_xticklabels(panel.get("xticklabels", panel["xticks"]))
-            ax.set_xlabel("number of patient stays from target", labelpad=3.5)
+            ax.set_xticklabels(panel.get("xticklabels", panel["xticks"]), fontsize=10)
+            ax.set_xlabel("number of patients from target", labelpad=3.5, fontsize=10)
         else:
             ax.xaxis.set_major_formatter(NullFormatter())
-        ax.tick_params(axis="y", which="both", pad=1)
+        ax.tick_params(axis="y", which="both", pad=0)
         ax.tick_params(axis="x", which="both", pad=2)
 
         ax.grid(visible=True, axis="x", alpha=0.2)
         # ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
         # ax.xaxis.set_tick_params(labelbottom=True)
-        ax.set_title(panel["title"], y=0.985)
+        ax.set_title(panel["title"], y=0.965, fontsize=10)
 
     fig.align_xlabels(axes)
     fig.align_ylabels(axes)
     line = plt.Line2D(
         [0.07, 0.925],
-        [0.388, 0.388],
+        [0.402, 0.402],
         transform=fig.transFigure,
         color="black",
         linewidth=2,
@@ -269,37 +257,39 @@ def main(tracking_uri, config):  # noqa D
     )
     _ = plt.text(
         0.915,
-        0.565,
+        0.56,
         "core datasets",
         transform=fig.transFigure,
-        fontsize=12,
+        fontsize=11,
         rotation=90,
-        alpha=0.65,
+        alpha=1.0,
+        color="grey",
     )
     _ = plt.text(
         0.915,
-        0.185,
+        0.195,
         "truly OOD",
         transform=fig.transFigure,
-        fontsize=12,
+        fontsize=11,
         rotation=90,
-        alpha=0.65,
+        alpha=1.0,
+        color="grey",
     )
     fig.add_artist(line)
 
-    fig.legend(legend_handles, labels, loc="outside lower center", ncols=2)
+    fig.legend(legend_handles, labels, ncols=3, loc="center",  bbox_to_anchor=(0.5, 0.02) , frameon=False, fontsize=10, handletextpad=0.8, columnspacing=1, labelspacing=0.5)
     if CONFIG.get("title") is not None:
-        fig.suptitle(CONFIG["title"], size="x-large", y=0.94)
+        fig.suptitle(CONFIG["title"], size=12, y=0.955)
     log_fig(
         fig,
-        f"{CONFIG['filename']}.png",
+        f"{CONFIG['filename']}.pdf",
         client,
         run_id=target_run.info.run_id,
         bbox_inches="tight",
     )
     log_fig(
         fig,
-        f"{CONFIG['filename']}.pdf",
+        f"{CONFIG['filename']}.png",
         client,
         run_id=target_run.info.run_id,
         bbox_inches="tight",

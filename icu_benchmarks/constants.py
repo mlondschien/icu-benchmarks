@@ -3,29 +3,81 @@ from typing import Any, Dict
 
 DATA_DIR = Path(__file__).parents[1] / "data"
 
-VARIABLE_REFERENCE_PATH = (
-    Path(__file__).parents[1] / "resources" / "variable_reference.tsv"
-)
 
-HORIZONS = [8, 24, 72]
 
-DATASETS = [
-    # "mimic",
-    # "mimic-metavision",
-    "aumc",
-    "eicu",
-    "hirid",
-    "mimic-carevue",
-    "miiv",
-    "sic",
-    # "miiv-late",
-    # "aumc-early",
-    # "aumc-late",
-    "nwicu",
-    # "miived"
-    "picdb",
-    "zigong",
-]
+SOURCE_COLORS = {
+    "eicu": "#000000",
+    "mimic": "#EE6677",
+    "mimic-carevue": "red",
+    "mimic-metavision": "red",
+    "hirid": "#66CCEE",
+    "miiv": "#AA3377",
+    "miiv-late": "orange",
+    "aumc": "#4477AA",
+    "aumc-early": "green",
+    "aumc-late": "green",
+    "sic": "#332288",
+    "zigong": "#228833",
+    "picdb": "#CCBB44",
+    "ehrshot": "gray",
+    "miived": "cyan",
+    "nwicu": "#BBBBBB",
+    "data_old/nwicu": "orange",
+    "data/nwicu": "red",
+    "data/miiv": "purple",
+    "data_old/miiv": "blue",
+}
+
+# https://personal.sron.nl/~pault/#sec:qualitative
+COLORS = {
+    "blue": "#4477AA",
+    "cyan": "#66CCEE",
+    "green": "#228833",
+    "yellow": "#CCBB44",
+    "red": "#EE6677",
+    "purple": "#AA3377",
+    "grey": "#BBBBBB",
+    "black": "#000000",
+    "indigo": "#332288",
+}
+
+LINESTYLES = {
+    "miiv-late": "dashed",
+    "aumc-early": "dotted",
+    "aumc-late": "dashed",
+    "mimic-metavision": "dotted",
+    "mimic-carevue": "dashed",
+}
+
+
+METRIC_NAMES = {
+    "brier": "brier score",
+    "roc": "AuROC",
+    "auprc": "AuPRC",
+    "log_loss": "binomial neg. log-likelihood",
+    "accuracy": "accuracy",
+    "mae": "MAE",
+    "mse": "MSE",
+    "rmse": "RMSE",
+    "abs_quantile_0.8": "80\\%-quantile of abs. errors",
+    "abs_quantile_0.9": "90\\%-quantile of abs. errors",
+    "abs_quantile_0.95": "95\\%-quantile of abs. errors",
+    "quantile_0.1": "10\\%-quantile of residuals",
+    "quantile_0.25": "25\\%-quantile of residuals",
+    "quantile_0.5": "median of residuals",
+    "quantile_0.75": "75\\%-quantile of residuals",
+    "quantile_0.9": "90\\%-quantile of residuals",
+    "mean_residual": "mean of residuals",
+}
+
+DATASET_NAMES = {
+    "sic": "SICdb",
+    "aumc": "AmsterdamUMCdb",
+    "eicu": "eICU",
+    "miiv": "MIMIC-IV",
+    "mimic-carevue": "MIMIC-III (CareVue subset)",
+    "hirid": "HiRID",
+}
 
 SHORT_DATASET_NAMES = {
     "sic": "SICdb",
@@ -40,6 +92,54 @@ SHORT_DATASET_NAMES = {
     "miived": "MIMIC-IV ED",
 }
 
+VERY_SHORT_DATASET_NAMES = {
+    "sic": "SICdb",
+    "aumc": "AUMCdb",
+    "eicu": "eICU",
+    "miiv": "MIMIC-IV",
+    "mimic-carevue": "MIMIC-III",
+    "hirid": "HiRID",
+    "nwicu": "NWICU",
+    "zigong": "Zigong",
+    "picdb": "PICdb",
+    "miived": "MIMIC-IV ED",
+}
+
+OUTCOME_NAMES = {
+    "pf_ratio_in_12h": "log(PaO2/Fio2) in 12h [mmHg])",
+    "log_pf_ratio_in_12h": "log(PaO2/FiO2) in 12h",
+    "log_creatinine_in_24h": "log(creatinine) in 24h",
+    "severe_meld_at_48h": "$\ \ $sev. MELD within 48h",
+    "lactate_in_4h": "log(lactate in 4h [mmol/L])",
+    "log_lactate_in_4h": "log(lactate) in 4h",
+    "log_rel_urine_rate_in_2h": "log(relative urine rate in 2h [mL/h/kg])",
+    "los_at_24h": "log(LOS at 24h)",
+    "mortality_at_24h": "mortality at 24h",
+    "respiratory_failure_at_24h": "resp. failure within 24h",
+    "severe_respiratory_failure_at_24h": "sev. resp. failure within 24h$\ \ $",
+    "circulatory_failure_at_8h": "circ. failure within 8h$\ \ \ $",
+    "kidney_failure_at_48h": "$\ \ \ $kidney failure within 48h",
+    "log_bili_in_24h": "log(bilirubin in 24h [mg/dL])",
+}
+
+VARIABLE_REFERENCE_PATH = (
+    Path(__file__).parents[1] / "resources" / "variable_reference.tsv"
+)
+
+HORIZONS = [8, 24, 72]
+
+DATASETS = [
+    "aumc",
+    "eicu",
+    "hirid",
+    "mimic-carevue",
+    "miiv",
+    "sic",
+    "nwicu",
+    "picdb",
+    "zigong",
+]
+
 CAT_MISSING_NAME = "(MISSING)"
 
 ANCHORS = [
@@ -51,6 +151,8 @@ ANCHORS = [
     "insurance",
     "icd10_blocks",
     "icd10_ccsr",
+    "apache_group",
+    "patient_id"
 ]
 
 OUTCOMES = [
@@ -138,31 +240,31 @@ RESP_VARIABLES = [
 # Top 20 variables of Hyland et al.: Early prediction of circulatory failure in the
 # intensive care unit using machine learning. Table 1.
 CIRC_VARIABLES = [
-    "lact",  # Lactate
-    "map",  # mean arterial pressure
-    "time_hours",  # Time in hours since ICU admission
     "age",
-    "hr",  # Heart rate
-    "dobu",  # Dobutamine
-    "dobu_ind",  # Dobutamine
-    "milrin",  # Milrinone
-    "milrin_ind",  # Milrinone
-    "levo",  # Levosimendan
-    "levo_ind",  # Levosimendan
-    "teophyllin",  # Theophylline
-    "teophyllin_ind",  # Theophylline
     "cf_treat_ind",  # circ. failure treatments incl. dobu, norepi, milrin, theo, levo
     "cout",  # Cardiac output
-    "rass",  # Richmond Agitation Sedation Scale
-    "inr_pt",  # Prothrombin
-    "glu",  # Serum glucose
     "crp",  # C-reactive protein
     "dbp",  # Diastolic blood pressure
-    "sbp",  # Systolic blood pressure
-    "peak",  # Peak airway pressure
-    "spo2",  # Oxygen saturation (finger) SpO2
+    "dobu_ind",  # Dobutamine
+    "dobu",  # Dobutamine
+    "glu",  # Serum glucose
+    "hr",  # Heart rate
+    "inr_pt",  # Prothrombin
+    "lact",  # Lactate
+    "levo_ind",  # Levosimendan
+    "levo",  # Levosimendan
+    "map",  # mean arterial pressure
+    "milrin_ind",  # Milrinone
+    "milrin",  # Milrinone
     "nonop_pain_ind",  # Non-opioid pain medication
+    "peak",  # Peak airway pressure
+    "rass",  # Richmond Agitation Sedation Scale
+    "sbp",  # Systolic blood pressure
+    "spo2",  # Oxygen saturation (finger) SpO2
     "supp_o2_vent",  # Oxygen supplementation
+    "teophyllin_ind",  # Theophylline
+    "teophyllin",  # Theophylline
+    "time_hours",  # Time in hours since ICU admission
 ]
 
 GLU_VARIABLES = [
@@ -175,32 +277,32 @@ GLU_VARIABLES = [
 ]
 
 MELD_VARIABLES = [  # from Manuel
-    "crea",
+    "age",
     "alb",
     "alp",
     "alt",
-    "ast",
-    "bili",
-    "bili_dir",
-    "inr_pt",
-    "plt",
-    "hct",
-    "ygt",
     "amm",
     "amyl",
-    "lip",
-    "fgn",
-    "hep",
-    "hep_ind",
-    "op_pain_ind",
-    "nonop_pain_ind",
-    "plat_ind",
-    "inf_alb_ind",
     "anti_coag_ind",
-    "age",
+    "ast",
+    "bili_dir",
+    "bili",
+    "crea",
+    "fgn",
+    "hct",
     "height",
-    "weight",
+    "hep_ind",
+    "hep",
+    "inf_alb_ind",
+    "inr_pt",
+    "lip",
+    "nonop_pain_ind",
+    "op_pain_ind",
+    "plat_ind",
+    "plt",
     "sex",
+    "weight",
+    "ygt",
 ]
 
 
@@ -286,6 +388,13 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "horizons": [8, 24],
         "size": 3578,
     },
+    "log_po2_in_12h": {
+        "task": "regression",
+        "family": "gaussian",
+        "variables": RESP_VARIABLES,
+        "horizons": [24],
+        "alpha_max": 1,
+    },
     "remaining_los": {
         "task": "regression",
         "family": "gamma",
@@ -331,7 +440,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "aumc-late": 7218,
             "nwicu": 21566,
         },
-        "variables": APACHE_II_VARIABLES,
+        "variables": None, # APACHE_II_VARIABLES,
         "horizons": [24],
         "size": 215,
     },
@@ -404,7 +513,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "nwicu": 0,
         },
         "variables": RESP_VARIABLES,
-        "horizons": [8, 24],
+        "horizons": [24],
         "size": 12670,
     },
     "severe_respiratory_failure_at_24h": {
@@ -430,7 +539,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "nwicu": 0,
         },
         "variables": RESP_VARIABLES,
-        "horizons": [8, 24],
+        "horizons": [24],
         "size": 12670,
     },
     "circulatory_failure_at_8h": {
@@ -574,9 +683,9 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "task": "regression",
         "family": "gaussian",
         "n_samples": {},
-        "alpha_max": 0.3,
+        "alpha_max": 0.26,
         "variables": RESP_VARIABLES,
-        "horizons": [8, 24],
+        "horizons": [24],
         "size": 1469,
     },
     "severe_meld_at_48h": {
@@ -599,7 +708,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "task": "regression",
         "family": "gaussian",
         "n_samples": {},
-        "alpha_max": 13.3,
+        "alpha_max": 7.7,
         "variables": MELD_VARIABLES,
         "horizons": [24],
     },
@@ -655,20 +764,22 @@ PARAMETERS = [
     "l2_ratio",
     "learning_rate",
     # "num_leaves",
+    "max_depth",
     "lambda_l2",
+    "min_gain_to_split",
     "n_components",
     # "random_state"
 ]
 
-SHORT_DATASET_NAMES = {
+VERY_SHORT_DATASET_NAMES = {
     "sic": "SICdb",
     "aumc": "AUMCdb",
     "eicu": "eICU",
     "miiv": "MIMIC-IV",
-    "mimic-carevue": "MIMIC-III (CV)",
+    "mimic-carevue": "MIMIC-III",
     "hirid": "HiRID",
     "nwicu": "NWICU",
-    "zigong": "Zigong EHR",
+    "zigong": "Zigong",
     "picdb": "PICdb",
     "miived": "MIMIC-IV ED",
 }

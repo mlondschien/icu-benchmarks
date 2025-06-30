@@ -4,13 +4,9 @@ import warnings
 
 import formulaic
 import numpy as np
-import pandas as pd
-import scipy
 from scipy.interpolate import BSpline
-from sklearn.preprocessing import MultiLabelBinarizer
-
-from icu_benchmarks.constants import ANCHORS
-
+from sklearn.preprocessing import MultiLabelBinarizer, OrdinalEncoder
+import scipy
 
 class MaxIterationWarning(UserWarning): ...  # noqa D
 
@@ -19,9 +15,9 @@ def fit_monotonic_spline(
     x,
     y,
     x_new,
-    bspline_degree=3,
+    bspline_degree=2,
     knot_frequency=0.5,
-    lambda_smoothing=0.01,
+    lambda_smoothing=0.0001,
     kappa_penalty=10**6,
     maxiter: int = 30,
     increasing: bool = True,
@@ -135,52 +131,71 @@ def fit_monotonic_spline(
 
 
 def get_model_matrix(df, formula):  # noqa: D
-    if "interactions only" in formula:  # Return numpy array with categorical codes.
-        codes = pd.factorize(
-            pd.Series(
-                list(zip(*[df["dataset"]] + [df[x] for x in ANCHORS if x in formula]))
-            )
-        )[0]
-        return np.max(codes) + 1, codes
+    if formula == "icd10_blocks only":
+        return MultiLabelBinarizer().fit_transform(df["icd10_blocks"]).astype("float")
+
+    if formula == "random10":
+        rng = np.random.default_rng(0)
+        return rng.choice(10, size=df.shape[0])
+    elif formula == "random100":
+        rng = np.random.default_rng(0)
+        return rng.choice(100, size=df.shape[0])
+    elif formula == "random1000":
+        rng = np.random.default_rng(0)
+        return rng.choice(1000, size=df.shape[0])
+    elif formula == "random10000":
+        rng = np.random.default_rng(0)
+        return rng.choice(10000, size=df.shape[0])
+
+    if formula == "":
+        return OrdinalEncoder().fit_transform(df[["dataset"]]).astype("int32").flatten()
+    elif formula == "patient_id":
+        return OrdinalEncoder().fit_transform((df["patient_id"].astype("string") + df["dataset"]).to_frame()).astype("int32").flatten()
 
     Zs = []
     datasets = df["dataset"].unique()
-
     for dataset in datasets:
         mask = df["dataset"] == dataset
-        if formula == "icd10_blocks":
+        if formula == "icd10_blocks":  # interact icd10 blocks with dataset
             df.loc[mask, "icd10_blocks"] = df.loc[mask, "icd10_blocks"].apply(
                 lambda x: x.tolist() + [dataset]
             )
-            Zs.append(MultiLabelBinarizer().fit_transform(df[mask]["icd10_blocks"]))
+            Zs.append(MultiLabelBinarizer().fit_transform(df[mask]["icd10_blocks"]).cast("float"))
+          # icd10 blocks plus other stuff interacted with dataset
+        elif "icd10_blocks" in formula:
+            formula_ = formula.replace("icd10_blocks + ", "") 
+            df.loc[mask, "icd10_blocks"] = df.loc[mask, "icd10_blocks"].apply(
+                lambda x: x.tolist() + [dataset]
+            )
+            Zs.append(
+                np.hstack(
+                    [
+                        MultiLabelBinarizer().fit_transform(
+                            df[mask]["icd10_blocks"]),formulaic.Formula(formula_).get_model_matrix(df[mask], na_action="ignore").to_numpy().astype("float")])
+            )
         else:
-            Zs.append(formulaic.Formula(formula).get_model_matrix(df[mask]).to_numpy())
+            Zs.append(formulaic.Formula(formula).get_model_matrix(df[mask], na_action="ignore").to_numpy())
 
     csum = np.cumsum([0] + [Z.shape[1] for Z in Zs])
     Z = np.zeros((df.shape[0], csum[-1]), dtype=np.float64)
     for i, (dataset, Zi) in enumerate(zip(datasets, Zs)):
         Z[df["dataset"] == dataset, csum[i] : csum[i + 1]] = Zi
 
-    return None, Z
+    return Z
 
 
-def find_intersection(x, values, increasing):
-    """Find the point x where values intercepts the x-axis."""
-    argsort = np.argsort(x)
-    values = values[argsort]
-    x = x[argsort]
-    iso_values = scipy.optimize.isotonic_regression(values, increasing=increasing).x
+def find_intersection(x, t, increasing=True):
+    """Interpolate t where first x > 0 (if increasing)."""
+    mult = 1 if increasing else -1
+    where = np.where(mult * x > 0)[0]
+    if len(where) == 0:  # No intersection -> after last point
+        return np.inf
+    elif where[0] == 0:  # Intersection before first point
+        return -np.inf
 
-    if (increasing and iso_values[0] > 0) or (not increasing and iso_values[0] < 0):
-        return np.min(x)
-
-    # if (increasing and iso_values[-1] < 0) or (not increasing and iso_values[-1] > 0):
-    #     fit = np.polynomial.polynomial.Polynomial.fit(x[:-6], values[:-6], 1)
-    #     x = x.tolist() + [x[-1] + 10]
-    #     iso_values = iso_values.tolist() + [fit(x[-1])]
-
-    if (iso_values[-1] < 0 and increasing) or (iso_values[-1] > 0 and not increasing):
-        return np.nan
-
-    interp = scipy.interpolate.interp1d(x=iso_values, y=x, kind="linear")
+    interp = scipy.interpolate.interp1d(
+        x=x[[where[0] - 1, where[0]]],
+        y=t[[where[0] - 1, where[0]]],
+        kind="linear",
+    )
     return interp(0.0)

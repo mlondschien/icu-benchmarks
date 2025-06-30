@@ -143,7 +143,7 @@ def main(config: str):  # noqa D
 
     print(len(jobs))
 
-    with Parallel(n_jobs=-1, prefer="processes") as parallel:
+    with Parallel(n_jobs=8, prefer="processes") as parallel:
         parallel_results = parallel(jobs)
 
     del df, y

@@ -7,7 +7,7 @@ import click
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-
+from icu_benchmarks.mlflow_utils import get_results
 from icu_benchmarks.constants import DATASETS, GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import log_df
 from icu_benchmarks.plotting import PARAMETERS, cv_results
@@ -29,7 +29,6 @@ ALL_SOURCES = [
     "nwicu",
     "zigong",
     "picdb",
-    "miived",
 ]
 
 
@@ -54,79 +53,72 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
 
     experiment_id = experiment.experiment_id
 
-    runs = client.search_runs(experiment_ids=[experiment_id], max_results=10_000)
-
     result_file = f"{result_name}.csv"
     output_file = f"{output_name}.csv"
 
-    all_results = []
-    for run in runs:
-        run_id = run.info.run_id
+    results = get_results(client, experiment_name, result_file)
 
-        if run.data.tags["sources"] == "":
-            continue
-        else:
-            sources = json.loads(run.data.tags["sources"].replace("'", '"'))
-            if len(sources) not in [4, 5, 6]:
-                continue
+    # Filter to max_depth=3, gamma=1, sqrt(2), 2, sqrt(8), ..., num_iteration=1000
+    if "gamma" in   results.columns:
+        col = pl.col("gamma").log() / pl.lit(2).sqrt().log()
+        results = results.filter(np.abs(col - col.round(0)).le(0.01))
+    if "max_depth" in results.columns:
+        results = results.filter(pl.col("max_depth").eq(3))
+        results = results.filter(pl.col("gamma").le(16.0))
+    if "num_iteration" in results.columns:
+        results = results.filter(pl.col("num_iteration").eq(1000))
+    
+    # results = results.filter(pl.col("gamma").eq(1.0))
 
-        with tempfile.TemporaryDirectory() as f:
-            if result_file not in [x.path for x in client.list_artifacts(run_id)]:
-                logger.warning(f"Run {run_id} has no {result_file}")
-                continue
-
-            client.download_artifacts(run_id, result_file, f)
-            results = pl.read_csv(f"{f}/{result_file}")
-
+    if "alpha" in results.columns:
+        col = pl.col("alpha").log10() - pl.col("alpha").min().log10()
         results = results.with_columns(
-            pl.lit(run_id).alias("run_id"),
-            pl.lit(sources).alias("sources"),
-            pl.lit(run.data.tags["outcome"]).alias("outcome"),
+            pl.coalesce(
+                pl.when(np.abs(col - x) < 0.01).then(x) for x in [2, 3, 4]
+            ).alias("alpha_index")
         )
-        all_results.append(results)
+        results = results.filter(pl.col("alpha_index").eq(3))
 
-    results = pl.concat(all_results)
+        
+    # nunique = results.group_by(["sources", "gamma"]).len()
+    # if not nunique.select(pl.col("len").eq(1).all()).item():
+    #     breakpoint()
+    # if len(nunique) not in [22 * 9, 22]:
+    #     breakpoint()
 
     parameter_names = [x for x in PARAMETERS if x in results.columns]
-
-    if "random_state" in results.columns:
-        results = results.filter(pl.col("random_state").eq(0))
 
     metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)
     metrics = np.unique([m.groups()[0] for m in metrics if m is not None])
 
     all_targets = map(re.compile(r"^(.+)\/test\/[a-z]+$").match, results.columns)
     all_targets = np.unique([m.groups()[0] for m in all_targets if m is not None])
-
+    
     out = []
-
     for target in all_targets:
         ood_results = results.filter(~pl.col("sources").list.contains(target))
         for metric in metrics:
             cv = cv_results(ood_results, [metric])
-
             if metric in GREATER_IS_BETTER:
                 best = cv[cv[f"__cv_{metric}"].arg_max()]
             else:
                 best = cv[cv[f"__cv_{metric}"].arg_min()]
-            model = cv.filter(
-                pl.all_horizontal(pl.col(p).eq(best[p]) for p in parameter_names)
-            )
+
             out.append(
                 {
                     **{
                         "target": target,
                         "cv_metric": metric,
                         "cv_value": best[f"__cv_{metric}"].item(),
-                        "test_value": model[f"{target}/test/{metric}"].item(),
+                        "test_value": best[f"{target}/test/{metric}"].item(),
                     },
                     **{p: best[p].item() for p in parameter_names},
                     **{
-                        f"{source}/{split}/{m}": model[f"{source}/{split}/{m}"].item()
+                        f"{source}/{split}/{m}": best[f"{source}/{split}/{m}"].item()
                         for source in sorted(DATASETS)
                         for m in metrics
                         for split in ["train_val", "test"]
-                        if f"{source}/{split}/{m}" in model.columns
+                        if f"{source}/{split}/{m}" in best.columns
                     },
                 }
             )

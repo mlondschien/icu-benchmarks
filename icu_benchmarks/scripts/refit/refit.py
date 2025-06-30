@@ -144,11 +144,13 @@ def main(config: str):  # noqa D
             value = getattr(prior, "gamma", None) or getattr(prior, "ratio", 1.0)
             if np.abs(np.log2(value) - np.round(np.log2(value))) > 0.1:
                 continue
+            if value > 128:
+                continue
 
         for refit_parameter in get_refit_parameters():
             if "prior_alpha" in refit_parameter:
                 value = refit_parameter["prior_alpha"] / min_alpha
-                if np.abs(np.log10(value) - np.round(np.log10(value))) > 0.1:
+                if np.abs(np.log10(value) - 3) > 0.01:
                     continue
 
             for seed in get_seeds():
@@ -178,7 +180,7 @@ def main(config: str):  # noqa D
 
     logger.info(f"Number of jobs: {len(jobs)}")
 
-    with Parallel(n_jobs=-1, prefer="processes") as parallel:
+    with Parallel(n_jobs=8, prefer="processes") as parallel:
         parallel_results = parallel(jobs)
 
     del df, y
@@ -186,11 +188,10 @@ def main(config: str):  # noqa D
     results: list[dict] = sum(parallel_results, [])
     log_df(
         pl.DataFrame(results),
-        f"refit/{get_name()}/{get_target()}/results.csv",
+        f"refit/{get_name()}/{get_target()}/results_{seed}.csv",
         client=client,
         run_id=target_run.info.run_id,
     )
-
 
 def _fit(
     model,

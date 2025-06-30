@@ -1,0 +1,38 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "filename": "paper/classification_rescaled",
+    "target_experiment_name": "plots",
+    "title": None,
+    "panels": [
+        {
+            "xlim": (1, 16),
+            "xticks": [1, 2, 4, 8, 16],
+            "yticks": ([4000, 10000, 20000], [700, 1000]),
+            "yticklabels": (["4k", "10k", "20k"], ["700", "1k"]),
+            "ylim": ((3800, 20000), (700, 1100)),
+            "title": "acute kidney injury within 48h",
+            "break_y_axis": True,
+            "cv_metric": "log_loss",
+            "metric": "auprc",
+            "experiment_name": "kidney_algbm_7_d",
+            "result_name": "results",
+            "n_samples_experiment_name": "kidney_algbm_n_samples_7_1",
+            "n_samples_result_name": "n_samples_results",
+        },
+        {
+            "xlim": (1, 16),
+            "xticks": [1, 2, 4, 8, 16],
+            "yticks": [200, 1000, 10000],
+            "yticklabels": ["200", "1k", "10k"],
+            "ylim": (180, 25000),
+            "title": "circulatory failure within 8h",
+            "cv_metric": "log_loss",
+            "metric": "auprc",
+            "experiment_name": "circ_algbm_7_d",
+            "result_name": "results",
+            "n_samples_experiment_name": "circ_algbm_n_samples_7_1",
+            "n_samples_result_name": "n_samples_results",
+        }
+    ]
+}

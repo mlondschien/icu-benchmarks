@@ -1062,40 +1062,15 @@ class RefitLGBMModelCV(CVMixin, BaseEstimator):
         self.model.booster.params["objective"] = self.objective
 
         if self.decay_rate < 1:
-            # if self.objective == "regression":
-            #     self.init_score_ = np.mean(y)
-            # elif self.objective == "binary":
-            #     p = np.sum(y) / len(y)
-            #     if p < 1e-12:
-            #         p = 1 / (len(y) + 1)
-            #     elif p > 1 - 1e-12:
-            #         p = 1 - 1 / (len(y) + 1)
-            #     self.init_score_ = np.log(p / (1 - p))
-            # else:
-            #     raise ValueError(f"Unknown objective: {self.objective}")
-
-            self.model.booster = self.model.booster.refit(
-                data=X.to_arrow(),
-                label=y,
+            self.model = self.model.refit(
+                X=X,
+                y=y,
                 decay_rate=self.decay_rate,
-                init_score=np.ones(len(y), dtype="float64") * self.prior.init_score_,
-                dataset_params={"num_threads": 1, "force_col_wise": True},
-                verbosity=-1,
             )
         return self
 
-    def predict(self, X, num_iteration=None):  # noqa D
-        if isinstance(X, pl.DataFrame):
-            X = X.to_arrow()
-
-        scores = (
-            self.model.booster.predict(X, num_iteration=num_iteration, raw_score=True)
-            + self.prior.init_score_
-        )
-        if self.objective == "binary":
-            return 1 / (1 + np.exp(-scores))
-        else:
-            return scores
+    def predict(self, X, **kwargs):  # noqa D
+        return self.model.predict(X, **kwargs)
 
 
 @gin.configurable
