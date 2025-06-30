@@ -2,22 +2,24 @@ import icu_benchmarks.gin
 
 load.data_dir = "/cluster/work/math/lmalte/data"
 
-LGBMAnchorModel.num_boost_round = 1000
+AnchorBooster.num_boost_round = 1000
 
 get_predict_kwargs.predict_kwargs = {
-    "num_iteration": [200, 400, 600, 800, 1000],
+    "num_iteration": [1000],
 }
 
 get_parameters.parameters = {
     "objective": [%TASK],
-    "num_leaves": [31],
+    "max_depth": [3],
+    "gamma": [1.0],
     "learning_rate": [0.1],
     "deterministic": [True],
     "random_state": [0],
     "num_boost_round": [1000],
     "num_threads": [1],
+    "min_gain_to_split": [0.1],
     "force_col_wise": [True],
     "verbosity": [-1],
 }
 
-get_model.model = @LGBMAnchorModel
+get_model.model = @AnchorBooster
