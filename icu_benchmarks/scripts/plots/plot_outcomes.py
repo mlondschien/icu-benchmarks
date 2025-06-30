@@ -76,9 +76,7 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
                 fontsize=10,
                 color="black",
             )
-        # ax.spines['top'].set_visible(False)
-        # ax.spines['bottom'].set_visible(False)
-
+        
     binary_axes[0].set_yticks(y_pos, labels=[VERY_SHORT_DATASET_NAMES[ds] for ds in datasets], fontsize=10)
     binary_axes[1].set_yticks([])
 
@@ -112,7 +110,6 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
 
             ax.plot(linspace, density(linspace), color=SOURCE_COLORS[dataset], lw=2, alpha=0.8)
             ax.set_title(OUTCOME_NAMES[outcome], fontsize=10)
-        # ax.set_xlim(np.min(y, axis=0), np.max(y, axis=0))
 
 
     ax3.yaxis.tick_right()
@@ -125,15 +122,11 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
     ]
     fig.legend(
         patches,
-        ["False", "True"],# , "missing"],
+        ["False", "True"],
         loc="center",
         bbox_to_anchor=(0.32, 0.06),
         ncol=2,
         fontsize=10,
-        #handlelength=1.5,  # default is ~2
-        #labelspacing=0.5,
-        #columnspacing=0.6,
-        #handletextpad=0.5,
         frameon=False,
     )
 
@@ -143,27 +136,17 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         ax.tick_params(axis='x', labelsize=10)
 
     inv_fig = fig.transFigure.inverted()
-    # transform = binary_axes[0].get_yaxis_transform()
     for i, label in enumerate(binary_axes[0].yaxis.get_majorticklabels()):
         bbox = label.get_window_extent()
 
         pixel_coords = (bbox.x0, bbox.y0 + bbox.height / 2)
         label_x_fig, label_y_fig = inv_fig.transform(pixel_coords)
-        # Define the line's x-coordinates in axes space.
-        # A small negative value places it just to the left of the y-axis spine.
-        # This example places a line between 8% and 2% to the left of the axis.
-        # line_x_coords = [-0.1, -0.02]
-
-        # The y-coordinates are the same (a horizontal line) and are in data space.
-        # line_y_coords = [tick_location, tick_location]
 
         line_x_coords = [label_x_fig - 0.018, label_x_fig-0.005]
-        line_y_coords = [label_y_fig+0.005, label_y_fig+0.005] # Y-position is the same
-        # Create the line with the blended transform
+        line_y_coords = [label_y_fig+0.005, label_y_fig+0.005]
         line = Line2D(
             line_x_coords,
             line_y_coords,
-            # transform=transform, # Use the blended transform
             transform=fig.transFigure,  # Use the figure transform
             color=SOURCE_COLORS[datasets[i]],
             linewidth=3,

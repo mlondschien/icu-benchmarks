@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score, average_precision_score, roc_auc_sco
 from icu_benchmarks.constants import GREATER_IS_BETTER
 
 
-def metrics(y, yhat, prefix, task, Z=None, n_categories=None):  # noqa D
+def metrics(y, yhat, prefix, task, Z=None):  # noqa D
     if not isinstance(y, np.ndarray):
         y = y.to_numpy()
     if not isinstance(yhat, np.ndarray):

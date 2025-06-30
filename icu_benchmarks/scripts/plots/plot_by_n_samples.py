@@ -67,9 +67,6 @@ def get_config(config):  # noqa D
 def main(tracking_uri, config):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
     gin.parse_config_file(config)
-
-    import matplotlib as mpl
-    # mpl.rcParams['pdf.fonttype'] = 42
     CONFIG = get_config()
 
     experiment = client.get_experiment_by_name(CONFIG["target_experiment"])
@@ -164,46 +161,26 @@ def main(tracking_uri, config):  # noqa D
 
             ax.plot(
                 x_new[: idx + 1],
-                # data["n_target"],
-                # data["__score"],
                 quantiles[1, : idx + 1],
-                # label=line["legend"] if idx == 0 else None,
                 color=line["color"],
                 ls=line["ls"],
                 alpha=line.get("alpha", 1),
             )
             ax.plot(
                 x_new[idx:],
-                # data["n_target"],
-                # data["__score"],
                 quantiles[1, idx:],
-                # label=line["legend"] if idx == 0 else None,
                 color=line["color"],
                 ls="dotted",
                 alpha=line.get("alpha", 1),
             )
             ax.fill_between(
                 x_new,
-                # data["n_target"],
                 quantiles[0, :],
                 quantiles[2, :],
-                # data["__min"],
-                # data["__max"],
                 color=line["color"],
                 alpha=line.get("alpha", 1) * 0.1,
                 hatch=line.get("hatch", None),
             )
-            # ax.fill_between(
-            #     x_new[idx:],
-            #     # data["n_target"],
-            #     quantiles[0, idx:],
-            #     quantiles[2, idx:],
-            #     # data["__min"],
-            #     # data["__max"],
-            #     color=line["color"],
-            #     alpha=0.1, #line.get("alpha", 1) * 0.1,
-            #     # hatch=".",
-            # )
 
         ls = "dashed" if isinstance(line["ls"], tuple) else line["ls"]
         handle = Line2D([], [], color=line["color"], ls=ls, alpha=line.get("alpha", 1))
@@ -241,8 +218,6 @@ def main(tracking_uri, config):  # noqa D
         ax.tick_params(axis="x", which="both", pad=2)
 
         ax.grid(visible=True, axis="x", alpha=0.2)
-        # ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
-        # ax.xaxis.set_tick_params(labelbottom=True)
         ax.set_title(panel["title"], y=0.965, fontsize=10)
 
     fig.align_xlabels(axes)

@@ -102,13 +102,8 @@ def main(tracking_uri, config):  # noqa D
             continue
         results = pl.concat(all_results, how="diagonal")
 
-        # results = results.filter(pl.col("min_gain_to_split").is_in([0.1]))
-        # results = results.with_columns(pl.col("num_leaves").fill_null(31))
-        # results = results.filter(pl.col("num_leaves").eq(31))
-        # results = results.filter(pl.col("sources").list.len() >= 5)
         col = pl.col("gamma").log() / pl.lit(np.sqrt(2)).log()
         results = results.filter( (col - col.round(0)).abs() < 0.01)
-        # results = results.filter(pl.col("num_iteration").is_in([200, 500, 1000]))
 
         if "filter" in line.keys():
             results = results.filter(**line["filter"])
@@ -128,25 +123,7 @@ def main(tracking_uri, config):  # noqa D
 
         if "num_iteration" in results.columns:
             results = results.filter(pl.col("num_iteration").is_in([500, 1000, 2000]))
-        # if "n_samples" in line.keys():
-        #     n_samples_experiment = client.get_experiment_by_name(line["n_samples"])
-        #     runs = client.search_runs(
-        #         experiment_ids=[n_samples_experiment.experiment_id],
-        #         filter_string="tags.sources = ''",
-        #     )
-        #     with tempfile.TemporaryDirectory() as f:
-        #         client.download_artifacts(
-        #             runs[0].info.run_id, "n_samples_results.csv", f
-        #         )
-        #         n_samples_results = pl.read_csv(f"{f}/n_samples_results.csv")
-        #     n_samples_results = (
-        #         n_samples_results.filter(pl.col("metric").eq(metric))
-        #         .group_by(["target", "n_target"])
-        #         .agg(pl.col("test_value").median())
-        #     )
-        # else:
-        #     n_samples_results = None
-
+        
         for panel, ax in zip(CONFIG["panels"], axes):
             target = panel["source"]
 
@@ -164,17 +141,8 @@ def main(tracking_uri, config):  # noqa D
                 )
             else:
                 cv = results.filter(~pl.col("sources").list.contains(target))
-                # cv = cv.filter(pl.col("sources").list.len() == pl.col("sources").list.len().max())
                 if "gamma" in results.columns:
                     sources = results["sources"].explode().unique().to_list()
-                    # cv = cv.with_columns(
-                    #     (
-                    #         pl.col(f"{s}/train_val/{cv_metric}")
-                    #         + (pl.col("gamma") - 1)
-                    #         * pl.col(f"{s}/train_val/proj_residuals_sq")
-                    #     ).alias(f"{s}/train_val/anchor")
-                    #     for s in sources
-                    # )
 
                     cv = cv_results(
                         cv,
@@ -245,39 +213,7 @@ def main(tracking_uri, config):  # noqa D
                     alpha=0.5,
                     ls="dashed",
                 )
-                # ax.plot(
-                #     cv["gamma"],
-                #     cv[f"{target}/test/{metric}_quantile_0.5"],
-                #     color="blue",
-                #     # label="median" if idx == 0 else None,
-                # )
-                # ax.fill_between(
-                #     cv["gamma"],
-                #     cv[f"{target}/test/{metric}_quantile_0.1"],
-                #     cv[f"{target}/test/{metric}_quantile_0.25"],
-                #     color="blue",
-                #     alpha=0.1,
-                #     # label="10% - 90%" if idx == 0 else None,
-                # )
 
-                # ax.fill_between(
-                #     cv["gamma"],
-                #     cv[f"{target}/test/{metric}_quantile_0.75"],
-                #     cv[f"{target}/test/{metric}_quantile_0.9"],
-                #     color="blue",
-                #     alpha=0.1,
-                #     label=None,
-                # )
-
-                # ax.fill_between(
-                #     cv["gamma"],
-                #     cv[f"{target}/test/{metric}_quantile_0.25"],
-                #     cv[f"{target}/test/{metric}_quantile_0.75"],
-                #     color="blue",
-                #     alpha=0.2,
-                #     # label="25% - 75%" if idx == 0 else None,
-                # )
-        
             if line.get("plot_star", True):
                 ax.scatter(
                     best[param].item(),
@@ -292,91 +228,16 @@ def main(tracking_uri, config):  # noqa D
                 f"{line['experiment_name']}, {target}: {best[f'{target}/test/{metric}'].item()}"
             )
 
-            # if "plus" in  line["experiment_name"]:
-            #     breakpoint()
             if line.get("plot_all", True):
                 params = [p for p in PARAMETERS if p in cv.columns]
-                # cmap = matplotlib.colormaps["rainbow"]
-                cmap = LinearSegmentedColormap.from_list(
-                    "tol",
-                    # [
-                    #     '#1965B0',
-                    #     '#437DBF',
-                    #     '#5289C7',
-                    #     '#6195CF',
-                    #     '#7BAFDE',
-                    #     '#4EB265',
-                    #     '#90C987',
-                    #     '#CAE0AB',
-                    #     '#F7F056',
-                    #     '#F7CB45',
-                    #     '#F6C141',
-                    #     '#F4A736',
-                    #     '#F1932D',
-                    #     '#EE8026',
-                    #     '#E8601C',
-                    #     '#E65518',
-                    #     '#DC050C'
-                    # ]
-                    [
-                        '#5568B8',
-                        '#4E79C5',
-                        '#4D8AC6',
-                        '#4E96BC',
-                        '#549EB3',
-                        '#59A5A9',
-                        '#60AB9E',
-                        '#69B190',
-                        '#77B77D',
-                        '#8CBC68',
-                        '#A6BE54',
-                        '#BEBC48',
-                        '#D1B541',
-                        '#DDAA3C',
-                        '#E49C39',
-                        '#E78C35',
-                        '#E67932',
-                        '#E4632D',
-                        '#DF4828',
-                        '#DA2222'
-                    ]
-                )
                 
                 for _, group in cv.group_by([p for p in params if p != param]):
-                    # color = {
-                    #      2: "#4EB265",
-                    #      3: "#004488",
-                    #      # 2: "#7BDED8",
-                    #      # 4: "#F7F056",
-                    #      4: "#F4A736"
-                    # }[group["alpha_index"].first()]
-                    # ls={0.01: (1, (1, 1)), 0.5: "solid", 1.0: (0, (2, 2))}[group["l1_ratio"].first()]
-
-
-                    # #4EB265
                     color = {
                          4: "#4EB265",
                          3: "#004488",
-                         # 2: "#7BDED8",
-                         # 4: "#F7F056",
                          2: "#F4A736"
                     }[group["max_depth"].first()]
                     ls={500: (1, (1, 1)), 1000: "solid", 2000: (0, (2, 2))}[group["num_iteration"].first()]
-
-
-                    # np.max([np.max([val, 0]), 1])
-                    # val = (
-                    #     -(results["min_gain_to_split"] + 0.001).log().min()
-                    #     + (group["min_gain_to_split"] + 0.001).log().first()
-                    # ) / (
-                    #     (results["min_gain_to_split"] + 0.001).log().max() + 0.001
-                    #     - (results["min_gain_to_split"] + 0.001).log().min()
-                    # )
-                    # val = (group["num_leaves"].first() - 8) / (31 - 8)
-                    # val = group["num_iteration"].first() - results["num_iteration"].min()
-                    # val /= results["num_iteration"].max() - results["num_iteration"].min()
-                    # val = 1 - val
-                    # val = group["max_depth"].first() / results["max_depth"].max()
 
                     group = group.sort(param)
                     ax.plot(
@@ -384,33 +245,9 @@ def main(tracking_uri, config):  # noqa D
                         group[f"{target}/test/{metric}"],
                         color=color,
                         ls=ls,
-                        # color=line["color"],
-                        # ls={2: (0, (2, 4)), 3: (2, (4, 2))}[group["max_depth"].first()],
-                        # ls=line.get("ls"),
-                        # color = {2: "blue", 4: "green", 8: "orange", 16: "red", 31: "purple"}[group["num_leaves"].first()],
-                        # color=cmap(val),
-                        # ls={100: (0, (2, 4)), 200: (0, (3, 3)), 300: (0, (4, 2)), 400: (0, (5, 1)), 500: "solid"}[group["num_iteration"].first()],
-                        # ls={200: (0, (2, 4)), 400: (0, (3, 3)), 600: (0, (4, 2)), 800: (0, (5, 1)), 1000: "solid"}[group["num_iteration"].first()],
-                        # ls={0.025: (1, (1, 1)), 0.05: (0, (4, 1)), 0.1: "solid"}[group["learning_rate"].first()],
-                        # ls={10.0: (1, (1, 1)), 1.0: (1, (2, 2)), 0.1: (0, (4, 1)), 0.0: "solid"}[group["lambda_l2"].first()],
-                        # ls={0.01: (1, (1, 1)), 0.5: (0, (4, 1)), 1.0: "solid"}[group["l1_ratio"].first()],
-                        # ls={1: (0, (2, 4)), 2: (0, (5, 2)), 3: "solid"}[group["max_depth"].first()],
-                        # ls={2: (0, (3, 3)), 4: (0, (4, 1)), 8: "solid"}[group["max_depth"].first()],
-                        # ls={2: (1, (1, 1)), 3: (0, (4, 1)), 4: "solid"}[group["max_depth"].first()],
-                        # alpha=0.6 * line["alpha"],
                         alpha=0.6,
                     )
 
-                
-            # cv_gamma_1 = cv.filter(pl.col("gamma").eq(1)).top_k(k=1, by="__cv_value", reverse=cv_metric not in GREATER_IS_BETTER)
-            # group = cv.filter(pl.all_horizontal(pl.col(x).eq(cv_gamma_1[x].item()) for x in params if x != "gamma")).sort(param)
-            # ax.plot(
-            #     group[param],
-            #     group[f"{target}/test/{metric}"],
-            #     color=line["color"],
-            #     ls="dotted",
-            #     alpha=1 * line["alpha"],
-            # )
 
         if param not in cv.columns or len(cv[param].unique()) == 1:
             legend_elements.append(
@@ -426,7 +263,6 @@ def main(tracking_uri, config):  # noqa D
                     color=line["color"],
                     label=line["label"],
                     ls=line["ls"],
-                    # marker="*",
                 )
             )
             if line.get("plot_star", True):
@@ -518,7 +354,6 @@ def main(tracking_uri, config):  # noqa D
 
     fig.add_artist(line)
     
-    # fig.legend(handles=legend_elements, loc="center", ncols=4, bbox_to_anchor=(0.5, -0.02) ,  frameon=False)
     fig.legend(handles=legend_elements, loc="center", ncols=3, bbox_to_anchor=(0.5, -0.06    ) ,  frameon=False, fontsize=10, handletextpad=0.8, columnspacing=1, labelspacing=0.5)
 
     if CONFIG.get("title") is not None:

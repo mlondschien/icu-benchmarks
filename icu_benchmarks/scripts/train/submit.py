@@ -81,9 +81,6 @@ def main(
         for dataset2 in SOURCES
         if dataset1 <= dataset2
     ] + [SOURCES]
-    # list_of_sources = [x for x in list_of_sources if len(x) > 4]
-    # list_of_sources = [x for x in list_of_sources if len(x) == 6 or "eicu" not in x]
-
     train_config = Path(__file__).parents[3] / "configs" / "train" / "train.gin"
     config_text = Path(config).read_text()
 

@@ -4,7 +4,7 @@ import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 
-from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS, SOURCE_COLORS, VERY_SHORT_DATASET_NAMES, OUTCOME_NAMES
+from icu_benchmarks.constants import PARAMETERS, SOURCE_COLORS, VERY_SHORT_DATASET_NAMES, OUTCOME_NAMES
 import warnings
 
 

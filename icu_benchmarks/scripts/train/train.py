@@ -118,11 +118,6 @@ def main(config: str = "", anchor_formula: str = "", continue_run=None):  # noqa
     logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
     log_pickle(preprocessor, "models/preprocessor.pkl")
 
-    # exogenous_regex = r"(age)|(sex)|(time_hours)|(map)|(hr)|(dbp)|(sbp)|(spo2)"
-    # exogenous_mask = [c for c in df.columns if re.search(exogenous_regex, c) is not None]
-
-    # Z = np.hstack([Z, df[exogenous_mask].to_numpy()])
-
     if any(x in str(get_model()) for x in ["GeneralizedLinear", "AnchorRegression", "DataSharedLasso"]):
         from anchorboosting.models import Proj
         X = df.to_numpy()

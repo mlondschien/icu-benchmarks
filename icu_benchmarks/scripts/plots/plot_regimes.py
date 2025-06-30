@@ -8,7 +8,6 @@ import numpy as np
 import polars as pl
 from matplotlib.patches import FancyArrowPatch, Patch
 from mlflow.tracking import MlflowClient
-import scipy
 from icu_benchmarks.constants import GREATER_IS_BETTER, VERY_SHORT_DATASET_NAMES
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
 from icu_benchmarks.utils import fit_monotonic_spline, find_intersection
@@ -141,101 +140,6 @@ def main(tracking_uri, config):  # noqa D
                     increasing=metric in GREATER_IS_BETTER,
                 )
 
-                # cv_vs_n_samples = np.exp(find_intersection(
-                #     np.log(N_TARGET_VALUES),
-                #     n_samples_new[:, seed_idx] - df[column].first(),
-                #     increasing=metric in GREATER_IS_BETTER,
-                # ))
-                # cv_vs_refit = np.exp(find_intersection(
-                #     np.log(N_TARGET_VALUES),
-                #     refit_new[:, seed_idx] - df[column].first(),
-                #     increasing=metric in GREATER_IS_BETTER,
-                # ))
-                # n_samples_vs_refit = np.exp(find_intersection(
-                #     np.log(N_TARGET_VALUES),
-                #     n_samples_new[:, seed_idx] - refit_new[:, seed_idx],
-                #     increasing=metric in GREATER_IS_BETTER,
-                # ))
-
-                # seed_shift = 0.3 / (len(CONFIG["experiments"]) - 1) * (seed_idx - 10) / (len(df["seed"].unique()) - 1)
-                # for value, nan_value in [
-                #     (cv_vs_n_samples, np.max(N_TARGET_VALUES)),
-                #     (cv_vs_refit, np.min(N_TARGET_VALUES)),
-                #     (n_samples_vs_refit, np.max(N_TARGET_VALUES)),
-                # ]:
-                #     if np.isnan(value):
-                #         ax.scatter(
-                #             nan_value,
-                #             target_idx + group_shift + seed_shift,
-                #             marker="o",
-                #             color=experiment["color"],
-                #             alpha=0.2,
-                #             s=15,
-                #             zorder=3,
-                #         )
-                #     else:
-                #         ax.scatter(
-                #             value,
-                #             target_idx + group_shift,
-                #             marker="o",
-                #             color=experiment["color"],
-                #             alpha=0.2,
-                #             s=15,
-                #             zorder=3,
-                #         )
-                # arrowstyle = "-|>, head_width=5, head_length=5"
-                # if np.isnan(n_samples_vs_refit):
-                #     n_samples_vs_refit = np.max(N_TARGET_VALUES)
-
-                # patch = FancyArrowPatch(
-                #     posA=(n_samples_vs_refit * 0.99, target_idx + group_shift + seed_shift),
-                #     posB=(n_samples_vs_refit, target_idx + group_shift + seed_shift),
-                #     arrowstyle=arrowstyle,
-                #     ls="solid",
-                #     color="black",
-                #     lw=1,
-                #     alpha=0.5,
-                # )
-                # ax.add_patch(patch)
-
-                # if np.isnan(n_samples_vs_refit):
-                #     n_samples_vs_refit = np.max(N_TARGET_VALUES)
-                # if np.isnan(cv_vs_refit):
-                #     cv_vs_refit = np.min(N_TARGET_VALUES)
-                # if n_samples_vs_refit > df["n_target"].max():
-                #     patch = FancyArrowPatch(
-                #         posA=(cv_vs_refit, target_idx + group_shift + seed_shift),
-                #         posB=(df["n_target"].max(), target_idx + group_shift + seed_shift),
-                #         arrowstyle="-",
-                #         ls="solid",
-                #         color="black",
-                #         lw=1,
-                #         alpha=0.5,
-                #     )
-                #     ax.add_patch(patch)
-
-                #     patch = FancyArrowPatch(
-                #         posA=(df["n_target"].max(), target_idx + group_shift + seed_shift),
-                #         posB=(n_samples_vs_refit, target_idx + group_shift + seed_shift),
-                #         arrowstyle="-",
-                #         ls="dashed",
-                #         color="black",
-                #         lw=1,
-                #         alpha=0.5,
-                #     )
-                #     ax.add_patch(patch)
-                # else:
-                #     patch = FancyArrowPatch(
-                #         posA=(cv_vs_refit, target_idx + group_shift + seed_shift),
-                #         posB=(n_samples_vs_refit, target_idx + group_shift + seed_shift),
-                #         arrowstyle="-",
-                #         # ls="solid",
-                #         color="black",
-                #         lw=1,
-                #         alpha=0.5,
-                #     )
-                #     ax.add_patch(patch)
-
             n_samples = np.median(n_samples_new, axis=1)
 
             refit = np.median(refit_new, axis=1)
@@ -300,75 +204,12 @@ def main(tracking_uri, config):  # noqa D
             elif n_samples_vs_refit > 0:
                 n_samples_vs_refit = n_max * 4
 
-            # cv_vs_n_samples
-            # ax.scatter(
-            #     value,
-            #     target_idx + group_shift,
-            #     marker=marker,
-            #     color=experiment["color"],
-            #     alpha=alpha,
-            #     s=50,
-            #     zorder=4,
-            # )
-            # for value, nan_value, marker in [
-            #     (cv_vs_n_samples, np.max(N_TARGET_VALUES), "X"),
-            #     (cv_vs_refit, np.min(N_TARGET_VALUES), "o"),
-            #     (n_samples_vs_refit, np.max(N_TARGET_VALUES), "s"),
-            # ]:
-            #     if np.isnan(value):
-            #         alpha = 0.5
-            #         value = nan_value
-            #     elif value > df["n_target"].max():
-            #         alpha = 0.5
-            #     else:
-            #         alpha = 1
-
-            #     ax.scatter(
-            #         value,
-            #         target_idx + group_shift,
-            #         marker=marker,
-            #         color=experiment["color"],
-            #         alpha=alpha,
-            #         s=50,
-            #         zorder=4,
-            #     )
-            #     # else:
-            #     #     ax.scatter(
-            #     #         value,
-            #     #         target_idx + group_shift,
-            #     #         marker=marker,
-            #     #         color=experiment["color"],
-            #     #         alpha=1,
-            #     #         s=50,
-            #     #         zorder=4,
-            #     #     )
-            # arrowstyle = "-|>, head_width=5, head_length=5"
-            # if np.isnan(n_samples_vs_refit):
-            #     n_samples_vs_refit = np.max(N_TARGET_VALUES)
-
-            # patch = FancyArrowPatch(
-            #     posA=(n_samples_vs_refit * 0.99, target_idx + group_shift),
-            #     posB=(n_samples_vs_refit, target_idx + group_shift),
-            #     arrowstyle="-",
-            #     ls="solid",
-            #     color="black",
-            #     lw=1,
-            #     alpha=0.5,
-            # )
-            # ax.add_patch(patch)
-
-            # if np.isnan(n_samples_vs_refit):
-            #     n_samples_vs_refit = np.max(N_TARGET_VALUES)
-            # if np.isnan(cv_vs_refit):
-            #     cv_vs_refit = np.min(N_TARGET_VALUES)
             if not np.isfinite(cv_vs_refit):
                 continue
             if not np.isfinite(n_samples_vs_refit):
                 continue
 
             if n_samples_vs_refit > n_max:
-                if cv_vs_refit < 25:
-                    breakpoint()
                 patch = FancyArrowPatch(
                     posA=(cv_vs_refit, target_idx + group_shift),
                     posB=(n_max, target_idx + group_shift),
@@ -395,57 +236,12 @@ def main(tracking_uri, config):  # noqa D
                     posA=(cv_vs_refit, target_idx + group_shift),
                     posB=(n_samples_vs_refit, target_idx + group_shift),
                     arrowstyle="-",
-                    # ls="solid",
                     color=experiment["color"],
                     lw=1,
                     alpha=0.5,
                 )
                 ax.add_patch(patch)
 
-            # ax.scatter(
-            #     target_idx + group_shift,
-            #     cv_vs_refit,
-            #     # marker=experiment["marker"],
-            #     color=experiment["color"],
-            #     alpha=1,
-            #     s=50,
-            #     zorder=4,
-            # )
-
-            # ax.scatter(
-            #     target_idx + group_shift,
-            #     cv_vs_refit,
-            #     # marker=experiment["marker"],
-            #     color=experiment["color"],
-            #     alpha=1,
-            #     s=50,
-            #     zorder=4,
-            # )
-
-            # for seed in df["seed"].unique():
-            #     filtered = df.filter(pl.col("seed") == seed)
-            #     n_target_equiv = np.exp(
-            #         find_intersection(
-            #             filtered["n_target"].log().to_numpy(),
-            #             (filtered[f"{column}_right"] - filtered[column]).to_numpy(),
-            #             increasing=metric in GREATER_IS_BETTER,
-            #         )
-            #     )
-            #     ax.scatter(
-            #         target_idx + group_shift + rng.normal(0, scatter),
-            #         n_target_equiv,
-            #         marker=experiment["marker"],
-            #         color=experiment_group["color"],
-            #         alpha=0.1,
-            # )
-
-            # n_target_equiv = np.exp(
-            #     find_intersection(
-            #         median["n_target"].log().to_numpy(),
-            #         (median[f"{column}_right"] - median[column]).to_numpy(),
-            #         increasing=metric in GREATER_IS_BETTER,
-            #     )
-            # )
     legend_handles = [legend_handles[1], legend_handles[0], legend_handles[3], legend_handles[2]]
     labels = [labels[1], labels[0], labels[3], labels[2]]
     fig.legend(

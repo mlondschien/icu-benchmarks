@@ -7,19 +7,13 @@ import click
 import gin
 from matplotlib.transforms import Bbox
 import matplotlib
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from matplotlib.ticker import NullFormatter, StrMethodFormatter, NullLocator
 from mlflow.tracking import MlflowClient
 from matplotlib.lines import Line2D
-from matplotlib.colors import LinearSegmentedColormap
-import matplotlib as mpl
 from matplotlib.patches import Patch
-from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.plotting import cv_results
 from icu_benchmarks.utils import fit_monotonic_spline, find_intersection
 
 N_TARGET_VALUES = [
@@ -105,7 +99,6 @@ def main(tracking_uri):  # noqa D
 
     for idx, panel in enumerate(panels):
         ax = axes[idx]
-        # ax.set_title(panel['title'], fontsize=10, pad=15)
         ax.set_xscale("log")
         ax.set_xlim(*panel["xlim"])
         ax.set_ylim(*panel["ylim"])
@@ -205,26 +198,24 @@ def main(tracking_uri):  # noqa D
         ax.scatter([cv_vs_n_samples], [y], color="black", marker="X", s=40,clip_on=False)
         ax.scatter([cv_vs_refit], [y], color="black", marker="o", s=40,clip_on=False)
         ax.scatter([n_samples_vs_refit], [y], color="black", marker="s", s=40,clip_on=False)
-        # dummy = ax.scatter([n_samples_vs_refit], [y + 0.1 * panel["ylim"][1]], color="black", marker="s", alpha=0, s=40,clip_on=False)
         
         y_text = 0.8 * panel["ylim"][1] + 0.2 * panel["ylim"][0]
         if panel["target"] != "picdb":
             ax.text(
                 np.sqrt(panel["xlim"][0] * cv_vs_refit),
                 y_text,
-                "(a)",
+                "(i)",
                 fontsize=10,
                 ha="center",
                 va="center",
                 weight="bold"
             )
 
-        # x_text = 4200 if panel["target"] == "eicu" else 120
         x_text = np.sqrt(cv_vs_refit * n_samples_vs_refit)
         ax.text(
             x_text,
             y_text,
-            "(b)",
+            "(ii)",
             fontsize=10,
             ha="center",
             va="center",
@@ -233,13 +224,12 @@ def main(tracking_uri):  # noqa D
         ax.text(
             np.sqrt(panel["xlim"][1] * n_samples_vs_refit),
             y_text,
-            "(c)",
+            "(iii)",
             fontsize=10,
             ha="center",
             va="center",
             weight="bold"
         )
-    # fig.suptitle("log(creatinine) in 24h", fontsize=11, y=1.2)
     legend = fig.legend(
         [handle_1, handle_2, handle_3],
         [
@@ -249,8 +239,6 @@ def main(tracking_uri):  # noqa D
         ],
         ncols=1, loc="center",  bbox_to_anchor=(1.15, 0.5) , frameon=False, fontsize=10, handletextpad=0.8, columnspacing=1, labelspacing=0.5)
     plt.draw()
-    # fig.subplots_adjust(top=5)
-    # fig.constrained_layout(rect=(0, 0, 1.5, 1.1))
     log_fig(
         fig, "illustration.pdf", client, run_id=target_run.info.run_id,  bbox_extra_artists=[legend], bbox_inches=Bbox([[0.1, -0.3], [8.25, 1.4]]),# (-1, -1, 2, 2),# , bbox_extra_artists=[legend]
     )

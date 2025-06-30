@@ -11,15 +11,12 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from matplotlib.ticker import NullFormatter, StrMethodFormatter, NullLocator
+from matplotlib.ticker import NullFormatter, NullLocator
 from matplotlib.ticker import FixedLocator, FixedFormatter
 from mlflow.tracking import MlflowClient
-from matplotlib.colors import LinearSegmentedColormap
-from icu_benchmarks.constants import DATASETS, TASKS
-from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS
+from icu_benchmarks.constants import GREATER_IS_BETTER, DATASETS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig, get_results
 from icu_benchmarks.plotting import cv_results, VERY_SHORT_DATASET_NAMES
-from brokenaxes import brokenaxes
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -98,7 +95,6 @@ def main(tracking_uri, config):  # noqa D
                 ax.set_ylim(ylim)
                 ax.yaxis.set_major_locator(FixedLocator(yticks))
                 ax.yaxis.set_major_formatter(FixedFormatter(yticklabels))
-                # ax.yaxis.set_minor_locator(NullLocator())
                 ax.yaxis.set_minor_formatter(NullFormatter())
                 ax.yaxis.offsetText.set_visible(False)
                 ax.yaxis.get_offset_text().set_visible(False)

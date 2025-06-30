@@ -68,8 +68,6 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
     if "num_iteration" in results.columns:
         results = results.filter(pl.col("num_iteration").eq(1000))
     
-    # results = results.filter(pl.col("gamma").eq(1.0))
-
     if "alpha" in results.columns:
         col = pl.col("alpha").log10() - pl.col("alpha").min().log10()
         results = results.with_columns(
@@ -80,12 +78,6 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
         results = results.filter(pl.col("alpha_index").eq(3))
 
         
-    # nunique = results.group_by(["sources", "gamma"]).len()
-    # if not nunique.select(pl.col("len").eq(1).all()).item():
-    #     breakpoint()
-    # if len(nunique) not in [22 * 9, 22]:
-    #     breakpoint()
-
     parameter_names = [x for x in PARAMETERS if x in results.columns]
 
     metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)

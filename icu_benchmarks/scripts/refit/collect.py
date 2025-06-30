@@ -8,8 +8,6 @@ from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import get_target_run, log_df
-from pathlib import Path 
-import numpy as np
 
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 
@@ -65,9 +63,6 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
     if not nunique.select(pl.col("len").eq(20).all()).item():
         breakpoint()
 
-    # results = results.filter(pl.col("gamma").eq(1.0))
-    # result_name = f"{result_name}1"
-
     metrics = results["metric"].unique().to_list()
     
     metric = "auprc" if "auprc" in metrics else "mse"
@@ -75,16 +70,6 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
 
     if "random_state" in results.columns:
         results = results.filter(pl.col("random_state").eq(0))
-
-    # with tempfile.TemporaryDirectory() as f:
-    #     client.download_artifacts(run.info.run_id, "models.json", f)
-    #     with open(f"{f}/models.json") as file:
-    #         models = json.load(file)
-
-    # results = results.join(
-    #     pl.DataFrame([{"model_idx": int(i), **params} for i, params in models.items()]),
-    #     on="model_idx",
-    # )
 
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
     results = results.with_columns((pl.col("cv_value") * mult).alias("cv_value"))
