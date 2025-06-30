@@ -1,12 +1,16 @@
+import warnings
+
 import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 
-from icu_benchmarks.constants import PARAMETERS, SOURCE_COLORS, VERY_SHORT_DATASET_NAMES, OUTCOME_NAMES
-import warnings
-
+from icu_benchmarks.constants import (
+    OUTCOME_NAMES,
+    PARAMETERS,
+    SOURCE_COLORS,
+    VERY_SHORT_DATASET_NAMES,
+)
 
 
 def plot_discrete(ax, data, name, missings=True, legend=True, yticklabels=True):
@@ -102,7 +106,9 @@ def plot_discrete(ax, data, name, missings=True, legend=True, yticklabels=True):
 
     if yticklabels:
         ax.set_yticks(y_pos)
-        ax.set_yticklabels([VERY_SHORT_DATASET_NAMES.get(d, d) for d in data.keys()], fontsize=10)
+        ax.set_yticklabels(
+            [VERY_SHORT_DATASET_NAMES.get(d, d) for d in data.keys()], fontsize=10
+        )
     else:
         ax.set_yticklabels([])
         ax.set_yticks([])
@@ -132,9 +138,7 @@ def plot_continuous(ax, data, name, label=True, legend=True, missing_rate=True):
     null_fractions = {k: v.is_null().mean() for k, v in data.items()}
     data = {k: v.drop_nulls().to_numpy() for k, v in data.items()}
 
-    df = np.concatenate(
-        [v for v in data.values() if len(v) > 0]
-    )
+    df = np.concatenate([v for v in data.values() if len(v) > 0])
     std = df.std().item()
     max_ = np.max([np.max(x) for x in data.values() if len(x) > 0])
     min_ = np.min([np.min(x) for x in data.values() if len(x) > 0])
@@ -160,7 +164,7 @@ def plot_continuous(ax, data, name, label=True, legend=True, missing_rate=True):
             ax.plot(df[0], [0], marker="x", **kwargs)
         else:
             density = gaussian_kde(df, bw_method=lambda x: (max_ - min_) / 80 / std)
-            
+
             linspace = np.linspace(df.min(), df.max(), num=300)
 
             ax.plot(linspace, density(linspace), **kwargs)
@@ -172,7 +176,7 @@ def plot_continuous(ax, data, name, label=True, legend=True, missing_rate=True):
 
 def cv_results(results, metrics):  # noqa D
     params = [p for p in PARAMETERS if p in results.columns]
-    
+
     if len(params) == 0:
         results = results.with_columns(pl.lit(0).alias("__param"))
         params = ["__param"]
@@ -182,7 +186,9 @@ def cv_results(results, metrics):  # noqa D
     cv = results.filter(pl.col("sources").list.len() == len(sources) - 1)
 
     if len(cv) == 0:
-        return results.with_columns(pl.lit(0).alias(f"__cv_{metric}") for metric in metrics)
+        return results.with_columns(
+            pl.lit(0).alias(f"__cv_{metric}") for metric in metrics
+        )
 
     for metric in metrics:
         cv = cv.with_columns(
@@ -194,7 +200,9 @@ def cv_results(results, metrics):  # noqa D
             ).alias(f"__cv_{metric}")
         )
     if cv.group_by(params).len().select(pl.col("len").ne(len(sources)).any()).item():
-        warnings.warn(f"Not all sources present for CV for sources: {sources}.\n{cv.group_by(params).len()}")
+        warnings.warn(
+            f"Not all sources present for CV for sources: {sources}.\n{cv.group_by(params).len()}"
+        )
         # breakpoint()
     cv = cv.group_by(params).agg(pl.mean(f"__cv_{metric}") for metric in metrics)
 

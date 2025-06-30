@@ -1,20 +1,16 @@
-import json
-import logging
-import re
 import tempfile
 
 import click
-import gin
-from matplotlib.transforms import Bbox
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from mlflow.tracking import MlflowClient
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+from matplotlib.transforms import Bbox
+from mlflow.tracking import MlflowClient
+
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.utils import fit_monotonic_spline, find_intersection
+from icu_benchmarks.utils import find_intersection, fit_monotonic_spline
 
 N_TARGET_VALUES = [
     25,
@@ -44,6 +40,7 @@ N_TARGET_VALUES = [
     102400,
 ]
 
+
 @click.command()
 @click.option(
     "--tracking_uri",
@@ -54,7 +51,7 @@ def main(tracking_uri):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
 
     _, target_run = get_target_run(client, "plots")
-    
+
     fig, axes = plt.subplots(ncols=2, figsize=(6, 1.4))
     _, cv_run = get_target_run(client, "crea_algbm_7_d")
     with tempfile.TemporaryDirectory() as f:
@@ -67,7 +64,7 @@ def main(tracking_uri):  # noqa D
         client.download_artifacts(refit_run.info.run_id, "refit_lgbm_results.csv", f)
         refit = pl.read_csv(f"{f}/refit_lgbm_results.csv")
         refit = refit.filter(pl.col("cv_metric") == "mse")
-    
+
     _, n_samples_run = get_target_run(client, "crea_algbm_n_samples_7_1")
     with tempfile.TemporaryDirectory() as f:
         client.download_artifacts(n_samples_run.info.run_id, "n_samples_results.csv", f)
@@ -76,14 +73,14 @@ def main(tracking_uri):  # noqa D
 
     panels = [
         {
-            "target":"eicu",
-            "title":"eICU",
-            "xlim":(25, 102400),
-            "ylim":(0.0745, 0.0815),
-            "xticks":[25, 100, 1000, 10000, 100000],
-            "xticklabels":["25", "100", "1k", "10k", "100k"],
-            "yticks":[0.075, 0.076, 0.077, 0.078, 0.079, 0.08, 0.081],
-            "yticklabels":["", ".076", "", ".078", "", ".08", ""],
+            "target": "eicu",
+            "title": "eICU",
+            "xlim": (25, 102400),
+            "ylim": (0.0745, 0.0815),
+            "xticks": [25, 100, 1000, 10000, 100000],
+            "xticklabels": ["25", "100", "1k", "10k", "100k"],
+            "yticks": [0.075, 0.076, 0.077, 0.078, 0.079, 0.08, 0.081],
+            "yticklabels": ["", ".076", "", ".078", "", ".08", ""],
         },
         {
             "target": "picdb",
@@ -110,7 +107,9 @@ def main(tracking_uri):  # noqa D
         ax.set_yticks(panel["yticks"])
         ax.set_yticklabels(panel["yticklabels"], fontsize=10)
 
-        cv_val = cv.filter(pl.col("target").eq(panel['target']))[f"{panel['target']}/test/mse"].item()
+        cv_val = cv.filter(pl.col("target").eq(panel["target"]))[
+            f"{panel['target']}/test/mse"
+        ].item()
         color, ls = "#004488", "dashed"
         ax.hlines(
             cv_val,
@@ -125,7 +124,9 @@ def main(tracking_uri):  # noqa D
         y_refit = np.empty((len(x), 20))
         color, ls = "#004488", "solid"
         for seed in range(20):
-            df = refit.filter(pl.col("seed").eq(seed) & pl.col("target").eq(panel['target']))
+            df = refit.filter(
+                pl.col("seed").eq(seed) & pl.col("target").eq(panel["target"])
+            )
             y_refit[:, seed] = fit_monotonic_spline(
                 df["n_target"].log(),
                 df["test_value/mse"],
@@ -144,7 +145,9 @@ def main(tracking_uri):  # noqa D
         y_n_samples = np.empty((len(x), 20))
         color, ls = "#DDAA33", "dashdot"
         for seed in range(20):
-            df = n_samples.filter(pl.col("seed").eq(seed) & pl.col("target").eq(panel["target"]))
+            df = n_samples.filter(
+                pl.col("seed").eq(seed) & pl.col("target").eq(panel["target"])
+            )
             y_n_samples[:, seed] = fit_monotonic_spline(
                 df["n_target"].log(),
                 df["test_value/mse"],
@@ -160,7 +163,9 @@ def main(tracking_uri):  # noqa D
         ax.plot(x[idx:], n_samples_q[1, idx:], color=color, ls="dotted")
         ax.fill_between(x, n_samples_q[0, :], n_samples_q[2, :], color=color, alpha=0.1)
 
-        cv_vs_n_samples = np.exp(find_intersection(n_samples_q[1, :] - cv_val, np.log(x), increasing=False))
+        cv_vs_n_samples = np.exp(
+            find_intersection(n_samples_q[1, :] - cv_val, np.log(x), increasing=False)
+        )
         cv_vs_refit = np.exp(
             find_intersection(
                 refit_q[1, :] + 0.1 * refit_std - cv_val,
@@ -195,10 +200,14 @@ def main(tracking_uri):  # noqa D
             alpha=0.5,
         )
         y = -0.08 * panel["ylim"][0] + 1.08 * panel["ylim"][1]
-        ax.scatter([cv_vs_n_samples], [y], color="black", marker="X", s=40,clip_on=False)
-        ax.scatter([cv_vs_refit], [y], color="black", marker="o", s=40,clip_on=False)
-        ax.scatter([n_samples_vs_refit], [y], color="black", marker="s", s=40,clip_on=False)
-        
+        ax.scatter(
+            [cv_vs_n_samples], [y], color="black", marker="X", s=40, clip_on=False
+        )
+        ax.scatter([cv_vs_refit], [y], color="black", marker="o", s=40, clip_on=False)
+        ax.scatter(
+            [n_samples_vs_refit], [y], color="black", marker="s", s=40, clip_on=False
+        )
+
         y_text = 0.8 * panel["ylim"][1] + 0.2 * panel["ylim"][0]
         if panel["target"] != "picdb":
             ax.text(
@@ -208,18 +217,12 @@ def main(tracking_uri):  # noqa D
                 fontsize=10,
                 ha="center",
                 va="center",
-                weight="bold"
+                weight="bold",
             )
 
         x_text = np.sqrt(cv_vs_refit * n_samples_vs_refit)
         ax.text(
-            x_text,
-            y_text,
-            "(ii)",
-            fontsize=10,
-            ha="center",
-            va="center",
-            weight="bold"
+            x_text, y_text, "(ii)", fontsize=10, ha="center", va="center", weight="bold"
         )
         ax.text(
             np.sqrt(panel["xlim"][1] * n_samples_vs_refit),
@@ -228,7 +231,7 @@ def main(tracking_uri):  # noqa D
             fontsize=10,
             ha="center",
             va="center",
-            weight="bold"
+            weight="bold",
         )
     legend = fig.legend(
         [handle_1, handle_2, handle_3],
@@ -237,11 +240,27 @@ def main(tracking_uri):  # noqa D
             "anchor boosting refit on target",
             "standard boosting fit on target",
         ],
-        ncols=1, loc="center",  bbox_to_anchor=(1.15, 0.5) , frameon=False, fontsize=10, handletextpad=0.8, columnspacing=1, labelspacing=0.5)
+        ncols=1,
+        loc="center",
+        bbox_to_anchor=(1.15, 0.5),
+        frameon=False,
+        fontsize=10,
+        handletextpad=0.8,
+        columnspacing=1,
+        labelspacing=0.5,
+    )
     plt.draw()
     log_fig(
-        fig, "illustration.pdf", client, run_id=target_run.info.run_id,  bbox_extra_artists=[legend], bbox_inches=Bbox([[0.1, -0.3], [8.25, 1.4]]),# (-1, -1, 2, 2),# , bbox_extra_artists=[legend]
+        fig,
+        "illustration.pdf",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_extra_artists=[legend],
+        bbox_inches=Bbox(
+            [[0.1, -0.3], [8.25, 1.4]]
+        ),  # (-1, -1, 2, 2),# , bbox_extra_artists=[legend]
     )
+
 
 if __name__ == "__main__":
     main()

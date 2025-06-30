@@ -9,9 +9,13 @@ import polars as pl
 from matplotlib import colormaps, colors
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.constants import GREATER_IS_BETTER, METRICS, PARAMETERS
+from icu_benchmarks.constants import (
+    DATASET_NAMES,
+    GREATER_IS_BETTER,
+    METRICS,
+    PARAMETERS,
+)
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.plotting import DATASET_NAMES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

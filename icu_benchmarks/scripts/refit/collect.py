@@ -1,4 +1,3 @@
-import json
 import logging
 import tempfile
 
@@ -58,13 +57,28 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
         results = results.filter(pl.col("num_iteration").eq(1000))
 
     results = results.filter(pl.col("seed") <= 19)
-    group_by = [x for x in ["model_idx", "target", "gamma", "decay_rate", "metric", "n_target", "alpha", "l1_ratio", "prior_alpha", "alpha_index"] if x in results.columns]
+    group_by = [
+        x
+        for x in [
+            "model_idx",
+            "target",
+            "gamma",
+            "decay_rate",
+            "metric",
+            "n_target",
+            "alpha",
+            "l1_ratio",
+            "prior_alpha",
+            "alpha_index",
+        ]
+        if x in results.columns
+    ]
     nunique = results.group_by(group_by).len()
     if not nunique.select(pl.col("len").eq(20).all()).item():
-        breakpoint()
+        raise ValueError
 
     metrics = results["metric"].unique().to_list()
-    
+
     metric = "auprc" if "auprc" in metrics else "mse"
     cv_metric = "log_loss" if metric == "auprc" else "mse"
 
@@ -73,10 +87,17 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
 
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)
     results = results.with_columns((pl.col("cv_value") * mult).alias("cv_value"))
-    results = results.pivot(values=["cv_value", "test_value"], on=["metric"], separator="/")
+    results = results.pivot(
+        values=["cv_value", "test_value"], on=["metric"], separator="/"
+    )
     group_by = ["target", "n_target", "seed"]
 
-    summary = results.group_by(group_by).agg(pl.all().top_k_by(k=1, by=pl.col(f"cv_value/{cv_metric}"))).explode([x for x in results.columns if x not in group_by]).with_columns(pl.lit(cv_metric).alias("cv_metric"))
+    summary = (
+        results.group_by(group_by)
+        .agg(pl.all().top_k_by(k=1, by=pl.col(f"cv_value/{cv_metric}")))
+        .explode([x for x in results.columns if x not in group_by])
+        .with_columns(pl.lit(cv_metric).alias("cv_metric"))
+    )
 
     log_df(
         summary,

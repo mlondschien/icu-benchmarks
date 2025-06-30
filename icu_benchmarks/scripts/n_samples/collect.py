@@ -1,13 +1,11 @@
-import json
 import logging
-import tempfile
 
 import click
 import polars as pl
 from mlflow.tracking import MlflowClient
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
-from icu_benchmarks.mlflow_utils import get_target_run, log_df, get_results
+from icu_benchmarks.mlflow_utils import get_results, get_target_run, log_df
 
 SOURCES = ["mimic-carevue", "miiv", "eicu", "aumc", "sic", "hirid"]
 
@@ -38,7 +36,7 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
         experiment_name,
         f"{result_name}_results.csv",
     )
-        
+
     metrics = results["metric"].unique().to_list()
 
     mult = pl.when(pl.col("metric").is_in(GREATER_IS_BETTER)).then(1).otherwise(-1)

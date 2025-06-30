@@ -152,7 +152,7 @@ CONFIG = {
             "plot_all": False,
             "result_name": "results",
             "plot_star": False,
-            
+
         },
         #         {
         #     "experiment_name": "kidney_algbm_7_icd_only",
@@ -163,7 +163,7 @@ CONFIG = {
         #     "plot_all": False,
         #     "result_name": "results",
         #     "plot_star": False,
-            
+
         # },
         {
             "experiment_name": "kidney_algbm_8_patient",
@@ -174,7 +174,7 @@ CONFIG = {
             "plot_all": False,
             "result_name": "results",
             "plot_star": False,
-            
+
         },
         #         {
         #     "experiment_name": "kidney_algbm_7_patient",
@@ -185,7 +185,7 @@ CONFIG = {
         #     "plot_all": False,
         #     "result_name": "results",
         #     "plot_star": False,
-            
+
         # },
         #         {
         #     "experiment_name": "kidney_algbm_8_col_wise",
@@ -196,7 +196,7 @@ CONFIG = {
         #     "plot_all": False,
         #     "result_name": "results",
         #     "plot_star": False,
-            
+
         # },
         #         {
         #     "experiment_name": "kidney_algbm_8_row_wise",
@@ -207,7 +207,7 @@ CONFIG = {
         #     "plot_all": False,
         #     "result_name": "results",
         #     "plot_star": False,
-            
+
         # },
         #         {
         #     "experiment_name": "kidney_algbm_8_icd_only_col_wise",
@@ -218,7 +218,7 @@ CONFIG = {
         #     "plot_all": False,
         #     "result_name": "results",
         #     "plot_star": False,
-            
+
         # },
         #                 {
         #     "experiment_name": "kidney_algbm_8_icd_only_row_wise",
@@ -229,7 +229,7 @@ CONFIG = {
         #     "result_name": "results",
         #     "label": "",
         #     "plot_star": False,
-            
+
         # },
     ]
 }

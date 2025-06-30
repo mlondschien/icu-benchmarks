@@ -4,28 +4,17 @@ from typing import Any, Dict
 DATA_DIR = Path(__file__).parents[1] / "data"
 
 
-
 SOURCE_COLORS = {
     "eicu": "#000000",
     "mimic": "#EE6677",
-    "mimic-carevue": "red",
-    "mimic-metavision": "red",
+    "mimic-carevue": "#EE6677",
     "hirid": "#66CCEE",
     "miiv": "#AA3377",
-    "miiv-late": "orange",
     "aumc": "#4477AA",
-    "aumc-early": "green",
-    "aumc-late": "green",
     "sic": "#332288",
     "zigong": "#228833",
     "picdb": "#CCBB44",
-    "ehrshot": "gray",
-    "miived": "cyan",
     "nwicu": "#BBBBBB",
-    "data_old/nwicu": "orange",
-    "data/nwicu": "red",
-    "data/miiv": "purple",
-    "data_old/miiv": "blue",
 }
 
 # https://personal.sron.nl/~pault/#sec:qualitative
@@ -89,7 +78,6 @@ SHORT_DATASET_NAMES = {
     "nwicu": "NWICU",
     "zigong": "Zigong EHR",
     "picdb": "PICdb",
-    "miived": "MIMIC-IV ED",
 }
 
 VERY_SHORT_DATASET_NAMES = {
@@ -102,24 +90,13 @@ VERY_SHORT_DATASET_NAMES = {
     "nwicu": "NWICU",
     "zigong": "Zigong",
     "picdb": "PICdb",
-    "miived": "MIMIC-IV ED",
 }
 
 OUTCOME_NAMES = {
-    "pf_ratio_in_12h": "log(PaO2/Fio2) in 12h [mmHg])",
-    "log_pf_ratio_in_12h": "log(PaO2/FiO2) in 12h",
     "log_creatinine_in_24h": "log(creatinine) in 24h",
-    "severe_meld_at_48h": "$\ \ $sev. MELD within 48h",
-    "lactate_in_4h": "log(lactate in 4h [mmol/L])",
     "log_lactate_in_4h": "log(lactate) in 4h",
-    "log_rel_urine_rate_in_2h": "log(relative urine rate in 2h [mL/h/kg])",
-    "los_at_24h": "log(LOS at 24h)",
-    "mortality_at_24h": "mortality at 24h",
-    "respiratory_failure_at_24h": "resp. failure within 24h",
-    "severe_respiratory_failure_at_24h": "sev. resp. failure within 24h$\ \ $",
-    "circulatory_failure_at_8h": "circ. failure within 8h$\ \ \ $",
-    "kidney_failure_at_48h": "$\ \ \ $kidney failure within 48h",
-    "log_bili_in_24h": "log(bilirubin in 24h [mg/dL])",
+    "circulatory_failure_at_8h": "circ. failure within 8h",
+    "kidney_failure_at_48h": "kidney failure within 48h",
 }
 
 VARIABLE_REFERENCE_PATH = (
@@ -152,7 +129,7 @@ ANCHORS = [
     "icd10_blocks",
     "icd10_ccsr",
     "apache_group",
-    "patient_id"
+    "patient_id",
 ]
 
 OUTCOMES = [
@@ -196,47 +173,6 @@ KIDNEY_VARIABLES = [
     "k",  # Potassium
 ]
 
-# "preliminary selected variables" according to
-# https://www.medrxiv.org/content/10.1101/2024.01.23.24301516v1 supp table 3
-RESP_VARIABLES = [
-    "fio2",
-    "norepi",  # Norepinephrine
-    "norepi_ind",  # Norepinephrine
-    "dobu",  # Dobutamine
-    "dobu_ind",  # Dobutamine
-    "loop_diur",  # Loop diuretics
-    "loop_diur_ind",  # Loop diuretics
-    "benzdia",  # Benzodiazepines
-    "benzdia_ind",  # Benzodiazepines
-    "prop",  # Propofol
-    "prop_ind",  # Propofol
-    "ins_ind",  # Insulin
-    "hep",  # Heparin
-    "hep_ind",  # Heparin
-    "cf_treat_ind",  # circulatory failure treatments incl. dobu, norepi.
-    "sed_ind",  # sedation medication indicator incl. benzdia, prop.
-    "age",
-    # no emergency admission
-    "vent_ind",  # Indicator for any ventilation
-    "airway",  # Ventilation type
-    "pco2",  # Partial pressure of carbon dioxide PaCO2
-    "po2",  # Partial pressure of oxygen PaO2
-    "sao2",  # Oxygen saturation (lab value) SaO2
-    "spo2",  # Oxygen saturation (finger) SpO2
-    "ps",  # Pressure support
-    # No MV exp / MV spont. These are available in HiRID only
-    "resp",  # Respiratory rate
-    "supp_o2_vent",  # Oxygen supplementation
-    "tgcs",  # Total Glasgow Coma Scale (Response)
-    "mgcs",  # Motor Glasgow Coma Scale
-    "peep",  # Positive end-expiratory pressure
-    "map",  # Mean arterial pressure. ABPm is window-mean of map
-    "peak",  # Peak airway pressure
-    "ph",  # Used to determine po2 from sao2 according to the serveringhaus equation
-    "temp",  # Temperature, used to determine po2 from sao2 according to serveringhaus
-    "pf_ratio",  # ratio of po2 to fio2
-]
-
 # Top 20 variables of Hyland et al.: Early prediction of circulatory failure in the
 # intensive care unit using machine learning. Table 1.
 CIRC_VARIABLES = [
@@ -267,289 +203,13 @@ CIRC_VARIABLES = [
     "time_hours",  # Time in hours since ICU admission
 ]
 
-GLU_VARIABLES = [
-    "glu",
-    "ins_ind",
-    "log_time_hours",
-    "age",
-    "weight",
-    "k",
-]
-
-MELD_VARIABLES = [  # from Manuel
-    "age",
-    "alb",
-    "alp",
-    "alt",
-    "amm",
-    "amyl",
-    "anti_coag_ind",
-    "ast",
-    "bili_dir",
-    "bili",
-    "crea",
-    "fgn",
-    "hct",
-    "height",
-    "hep_ind",
-    "hep",
-    "inf_alb_ind",
-    "inr_pt",
-    "lip",
-    "nonop_pain_ind",
-    "op_pain_ind",
-    "plat_ind",
-    "plt",
-    "sex",
-    "weight",
-    "ygt",
-]
-
-
-# Variables used to determine apache II
-APACHE_II_VARIABLES = [
-    "age",
-    "crea",
-    "fio2",
-    "hct",
-    "hr",
-    "k",
-    "na",
-    "pco2",
-    "po2",
-    "resp",
-    "temp",
-    "tgcs",
-    "wbc",
-    # "mgcs",
-    # "vgcs",
-    # "egcs",
-    # "tgcs",
-    # "sofa",
-    # "sofa4",
-    # "urine_rate",
-    # "spo2",
-    # "glu",
-    "map",
-    # "lact",
-]
-
-SOFA_VARIABLES = [
-    "po2",  # resp
-    "fio2",  # resp
-    "vent_ind",  # resp
-    "crea",  # renal
-    "urine_rate",  # renal
-    "bili",  # liver
-    "plt",  # coagulation
-    "egcs",
-    "mgcs",
-    "vgcs",
-    "tgcs",
-    # "ett_gcs"  # neurological
-    "map",  # cardiovascular
-    "norepi",  # cardiovascular
-    "dobu",  # cardiovascular
-    "epi",  # cardiovascular
-    "dopa",  # cardiovascular
-    "weight",
-]
-
-MORT_VARIABLES = sorted(set(APACHE_II_VARIABLES + SOFA_VARIABLES + ["sex"]))
-
-
-# Approx. number of rows per GB of memory. If all ~1000 columns were float64, this would
-# be ~125_000. We get a bit less due to boolean and categorical columns.
-OBSERVATION_PER_GB = 160_000
-
 TASKS: Dict[str, Dict[str, Any]] = {
-    "log_po2": {
-        "task": "regression",
-        "family": "gaussian",
-        "alpha_max": 0.16,
-        "n_samples": {
-            "mimic": 338189,
-            "mimic-metavision": 109443,
-            "mimic-carevue": 225484,
-            "miived": 0,
-            "miiv": 415590,
-            "miiv-late": 211551,
-            "eicu": 277943,
-            "hirid": 203075,
-            "aumc": 439735,
-            "aumc-early": 208448,
-            "aumc-late": 231287,
-            "sic": 482286,
-            "zigong": 13336,
-            "picdb": 0,
-            "nwicu": 0,
-        },
-        "variables": [x for x in RESP_VARIABLES if x not in ["po2", "pf_ratio"]],
-        "horizons": [8, 24],
-        "size": 3578,
-    },
-    "log_po2_in_12h": {
-        "task": "regression",
-        "family": "gaussian",
-        "variables": RESP_VARIABLES,
-        "horizons": [24],
-        "alpha_max": 1,
-    },
-    "remaining_los": {
-        "task": "regression",
-        "family": "gamma",
-        "alpha_max": 0.6,
-        "n_samples": {
-            "mimic": 4586276,
-            "ehrshot": 0,
-            "miived": 0,
-            "miiv": 7382185,
-            "eicu": 12096141,
-            "hirid": 1781542,
-            "aumc": 1832031,
-            "sic": 1858134,
-            "zigong": 387493,
-            "picdb": 0,
-            "mimic-metavision": 1846108,
-            "mimic-carevue": 2689494,
-            "miiv-late": 3736973,
-            "aumc-early": 863355,
-            "aumc-late": 968676,
-            "nwicu": 2179335,
-        },
-    },
-    "mortality_at_24h": {
-        "task": "binary",
-        "family": "binomial",
-        "alpha_max": 0.05,
-        "n_samples": {
-            "mimic": 45018,
-            "ehrshot": 32890,
-            "miived": 0,
-            "miiv": 74814,
-            "eicu": 132388,
-            "hirid": 16611,
-            "aumc": 12762,
-            "sic": 19486,
-            "zigong": 2422,
-            "picdb": 0,
-            "mimic-metavision": 19544,
-            "mimic-carevue": 25007,
-            "miiv-late": 36402,
-            "aumc-early": 5544,
-            "aumc-late": 7218,
-            "nwicu": 21566,
-        },
-        "variables": None, # APACHE_II_VARIABLES,
-        "horizons": [24],
-        "size": 215,
-    },
-    "los_at_24h": {
-        "task": "regression",
-        "family": "gamma",
-        "alpha_max": 0.5,
-        "n_samples": {
-            "mimic": 45018,
-            "ehrshot": 0,
-            "miived": 0,
-            "miiv": 74814,
-            "eicu": 132388,
-            "hirid": 16611,
-            "aumc": 12762,
-            "sic": 19486,
-            "zigong": 2422,
-            "picdb": 0,
-            "mimic-metavision": 19544,
-            "mimic-carevue": 25007,
-            "miiv-late": 36402,
-            "aumc-early": 5544,
-            "aumc-late": 7218,
-            "nwicu": 21566,
-        },
-    },
-    "decompensation_at_24h": {
-        "task": "binary",
-        "family": "binomial",
-        "alpha_max": 0.025,
-        "n_samples": {
-            "mimic": 3484186,
-            "ehrshot": 3049961,
-            "miived": 0,
-            "miiv": 5460238,
-            "eicu": 12097602,
-            "hirid": 1105836,
-            "aumc": 1832148,
-            "sic": 1381888,
-            "zigong": 382308,
-            "picdb": 0,
-            "mimic-metavision": 1355081,
-            "mimic-carevue": 2089759,
-            "miiv-late": 2822499,
-            "aumc-early": 863397,
-            "aumc-late": 968751,
-            "nwicu": 2179674,
-        },
-    },
-    "respiratory_failure_at_24h": {
-        "task": "binary",
-        "family": "binomial",
-        "alpha_max": 0.1,
-        "n_samples": {
-            "mimic": 795094,
-            "ehrshot": 72164,
-            "miived": 0,
-            "miiv": 1013481,
-            "eicu": 1584555,
-            "hirid": 443957,
-            "aumc": 646446,
-            "sic": 353134,
-            "zigong": 0,
-            "picdb": 0,
-            "mimic-metavision": 319568,
-            "mimic-carevue": 468680,
-            "miiv-late": 465963,
-            "aumc-early": 373011,
-            "aumc-late": 273435,
-            "nwicu": 0,
-        },
-        "variables": RESP_VARIABLES,
-        "horizons": [24],
-        "size": 12670,
-    },
-    "severe_respiratory_failure_at_24h": {
-        "task": "binary",
-        "family": "binomial",
-        "alpha_max": 0.1,
-        "n_samples": {
-            "mimic": 795094,
-            "ehrshot": 72164,
-            "miived": 0,
-            "miiv": 1013481,
-            "eicu": 1584555,
-            "hirid": 443957,
-            "aumc": 646446,
-            "sic": 353134,
-            "zigong": 0,
-            "picdb": 0,
-            "mimic-metavision": 319568,
-            "mimic-carevue": 468680,
-            "miiv-late": 465963,
-            "aumc-early": 373011,
-            "aumc-late": 273435,
-            "nwicu": 0,
-        },
-        "variables": RESP_VARIABLES,
-        "horizons": [24],
-        "size": 12670,
-    },
     "circulatory_failure_at_8h": {
         "task": "binary",
         "family": "binomial",
         "alpha_max": 0.09,
         "n_samples": {
             "mimic": 270080,
-            "ehrshot": 14266,
-            "miived": 0,
             "miiv": 565139,
             "eicu": 287585,
             "hirid": 606160,
@@ -574,8 +234,6 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "alpha_max": 0.09,
         "n_samples": {
             "mimic": 270080,
-            "ehrshot": 14266,
-            "miived": 0,
             "miiv": 565139,
             "eicu": 287585,
             "hirid": 606160,
@@ -588,7 +246,6 @@ TASKS: Dict[str, Dict[str, Any]] = {
             "miiv-late": 303327,
             "aumc-early": 40541,
             "aumc-late": 176682,
-            "nwicu": 43563,
         },
         "variables": CIRC_VARIABLES,
         "size": 6308,
@@ -600,8 +257,6 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "alpha_max": 0.1,
         "n_samples": {
             "mimic": 2961026,
-            "ehrshot": 62150,
-            "miived": 0,
             "miiv": 5279681,
             "eicu": 5668932,
             "hirid": 980458,
@@ -626,32 +281,6 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "alpha_max": 0.6,
         "variables": KIDNEY_VARIABLES,
         "horizons": [24],
-    },
-    "log_rel_urine_rate_in_2h": {
-        "task": "regression",
-        "family": "gaussian",
-        "n_samples": {
-            "mimic": 278792,
-            "ehrshot": 70821,
-            "miived": 0,
-            "miiv": 500728,
-            "eicu": 604236,
-            "hirid": 69649,
-            "aumc": 109604,
-            "sic": 92011,
-            "zigong": 9951,
-            "picdb": 0,
-            "mimic-metavision": 118577,
-            "mimic-carevue": 157241,
-            "miiv-late": 256965,
-            "aumc-early": 53878,
-            "aumc-late": 55726,
-            "nwicu": 146530,
-        },
-        "alpha_max": 0.53,
-        "variables": KIDNEY_VARIABLES,
-        "horizons": [8],
-        "size": 6399,
     },
     "log_lactate_in_4h": {
         "task": "regression",
@@ -678,47 +307,6 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "variables": CIRC_VARIABLES,
         "horizons": [8],
         "size": 951,
-    },
-    "log_pf_ratio_in_12h": {
-        "task": "regression",
-        "family": "gaussian",
-        "n_samples": {},
-        "alpha_max": 0.26,
-        "variables": RESP_VARIABLES,
-        "horizons": [24],
-        "size": 1469,
-    },
-    "severe_meld_at_48h": {
-        "task": "binary",
-        "family": "binomial",
-        "n_samples": {},
-        "alpha_max": 0.05,
-        "variables": MELD_VARIABLES,
-        "horizons": [24],
-    },
-    "severe_meld_at_48h_2": {
-        "task": "binary",
-        "family": "binomial",
-        "n_samples": {},
-        "alpha_max": 0.26,
-        "variables": MELD_VARIABLES,
-        "horizons": [24],
-    },
-    "meld_score_in_24h": {
-        "task": "regression",
-        "family": "gaussian",
-        "n_samples": {},
-        "alpha_max": 7.7,
-        "variables": MELD_VARIABLES,
-        "horizons": [24],
-    },
-    "log_bili_in_24h": {
-        "task": "regression",
-        "family": "gaussian",
-        "n_samples": {},
-        "alpha_max": 0.16,
-        "variables": MELD_VARIABLES,
-        "horizons": [24],
     },
 }
 
@@ -753,22 +341,11 @@ METRICS = [
 PARAMETERS = [
     "alpha",
     "ratio",
-    "num_leaves",
     "l1_ratio",
     "gamma",
-    "colsample_bytree",
-    "bagging_fraction",
-    "min_data_in_leaf",
-    # "num_boost_round",
     "num_iteration",
-    "l2_ratio",
     "learning_rate",
-    # "num_leaves",
     "max_depth",
-    "lambda_l2",
-    "min_gain_to_split",
-    "n_components",
-    # "random_state"
 ]
 
 VERY_SHORT_DATASET_NAMES = {
@@ -781,5 +358,4 @@ VERY_SHORT_DATASET_NAMES = {
     "nwicu": "NWICU",
     "zigong": "Zigong",
     "picdb": "PICdb",
-    "miived": "MIMIC-IV ED",
 }

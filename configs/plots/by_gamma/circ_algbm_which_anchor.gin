@@ -146,7 +146,7 @@ CONFIG = {
             "plot_all": False,
             "result_name": "results",
             "plot_star": False,
-            
+
         },
         {
             "experiment_name": "circ_algbm_7_patient",
@@ -157,7 +157,7 @@ CONFIG = {
             "plot_all": False,
             "result_name": "results",
             "plot_star": False,
-            
+
         },
     ]
 }

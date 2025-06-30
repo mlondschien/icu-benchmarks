@@ -1,15 +1,13 @@
-import json
 import logging
 import re
-import tempfile
 
 import click
 import numpy as np
 import polars as pl
 from mlflow.tracking import MlflowClient
-from icu_benchmarks.mlflow_utils import get_results
+
 from icu_benchmarks.constants import DATASETS, GREATER_IS_BETTER
-from icu_benchmarks.mlflow_utils import log_df
+from icu_benchmarks.mlflow_utils import get_results, log_df
 from icu_benchmarks.plotting import PARAMETERS, cv_results
 
 logger = logging.getLogger(__name__)
@@ -59,7 +57,7 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
     results = get_results(client, experiment_name, result_file)
 
     # Filter to max_depth=3, gamma=1, sqrt(2), 2, sqrt(8), ..., num_iteration=1000
-    if "gamma" in   results.columns:
+    if "gamma" in results.columns:
         col = pl.col("gamma").log() / pl.lit(2).sqrt().log()
         results = results.filter(np.abs(col - col.round(0)).le(0.01))
     if "max_depth" in results.columns:
@@ -67,7 +65,7 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
         results = results.filter(pl.col("gamma").le(16.0))
     if "num_iteration" in results.columns:
         results = results.filter(pl.col("num_iteration").eq(1000))
-    
+
     if "alpha" in results.columns:
         col = pl.col("alpha").log10() - pl.col("alpha").min().log10()
         results = results.with_columns(
@@ -77,7 +75,6 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
         )
         results = results.filter(pl.col("alpha_index").eq(3))
 
-        
     parameter_names = [x for x in PARAMETERS if x in results.columns]
 
     metrics = map(re.compile(r"^[a-z]+\/test\/(.+)$").match, results.columns)
@@ -85,7 +82,7 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
 
     all_targets = map(re.compile(r"^(.+)\/test\/[a-z]+$").match, results.columns)
     all_targets = np.unique([m.groups()[0] for m in all_targets if m is not None])
-    
+
     out = []
     for target in all_targets:
         ood_results = results.filter(~pl.col("sources").list.contains(target))

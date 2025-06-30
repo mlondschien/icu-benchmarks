@@ -5,8 +5,9 @@ from pathlib import Path
 import click
 import numpy as np
 from mlflow.tracking import MlflowClient
-from icu_benchmarks.mlflow_utils import get_target_run
+
 from icu_benchmarks.constants import TASKS
+from icu_benchmarks.mlflow_utils import get_target_run
 from icu_benchmarks.slurm_utils import setup_mlflow_server
 
 SOURCES6 = ["miiv", "mimic-carevue", "hirid", "eicu", "aumc", "sic"]
@@ -45,7 +46,7 @@ def main(
     experiment_name: str,
     tracking_uri: str,
     artifact_location: str,
-    mlflow_server: str = None,
+    mlflow_server: str,
 ):  # noqa D
     if mlflow_server is None:
         ip, port = setup_mlflow_server(
@@ -57,11 +58,11 @@ def main(
         )
     else:
         ip, port = mlflow_server.split(":")
-    
+
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_id = client.get_experiment_by_name(experiment_name).experiment_id
 
-    _ , _= get_target_run(client, experiment_name)
+    _, _ = get_target_run(client, experiment_name)
 
     refit_config = Path(__file__).parents[3] / "configs" / "refit" / "refit.gin"
     config_text = Path(config).read_text()
@@ -75,10 +76,12 @@ def main(
         )
         if len(runs) == 0:
             raise ValueError(f"No runs found for {target}.")
-        
+
         for seed in range(0, 20):
             for run in runs:
-                run_sources = sorted(json.loads(run.data.tags["sources"].replace("'", '"')))
+                run_sources = sorted(
+                    json.loads(run.data.tags["sources"].replace("'", '"'))
+                )
 
                 if len(run_sources) != len(sources):
                     continue
@@ -87,13 +90,19 @@ def main(
                 alpha = np.geomspace(alpha_max, alpha_max * 1e-6, 13)
 
                 outcome = run.data.tags["outcome"]
-                log_dir = Path("logs3") / experiment_name / f"refit_{stem}" / target / str(seed)
+                log_dir = (
+                    Path("logs3")
+                    / experiment_name
+                    / f"refit_{stem}"
+                    / target
+                    / str(seed)
+                )
                 log_dir.mkdir(parents=True, exist_ok=True)
                 refit_config_file = log_dir / "config.gin"
 
                 with refit_config_file.open("w") as f:
                     f.write(
-                    f"""ALPHA = {alpha.tolist()}
+                        f"""ALPHA = {alpha.tolist()}
 FAMILY = "{TASKS[outcome]["family"]}"
 TASK = "{TASKS[outcome]["task"]}"
 
@@ -119,7 +128,7 @@ get_seeds.seeds = [{seed}]
 get_run.run_id = "{run.info.run_id}"
 get_run.tracking_uri = "http://{ip}:{port}"
 """
-                )
+                    )
 
             command_file = log_dir / "command.sh"
             with command_file.open("w") as f:

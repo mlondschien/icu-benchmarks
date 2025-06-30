@@ -5,15 +5,13 @@ import tempfile
 
 import click
 import gin
-import matplotlib
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from matplotlib.ticker import NullFormatter, StrMethodFormatter, NullLocator
+from matplotlib.ticker import NullLocator
 from mlflow.tracking import MlflowClient
-from matplotlib.colors import LinearSegmentedColormap
-import matplotlib as mpl
+
 from icu_benchmarks.constants import GREATER_IS_BETTER, PARAMETERS
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
 from icu_benchmarks.plotting import cv_results
@@ -49,7 +47,7 @@ def main(tracking_uri, config):  # noqa D
     _, target_run = get_target_run(client, CONFIG["target_experiment"])
 
     ncols = 3
-    fig = plt.figure(figsize=(3.2* ncols, 4))
+    fig = plt.figure(figsize=(3.2 * ncols, 4))
     gs = gridspec.GridSpec(
         ncols + 1, 3, height_ratios=[1, 1, -0.15, 1], wspace=0.2, hspace=0.39
     )
@@ -103,7 +101,7 @@ def main(tracking_uri, config):  # noqa D
         results = pl.concat(all_results, how="diagonal")
 
         col = pl.col("gamma").log() / pl.lit(np.sqrt(2)).log()
-        results = results.filter( (col - col.round(0)).abs() < 0.01)
+        results = results.filter((col - col.round(0)).abs() < 0.01)
 
         if "filter" in line.keys():
             results = results.filter(**line["filter"])
@@ -115,15 +113,17 @@ def main(tracking_uri, config):  # noqa D
                     pl.when(np.abs(col - x) < 0.01).then(x) for x in [2, 3, 4]
                 ).alias("alpha_index")
             )
-        
+
             if line.get("plot_all", True):
                 results = results.filter(pl.col("alpha_index").is_not_null())
             else:
-                results = results.filter(pl.col("alpha_index").eq(3) & pl.col("l1_ratio").eq(0.5))
+                results = results.filter(
+                    pl.col("alpha_index").eq(3) & pl.col("l1_ratio").eq(0.5)
+                )
 
         if "num_iteration" in results.columns:
             results = results.filter(pl.col("num_iteration").is_in([500, 1000, 2000]))
-        
+
         for panel, ax in zip(CONFIG["panels"], axes):
             target = panel["source"]
 
@@ -150,15 +150,14 @@ def main(tracking_uri, config):  # noqa D
                     )
                 else:
                     cv = cv_results(
-                        cv
-                        [cv_metric],
+                        cv[cv_metric],
                     )
 
             if param not in cv.columns or len(cv[param].unique()) == 1:
                 best = cv.top_k(
                     1,
                     by=f"__cv_{cv_metric}",
-                    reverse=cv_metric not in GREATER_IS_BETTER
+                    reverse=cv_metric not in GREATER_IS_BETTER,
                 )[0]
                 ax.hlines(
                     best[f"{target}/test/{metric}"].item(),
@@ -193,9 +192,7 @@ def main(tracking_uri, config):  # noqa D
                 )
 
             best = grouped.top_k(
-                1,
-                by=f"__cv_{cv_metric}",
-                reverse=cv_metric not in GREATER_IS_BETTER
+                1, by=f"__cv_{cv_metric}", reverse=cv_metric not in GREATER_IS_BETTER
             )[0]
 
             if line.get("plot_quantiles", False):
@@ -230,14 +227,14 @@ def main(tracking_uri, config):  # noqa D
 
             if line.get("plot_all", True):
                 params = [p for p in PARAMETERS if p in cv.columns]
-                
+
                 for _, group in cv.group_by([p for p in params if p != param]):
-                    color = {
-                         4: "#4EB265",
-                         3: "#004488",
-                         2: "#F4A736"
-                    }[group["max_depth"].first()]
-                    ls={500: (1, (1, 1)), 1000: "solid", 2000: (0, (2, 2))}[group["num_iteration"].first()]
+                    color = {4: "#4EB265", 3: "#004488", 2: "#F4A736"}[
+                        group["max_depth"].first()
+                    ]
+                    ls = {500: (1, (1, 1)), 1000: "solid", 2000: (0, (2, 2))}[
+                        group["num_iteration"].first()
+                    ]
 
                     group = group.sort(param)
                     ax.plot(
@@ -247,7 +244,6 @@ def main(tracking_uri, config):  # noqa D
                         ls=ls,
                         alpha=0.6,
                     )
-
 
         if param not in cv.columns or len(cv[param].unique()) == 1:
             legend_elements.append(
@@ -353,8 +349,18 @@ def main(tracking_uri, config):  # noqa D
     )
 
     fig.add_artist(line)
-    
-    fig.legend(handles=legend_elements, loc="center", ncols=3, bbox_to_anchor=(0.5, -0.06    ) ,  frameon=False, fontsize=10, handletextpad=0.8, columnspacing=1, labelspacing=0.5)
+
+    fig.legend(
+        handles=legend_elements,
+        loc="center",
+        ncols=3,
+        bbox_to_anchor=(0.5, -0.06),
+        frameon=False,
+        fontsize=10,
+        handletextpad=0.8,
+        columnspacing=1,
+        labelspacing=0.5,
+    )
 
     if CONFIG.get("title") is not None:
         fig.suptitle(CONFIG["title"], size=12, y=0.97)

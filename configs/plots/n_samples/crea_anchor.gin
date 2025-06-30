@@ -179,7 +179,7 @@ CONFIG = {
             "ls": (1, (5,3)),
             "legend": "anchor regression fit on source",
         },
-        
+
         {
             "experiment_name": "crea_anchor_7_d",
             "result_name": "refit_linear",

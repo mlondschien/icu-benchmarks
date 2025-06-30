@@ -1,7 +1,5 @@
-from icu_features.load import load
-from icu_benchmarks.constants import TASKS, DATASETS, OUTCOMES
-import numpy as np
 import polars as pl
+from icu_features.load import load
 
 table = []
 
@@ -58,7 +56,7 @@ table = [
         "dataset": "miiv",
         "country": "USA",
         "years": "2008--2022",
-        "comment": "icludes Covid-19 cohort",
+        "comment": "includes Covid-19 cohort",
     },
     {
         "dataset_name": "SICdb",
@@ -87,7 +85,7 @@ table = [
         "country": "China",
         "years": "2019--2020",
         "comment": "infection cohort",
-    }
+    },
 ]
 
 for idx in range(len(table)):
@@ -117,7 +115,7 @@ for idx in range(len(table)):
         table[idx][f"{outcome}/num_samples"] = f"{len(y):,}"
         table[idx][f"{outcome}/prevalence"] = f"{100 * y.mean():.1f}%"
 
-    for outcome in [ "log_lactate_in_4h", "log_creatinine_in_24h"]:
+    for outcome in ["log_lactate_in_4h", "log_creatinine_in_24h"]:
 
         _, y, other = load(
             [table[idx]["dataset"]],
@@ -135,9 +133,3 @@ for idx in range(len(table)):
 pl.Config.set_tbl_rows(100)
 pl.Config.set_tbl_cols(100)
 print(pl.DataFrame(table).transpose(include_header=True))
-breakpoint()
-# for dataset in DATASETS:
-#     sta = pl.scan_parquet(f"/cluster/work/math/lmalte/data/{dataset}/sta.parquet")
-#     print(dataset)
-#     print(sta.select([pl.col("death_icu").value_counts()]).collect())
-

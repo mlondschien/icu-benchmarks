@@ -20,4 +20,3 @@ load = gin.external_configurable(icu_features.load, module="icu_features.load")
 AnchorBooster = gin.external_configurable(
     anchorboosting.AnchorBooster, module="anchorboosting"
 )
-

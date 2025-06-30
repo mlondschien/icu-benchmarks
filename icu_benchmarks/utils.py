@@ -4,9 +4,10 @@ import warnings
 
 import formulaic
 import numpy as np
+import scipy
 from scipy.interpolate import BSpline
 from sklearn.preprocessing import MultiLabelBinarizer, OrdinalEncoder
-import scipy
+
 
 class MaxIterationWarning(UserWarning): ...  # noqa D
 
@@ -150,7 +151,14 @@ def get_model_matrix(df, formula):  # noqa: D
     if formula == "":
         return OrdinalEncoder().fit_transform(df[["dataset"]]).astype("int32").flatten()
     elif formula == "patient_id":
-        return OrdinalEncoder().fit_transform((df["patient_id"].astype("string") + df["dataset"]).to_frame()).astype("int32").flatten()
+        return (
+            OrdinalEncoder()
+            .fit_transform(
+                (df["patient_id"].astype("string") + df["dataset"]).to_frame()
+            )
+            .astype("int32")
+            .flatten()
+        )
 
     Zs = []
     datasets = df["dataset"].unique()
@@ -160,21 +168,34 @@ def get_model_matrix(df, formula):  # noqa: D
             df.loc[mask, "icd10_blocks"] = df.loc[mask, "icd10_blocks"].apply(
                 lambda x: x.tolist() + [dataset]
             )
-            Zs.append(MultiLabelBinarizer().fit_transform(df[mask]["icd10_blocks"]).cast("float"))
-          # icd10 blocks plus other stuff interacted with dataset
+            Zs.append(
+                MultiLabelBinarizer()
+                .fit_transform(df[mask]["icd10_blocks"])
+                .cast("float")
+            )
+        # icd10 blocks plus other stuff interacted with dataset
         elif "icd10_blocks" in formula:
-            formula_ = formula.replace("icd10_blocks + ", "") 
+            formula_ = formula.replace("icd10_blocks + ", "")
             df.loc[mask, "icd10_blocks"] = df.loc[mask, "icd10_blocks"].apply(
                 lambda x: x.tolist() + [dataset]
             )
             Zs.append(
                 np.hstack(
                     [
-                        MultiLabelBinarizer().fit_transform(
-                            df[mask]["icd10_blocks"]),formulaic.Formula(formula_).get_model_matrix(df[mask], na_action="ignore").to_numpy().astype("float")])
+                        MultiLabelBinarizer().fit_transform(df[mask]["icd10_blocks"]),
+                        formulaic.Formula(formula_)
+                        .get_model_matrix(df[mask], na_action="ignore")
+                        .to_numpy()
+                        .astype("float"),
+                    ]
+                )
             )
         else:
-            Zs.append(formulaic.Formula(formula).get_model_matrix(df[mask], na_action="ignore").to_numpy())
+            Zs.append(
+                formulaic.Formula(formula)
+                .get_model_matrix(df[mask], na_action="ignore")
+                .to_numpy()
+            )
 
     csum = np.cumsum([0] + [Z.shape[1] for Z in Zs])
     Z = np.zeros((df.shape[0], csum[-1]), dtype=np.float64)

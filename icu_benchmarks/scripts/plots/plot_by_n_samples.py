@@ -252,7 +252,18 @@ def main(tracking_uri, config):  # noqa D
     )
     fig.add_artist(line)
 
-    fig.legend(legend_handles, labels, ncols=3, loc="center",  bbox_to_anchor=(0.5, 0.02) , frameon=False, fontsize=10, handletextpad=0.8, columnspacing=1, labelspacing=0.5)
+    fig.legend(
+        legend_handles,
+        labels,
+        ncols=3,
+        loc="center",
+        bbox_to_anchor=(0.5, 0.02),
+        frameon=False,
+        fontsize=10,
+        handletextpad=0.8,
+        columnspacing=1,
+        labelspacing=0.5,
+    )
     if CONFIG.get("title") is not None:
         fig.suptitle(CONFIG["title"], size=12, y=0.955)
     log_fig(

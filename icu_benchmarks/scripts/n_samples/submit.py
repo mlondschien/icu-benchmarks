@@ -45,7 +45,6 @@ def main(
     outcome: str,
     tracking_uri: str,
     artifact_location: str,
-    mlflow_server: str = None,  # noqa D
 ):  # noqa D
     ip, port = setup_mlflow_server(
         tracking_uri=tracking_uri,

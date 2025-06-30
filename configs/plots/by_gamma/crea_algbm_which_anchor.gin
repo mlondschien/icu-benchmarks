@@ -124,7 +124,7 @@ CONFIG = {
             "plot_all": False,
             "result_name": "results",
             "plot_star": False,
-            
+
         },
         {
             "experiment_name": "crea_algbm_7_patient",

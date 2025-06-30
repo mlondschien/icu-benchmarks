@@ -1,5 +1,8 @@
 import logging
+import pickle
+import tempfile
 from itertools import product
+from pathlib import Path
 from time import perf_counter
 
 import click
@@ -8,12 +11,9 @@ import mlflow
 import numpy as np
 import polars as pl
 from anchorboosting import AnchorBooster  # noqa F401
-from sklearn.model_selection import ParameterGrid
-import json
 from mlflow.tracking import MlflowClient
-import tempfile
-import pickle
-from pathlib import Path
+from sklearn.model_selection import ParameterGrid
+
 from icu_benchmarks.constants import ANCHORS, TASKS
 from icu_benchmarks.gin import load
 from icu_benchmarks.metrics import metrics
@@ -118,8 +118,12 @@ def main(config: str = "", anchor_formula: str = "", continue_run=None):  # noqa
     logger.info(f"Preprocessing data took {toc - tic:.1f} seconds")
     log_pickle(preprocessor, "models/preprocessor.pkl")
 
-    if any(x in str(get_model()) for x in ["GeneralizedLinear", "AnchorRegression", "DataSharedLasso"]):
+    if any(
+        x in str(get_model())
+        for x in ["GeneralizedLinear", "AnchorRegression", "DataSharedLasso"]
+    ):
         from anchorboosting.models import Proj
+
         X = df.to_numpy()
         proj = Proj(Z)
         X_proj = np.zeros_like(X)
@@ -140,7 +144,7 @@ def main(config: str = "", anchor_formula: str = "", continue_run=None):  # noqa
             for model_idx in range(len(list(model_dir.glob("model_*.pkl")))):
                 with open(model_dir / f"model_{model_idx}.pkl", "rb") as f:
                     models.append(pickle.load(f))
-    
+
     model_dict = {}
     results = []
     for parameter_idx, parameter in enumerate(get_parameters()):
@@ -155,12 +159,14 @@ def main(config: str = "", anchor_formula: str = "", continue_run=None):  # noqa
             tic = perf_counter()
 
             if "AnchorBooster" in str(model):
-                model.fit(             df, y, Z=Z, categorical_feature=categorical_features)
+                model.fit(df, y, Z=Z, categorical_feature=categorical_features)
             else:
-                model.fit(            df, y, Z=Z, X_proj=X_proj, y_proj=y_proj)
+                model.fit(df, y, Z=Z, X_proj=X_proj, y_proj=y_proj)
 
             toc = perf_counter()
-            logger.info(f"Fitting the model with {parameter} took {toc - tic:.1f} seconds")
+            logger.info(
+                f"Fitting the model with {parameter} took {toc - tic:.1f} seconds"
+            )
             models.append(model)
         model_dict[parameter_idx] = parameter
         log_pickle(model, f"models/model_{parameter_idx}.pkl")

@@ -144,7 +144,7 @@ def main(config: str):  # noqa D
             value = getattr(prior, "gamma", None) or getattr(prior, "ratio", 1.0)
             if np.abs(np.log2(value) - np.round(np.log2(value))) > 0.1:
                 continue
-            if value > 128:
+            if value is not None and value > 128:
                 continue
 
         for refit_parameter in get_refit_parameters():
@@ -192,6 +192,7 @@ def main(config: str):  # noqa D
         client=client,
         run_id=target_run.info.run_id,
     )
+
 
 def _fit(
     model,

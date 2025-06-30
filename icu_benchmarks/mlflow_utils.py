@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pickle
 import tempfile
@@ -8,10 +9,9 @@ import mlflow
 import numpy as np
 import pandas as pd
 import polars as pl
-import logging
-from mlflow.tracking import MlflowClient
 
 logger = logging.getLogger(__name__)
+
 
 class NumpyEncoder(json.JSONEncoder):
     """
@@ -176,7 +176,6 @@ def get_target_run(client, experiment_name, create_if_not_exists=True):
         )
 
 
-
 def get_results(client, experiment_name, result_file):
     """Aggregate results from all runs in an experiment."""
     experiment = client.get_experiment_by_name(experiment_name)
@@ -191,7 +190,7 @@ def get_results(client, experiment_name, result_file):
             if result_file not in [x.path for x in client.list_artifacts(run_id)]:
                 logger.warning(f"Run {run_id} has no {result_file}")
                 continue
-        
+
             logger.info(f"Downloading {result_file} for run {run_id}")
             client.download_artifacts(run_id, f"{result_file}", f)
             results = pl.read_csv(f"{f}/{result_file}")
@@ -206,4 +205,3 @@ def get_results(client, experiment_name, result_file):
         all_results.append(results)
 
     return pl.concat(all_results, how="diagonal")
-

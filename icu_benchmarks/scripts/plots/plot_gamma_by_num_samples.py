@@ -1,22 +1,19 @@
-import json
 import logging
-import re
 import tempfile
-from icu_benchmarks.plotting import SOURCE_COLORS
-from icu_benchmarks.utils import fit_monotonic_spline
+
 import click
 import gin
-import matplotlib
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from matplotlib.ticker import NullFormatter, NullLocator
-from matplotlib.ticker import FixedLocator, FixedFormatter
+from matplotlib.ticker import FixedFormatter, FixedLocator, NullFormatter, NullLocator
 from mlflow.tracking import MlflowClient
-from icu_benchmarks.constants import GREATER_IS_BETTER, DATASETS
-from icu_benchmarks.mlflow_utils import get_target_run, log_fig, get_results
-from icu_benchmarks.plotting import cv_results, VERY_SHORT_DATASET_NAMES
+
+from icu_benchmarks.constants import DATASETS, GREATER_IS_BETTER
+from icu_benchmarks.mlflow_utils import get_results, get_target_run, log_fig
+from icu_benchmarks.plotting import SOURCE_COLORS, VERY_SHORT_DATASET_NAMES, cv_results
+from icu_benchmarks.utils import fit_monotonic_spline
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -29,7 +26,6 @@ logging.basicConfig(
 @gin.configurable()
 def get_config(config):  # noqa D
     return config
-
 
 
 N_TARGET_VALUES = np.geomspace(10, 1e6, 200)
@@ -52,8 +48,10 @@ def main(tracking_uri, config):  # noqa D
     gs = fig.add_gridspec(1, 2, width_ratios=[1, 1])
 
     for idx, panel in enumerate(CONFIG["panels"]):
-        results = get_results(client, panel["experiment_name"], f"{panel['result_name']}.csv")
-        
+        results = get_results(
+            client, panel["experiment_name"], f"{panel['result_name']}.csv"
+        )
+
         if "num_iteration" in results.columns:
             results = results.filter(pl.col("num_iteration").eq(1000))
         if "max_depth" in results.columns:
@@ -82,12 +80,14 @@ def main(tracking_uri, config):  # noqa D
             [sp.set_visible(False) for sp in big_ax.spines.values()]
             big_ax.set_xticks([])
             big_ax.set_yticks([])
-            big_ax.patch.set_facecolor('none')
-            
+            big_ax.patch.set_facecolor("none")
+
             fig.add_subplot(big_ax)
 
             local_axes = []
-            for igs, ylim, yticks, yticklabels in zip(local_gs, panel["ylim"], panel["yticks"], panel["yticklabels"]):
+            for igs, ylim, yticks, yticklabels in zip(
+                local_gs, panel["ylim"], panel["yticks"], panel["yticklabels"]
+            ):
                 ax = plt.Subplot(fig, igs)
                 ax.set_xscale("log")
                 ax.set_yscale("log")
@@ -105,19 +105,31 @@ def main(tracking_uri, config):  # noqa D
                 fig.add_subplot(ax)
                 ax.xaxis.set_minor_locator(NullLocator())
                 local_axes.append(ax)
-            
+
             local_axes[1].set_xlabel("$\\gamma$")
-            local_axes[0].spines['bottom'].set_visible(False)
+            local_axes[0].spines["bottom"].set_visible(False)
             plt.setp(local_axes[0].xaxis.get_minorticklabels(), visible=False)
             plt.setp(local_axes[0].xaxis.get_minorticklines(), visible=False)
             plt.setp(local_axes[0].xaxis.get_majorticklabels(), visible=False)
             plt.setp(local_axes[0].xaxis.get_majorticklines(), visible=False)
 
-            local_axes[1].spines['top'].set_visible(False)
+            local_axes[1].spines["top"].set_visible(False)
 
-            kwargs = dict(marker=[(-1, -0.5), (1, 0.5)], markersize=10, linestyle="none", color='k', mec='k', mew=1, clip_on=False)
-            local_axes[0].plot([0, 1], [0, 0], transform=local_axes[0].transAxes, **kwargs)
-            local_axes[1].plot([0, 1], [1, 1], transform=local_axes[1].transAxes, **kwargs)
+            kwargs = dict(
+                marker=[(-1, -0.5), (1, 0.5)],
+                markersize=10,
+                linestyle="none",
+                color="k",
+                mec="k",
+                mew=1,
+                clip_on=False,
+            )
+            local_axes[0].plot(
+                [0, 1], [0, 0], transform=local_axes[0].transAxes, **kwargs
+            )
+            local_axes[1].plot(
+                [0, 1], [1, 1], transform=local_axes[1].transAxes, **kwargs
+            )
             if idx == 0:
                 labelpad = 28
         else:
@@ -144,19 +156,24 @@ def main(tracking_uri, config):  # noqa D
                 cv = results.filter(~pl.col("sources").list.contains(target))
                 cv = cv_results(cv, [panel["cv_metric"]]).sort(by="gamma")
 
-                n_target = n_samples.filter(pl.col("target").eq(target) & pl.col("cv_metric").eq(panel["cv_metric"]))
+                n_target = n_samples.filter(
+                    pl.col("target").eq(target)
+                    & pl.col("cv_metric").eq(panel["cv_metric"])
+                )
                 n_target = n_target.sort(pl.col("n_target"))
 
                 x = np.empty((len(N_TARGET_VALUES), n_target["seed"].n_unique()))
                 for seed in n_target.select("seed").unique().to_numpy().flatten():
                     x[:, seed] = fit_monotonic_spline(
                         n_target.filter(pl.col("seed") == seed)["n_target"].log(),
-                        n_target.filter(pl.col("seed") == seed)[f"test_value/{panel['metric']}"],
+                        n_target.filter(pl.col("seed") == seed)[
+                            f"test_value/{panel['metric']}"
+                        ],
                         np.log(N_TARGET_VALUES),
-                        increasing=panel['metric'] in GREATER_IS_BETTER,
+                        increasing=panel["metric"] in GREATER_IS_BETTER,
                     )
 
-                mult = 1 if panel['metric'] in GREATER_IS_BETTER else -1
+                mult = 1 if panel["metric"] in GREATER_IS_BETTER else -1
                 x = np.median(x, axis=1)
                 y = np.interp(
                     mult * cv[f"{target}/test/{panel['metric']}"].to_numpy(),
@@ -170,10 +187,14 @@ def main(tracking_uri, config):  # noqa D
                     np.exp(y),
                     color=SOURCE_COLORS[target],
                     label=VERY_SHORT_DATASET_NAMES[target] if idx == ldx == 0 else None,
-                    zorder=10-idx,
+                    zorder=10 - idx,
                 )
                 cv = cv.with_columns(y=np.exp(y))
-                best = cv.top_k(1, by=f"__cv_{panel['cv_metric']}", reverse=panel['cv_metric'] not in GREATER_IS_BETTER)
+                best = cv.top_k(
+                    1,
+                    by=f"__cv_{panel['cv_metric']}",
+                    reverse=panel["cv_metric"] not in GREATER_IS_BETTER,
+                )
                 ax.scatter(
                     best["gamma"].item(),
                     best["y"].item(),
@@ -182,9 +203,7 @@ def main(tracking_uri, config):  # noqa D
                     s=100,
                     zorder=20 - idx,
                 )
-    fig.suptitle(
-        CONFIG["title"], fontsize=11, y=1.05
-    )
+    fig.suptitle(CONFIG["title"], fontsize=11, y=1.05)
     fig.legend(
         loc="center",
         ncol=1,
@@ -197,8 +216,10 @@ def main(tracking_uri, config):  # noqa D
         f"{CONFIG['filename']}.pdf",
         client,
         target_run.info.run_id,
-        dpi=300, bbox_inches="tight"
+        dpi=300,
+        bbox_inches="tight",
     )
+
 
 if __name__ == "__main__":
     main()

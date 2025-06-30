@@ -8,9 +8,11 @@ import numpy as np
 import polars as pl
 from matplotlib.patches import FancyArrowPatch, Patch
 from mlflow.tracking import MlflowClient
+
 from icu_benchmarks.constants import GREATER_IS_BETTER, VERY_SHORT_DATASET_NAMES
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.utils import fit_monotonic_spline, find_intersection
+from icu_benchmarks.utils import find_intersection, fit_monotonic_spline
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s [%(thread)d] %(message)s",
@@ -145,17 +147,21 @@ def main(tracking_uri, config):  # noqa D
             refit = np.median(refit_new, axis=1)
             refit_std = np.std(refit_new, axis=1)
             mult = 0.02 if metric in GREATER_IS_BETTER else -0.1
-            
+
             cv = cv_data.filter(pl.col("target").eq(target))[column].item()
             cv_vs_n_samples = np.exp(
                 find_intersection(
-                n_samples - cv,
-                np.log(N_TARGET_VALUES),
-                increasing=metric in GREATER_IS_BETTER,
+                    n_samples - cv,
+                    np.log(N_TARGET_VALUES),
+                    increasing=metric in GREATER_IS_BETTER,
                 )
             )
             cv_vs_refit = np.exp(
-                find_intersection( refit - mult * refit_std - cv, np.log(N_TARGET_VALUES), increasing=metric in GREATER_IS_BETTER)
+                find_intersection(
+                    refit - mult * refit_std - cv,
+                    np.log(N_TARGET_VALUES),
+                    increasing=metric in GREATER_IS_BETTER,
+                )
             )
             n_samples_vs_refit = np.exp(
                 find_intersection(
@@ -242,7 +248,12 @@ def main(tracking_uri, config):  # noqa D
                 )
                 ax.add_patch(patch)
 
-    legend_handles = [legend_handles[1], legend_handles[0], legend_handles[3], legend_handles[2]]
+    legend_handles = [
+        legend_handles[1],
+        legend_handles[0],
+        legend_handles[3],
+        legend_handles[2],
+    ]
     labels = [labels[1], labels[0], labels[3], labels[2]]
     fig.legend(
         legend_handles,
@@ -264,13 +275,13 @@ def main(tracking_uri, config):  # noqa D
         fontsize=11,
     )
     log_fig(
-        fig, f"{CONFIG['filename']}.pdf", client, run_id=target_run.info.run_id, bbox_inches="tight"
+        fig,
+        f"{CONFIG['filename']}.pdf",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_inches="tight",
     )
 
 
 if __name__ == "__main__":
     main()
-
-
-
-

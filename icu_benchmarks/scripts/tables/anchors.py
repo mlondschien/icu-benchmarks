@@ -1,19 +1,7 @@
-from icu_features.load import load
-from icu_benchmarks.constants import TASKS, DATASETS, OUTCOMES
-import numpy as np
 import polars as pl
+from icu_features.load import load
 
-table = []
-
-
-DATASETS = [
-    "aumc",
-    "eicu",
-    "hirid",
-    "mimic-carevue",
-    "miiv",
-    "sic",
-]
+from icu_benchmarks.constants import DATASETS
 
 table = []
 
@@ -24,12 +12,22 @@ for dataset in DATASETS:
         split="train_val",
         data_dir="/cluster/work/math/lmalte/data",
         variables=[],
-        other_columns=["patient_id", "dataset", "icd10_blocks", "ward", "adm", "insurance", "year"], 
+        other_columns=[
+            "patient_id",
+            "dataset",
+            "icd10_blocks",
+            "ward",
+            "adm",
+            "insurance",
+            "year",
+        ],
     )
     table.append(
         {
             "dataset": dataset,
-            "icd10_blocks": other.select(pl.col("icd10_blocks").list.explode().unique()).shape[0],
+            "icd10_blocks": other.select(
+                pl.col("icd10_blocks").list.explode().unique()
+            ).shape[0],
             "years": other["year"].unique().shape[0],
             "adm": other["adm"].unique().shape[0],
             "wards": other["ward"].unique().shape[0],

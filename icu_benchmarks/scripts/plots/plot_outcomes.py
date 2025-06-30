@@ -1,22 +1,31 @@
 from pathlib import Path
 
 import click
-import matplotlib.colors as mcolors
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
+from icu_features.load import load
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
-import numpy as np
-from icu_benchmarks.constants import DATA_DIR, DATASETS, VERY_SHORT_DATASET_NAMES, SOURCE_COLORS, OUTCOME_NAMES
-from icu_features.load import load
-from scipy.stats import gaussian_kde
 from matplotlib.transforms import Bbox
+from scipy.stats import gaussian_kde
+
+from icu_benchmarks.constants import (
+    DATA_DIR,
+    DATASETS,
+    OUTCOME_NAMES,
+    SOURCE_COLORS,
+    VERY_SHORT_DATASET_NAMES,
+)
+
 OUTPUT_PATH = Path(__file__).parents[3] / "figures" / "density_plots"
 
 
 @click.command()
-@click.option("--data_dir", type=click.Path(exists=True), default="/cluster/work/math/lmalte/data")
+@click.option(
+    "--data_dir", type=click.Path(exists=True), default="/cluster/work/math/lmalte/data"
+)
 @click.option("--prevalence", type=click.Choice(["time-step", "patient"]))
 @click.option("--extra_datasets", is_flag=True)
 def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
@@ -38,7 +47,7 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
 
         y_pos = np.arange(len(datasets))
         left = np.zeros(len(datasets))
-        
+
         _, y, other = load(
             datasets,
             outcome,
@@ -50,8 +59,15 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         )
         df = other.with_columns(y=y).group_by("dataset").agg(pl.col("y").mean())
         df = df.sort("dataset")
-        
-        bars = ax.barh(y_pos, 1 -  df["y"], left=left, label=df["dataset"], height=0.8, color="tab:blue")
+
+        bars = ax.barh(
+            y_pos,
+            1 - df["y"],
+            left=left,
+            label=df["dataset"],
+            height=0.8,
+            color="tab:blue",
+        )
         for bar in bars:
             width = bar.get_width()
             ax.text(
@@ -64,7 +80,14 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
                 color="black",
             )
 
-        bars = ax.barh(y_pos, df["y"], left=1 - df["y"], label=df["dataset"], height=0.8, color="tab:orange")
+        bars = ax.barh(
+            y_pos,
+            df["y"],
+            left=1 - df["y"],
+            label=df["dataset"],
+            height=0.8,
+            color="tab:orange",
+        )
         for bar in bars:
             width = bar.get_width()
             ax.text(
@@ -76,8 +99,10 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
                 fontsize=10,
                 color="black",
             )
-        
-    binary_axes[0].set_yticks(y_pos, labels=[VERY_SHORT_DATASET_NAMES[ds] for ds in datasets], fontsize=10)
+
+    binary_axes[0].set_yticks(
+        y_pos, labels=[VERY_SHORT_DATASET_NAMES[ds] for ds in datasets], fontsize=10
+    )
     binary_axes[1].set_yticks([])
 
     binary_axes[0].set_title("circ. failure within 8h", fontsize=10)
@@ -101,16 +126,21 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
             variables=[],
             horizons=[],
         )
-        bw = (np.max(y, axis=0) - np.min(y, axis=0)) / 80 /  np.std(y, axis=0)
+        bw = (np.max(y, axis=0) - np.min(y, axis=0)) / 80 / np.std(y, axis=0)
         for dataset in datasets:
             filter_ = pl.col("dataset").eq(dataset)
             y_ = other.with_columns(y=y).filter(filter_).select("y").to_series()
             density = gaussian_kde(y_, bw_method=bw)
             linspace = np.linspace(y_.min(), y_.max(), num=300)
 
-            ax.plot(linspace, density(linspace), color=SOURCE_COLORS[dataset], lw=2, alpha=0.8)
+            ax.plot(
+                linspace,
+                density(linspace),
+                color=SOURCE_COLORS[dataset],
+                lw=2,
+                alpha=0.8,
+            )
             ax.set_title(OUTCOME_NAMES[outcome], fontsize=10)
-
 
     ax3.yaxis.tick_right()
     ax4.yaxis.tick_right()
@@ -132,8 +162,8 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
 
     for ax in cont_axes:
         ax.set_ylim(-0.03, 1.3)
-        ax.set_yticks([0.0, 0.5, 1.0], labels = ["0.0", "0.5", "1.0"], fontsize=10)
-        ax.tick_params(axis='x', labelsize=10)
+        ax.set_yticks([0.0, 0.5, 1.0], labels=["0.0", "0.5", "1.0"], fontsize=10)
+        ax.tick_params(axis="x", labelsize=10)
 
     inv_fig = fig.transFigure.inverted()
     for i, label in enumerate(binary_axes[0].yaxis.get_majorticklabels()):
@@ -142,23 +172,24 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
         pixel_coords = (bbox.x0, bbox.y0 + bbox.height / 2)
         label_x_fig, label_y_fig = inv_fig.transform(pixel_coords)
 
-        line_x_coords = [label_x_fig - 0.018, label_x_fig-0.005]
-        line_y_coords = [label_y_fig+0.005, label_y_fig+0.005]
+        line_x_coords = [label_x_fig - 0.018, label_x_fig - 0.005]
+        line_y_coords = [label_y_fig + 0.005, label_y_fig + 0.005]
         line = Line2D(
             line_x_coords,
             line_y_coords,
             transform=fig.transFigure,  # Use the figure transform
             color=SOURCE_COLORS[datasets[i]],
             linewidth=3,
-            clip_on=False
+            clip_on=False,
         )
 
         # Add the line to the axes' artists
         binary_axes[0].add_artist(line)
 
-
     fig.savefig(OUTPUT_PATH / "outcomes_m.png", bbox_inches="tight")
-    fig.savefig(OUTPUT_PATH / "outcomes_m.pdf", bbox_inches=Bbox([[0.2, 0.05], [8.5, 2.5]]))
+    fig.savefig(
+        OUTPUT_PATH / "outcomes_m.pdf", bbox_inches=Bbox([[0.2, 0.05], [8.5, 2.5]])
+    )
     plt.close(fig)
 
 

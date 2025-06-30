@@ -161,7 +161,7 @@ CONFIG = {
             "ls": (1, (5,3)),
             "legend": "anchor boosting fit on source",
         },
-        
+
         {
             "experiment_name": "crea_algbm_7_d",
             "result_name": "refit_lgbm",

@@ -1,5 +1,4 @@
 import subprocess
-from itertools import product
 from pathlib import Path
 
 import click
@@ -72,7 +71,6 @@ def main(
         )
     else:
         ip, port = mlflow_server.split(":")
-
 
     # "<" avoids duplicates in the n-2. The "=" includes n-1 lists.
     list_of_sources = [
