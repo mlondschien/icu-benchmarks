@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pickle
 import tempfile
@@ -8,6 +9,8 @@ import mlflow
 import numpy as np
 import pandas as pd
 import polars as pl
+
+logger = logging.getLogger(__name__)
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -171,3 +174,34 @@ def get_target_run(client, experiment_name, create_if_not_exists=True):
         raise ValueError(
             f"Expected exactly one target run for {experiment_name}. Got {len(target_run)}."
         )
+
+
+def get_results(client, experiment_name, result_file):
+    """Aggregate results from all runs in an experiment."""
+    experiment = client.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        raise ValueError(f"Did not find experiment {experiment_name}.")
+
+    all_results = []
+    for run in client.search_runs(experiment_ids=[experiment.experiment_id]):
+        run_id = run.info.run_id
+
+        with tempfile.TemporaryDirectory() as f:
+            if result_file not in [x.path for x in client.list_artifacts(run_id)]:
+                logger.warning(f"Run {run_id} has no {result_file}")
+                continue
+
+            logger.info(f"Downloading {result_file} for run {run_id}")
+            client.download_artifacts(run_id, f"{result_file}", f)
+            results = pl.read_csv(f"{f}/{result_file}")
+
+        for k, v in run.data.tags.items():
+            if "[" in v and "]" in v and "," in v:
+                run.data.tags[k] = json.loads(v.replace("'", '"'))
+            results = results.with_columns(pl.lit(run.data.tags[k]).alias(k))
+
+        results = results.with_columns(pl.lit(run_id).alias("run_id"))
+
+        all_results.append(results)
+
+    return pl.concat(all_results, how="diagonal")

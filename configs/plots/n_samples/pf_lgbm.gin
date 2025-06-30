@@ -28,19 +28,19 @@ CONFIG = {
         {
             "source": "mimic-carevue",
             "title": "MIMIC-III",
-            "xlim": (25, None),
+            "xlim": (25, 10_000),
             "ylim": (0.385, 0.43),
         },
         {
             "source": "miiv",
             "title": "MIMIC-IV",
-            "xlim": (25, None),
+            "xlim": (25, 10_000),
             "ylim": (0.445, 0.49),
         },
         {
             "source": "sic",
             "title": "SICdb",
-            "xlim": (25, None),
+            "xlim": (25, 10_000),
             "ylim": (0.319, 0.36),
         },
     ],

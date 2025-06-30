@@ -3,14 +3,17 @@ import logging
 import tempfile
 
 import click
+import gin
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from matplotlib.ticker import NullFormatter, StrMethodFormatter
 from mlflow.tracking import MlflowClient
 
-from icu_benchmarks.constants import GREATER_IS_BETTER, METRICS, PARAMETERS
+from icu_benchmarks.constants import GREATER_IS_BETTER
 from icu_benchmarks.mlflow_utils import get_target_run, log_fig
-from icu_benchmarks.plotting import DATASET_NAMES
+from icu_benchmarks.plotting import cv_results
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -20,16 +23,28 @@ logging.basicConfig(
 )
 
 
+@gin.configurable()
+def get_config(config):  # noqa D
+    return config
+
+
 @click.command()
 @click.option(
     "--tracking_uri",
     type=str,
     default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
-@click.option("--experiment_name", type=str)
-def main(tracking_uri, experiment_name):  # noqa D
+@click.option("--config", type=click.Path(exists=True))
+def main(tracking_uri, config):  # noqa D
+    gin.parse_config_file(config)
+    CONFIG = get_config()
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment, target_run = get_target_run(client, experiment_name)
+
+    experiment, run = get_target_run(client, CONFIG["experiment_name"])
+    metric = CONFIG["metric"]
+    cv_metric = CONFIG.get("cv_metric", metric)
+
+    _, target_run = get_target_run(client, CONFIG["target_experiment"])
 
     all_results = []
     for run in client.search_runs(experiment_ids=[experiment.experiment_id]):
@@ -53,150 +68,198 @@ def main(tracking_uri, experiment_name):  # noqa D
         all_results.append(results)
 
     results = pl.concat(all_results, how="diagonal")
-    results = results.filter(pl.col("gamma") <= 150)
-    # sresults = results.filter(pl.col("gamma") <= 4)
-    print(f"logging to {run.info.run_id}")
 
-    params = [p for p in PARAMETERS if p in results.columns]
-    # params = ["gamma"]
+    if "filter" in CONFIG.keys():
+        results = results.filter(**CONFIG["filter"])
 
-    sources = results["sources"].explode().unique().to_list()
-    results_n2 = results.filter(pl.col("sources").list.len() == len(sources) - 2)
-    results_n1 = results.filter(pl.col("sources").list.len() == len(sources) - 1)
+    ncols = 3
+    fig = plt.figure(figsize=(3.5 * ncols, 7))
+    gs = gridspec.GridSpec(
+        ncols + 1, 3, height_ratios=[1, 1, -0.1, 1], wspace=0.18, hspace=0.3
+    )
+    axes = [fig.add_subplot(gs[i, j]) for i in [0, 1, 3] for j in range(ncols)]
 
-    metrics = [m for m in METRICS if f"eicu/test/{m}" in results.columns]
-    for metric in metrics:
-        for x in ["gamma"]:  # params:
-            mult = -1 if metric in GREATER_IS_BETTER else 1
+    for idx, (panel, ax) in enumerate(zip(CONFIG["panels"], axes)):
+        target = panel["target"]
 
-            cv_results = []
-
-            fig, axes = plt.subplots(
-                2,
-                3,
-                figsize=(12, 8),
-                constrained_layout=True,
-                gridspec_kw={"hspace": 0.02},
+        if target == "empty":
+            ax.set_visible(False)
+            continue
+        cv = results.filter(~pl.col("sources").list.contains(target))
+        cv = (
+            cv_results(
+                cv,
+                [cv_metric],
             )
-
-            for idx, (ax, target) in enumerate(zip(axes.flat, sources)):
-                filter_ = ~pl.col("sources").list.contains(target)
-                cv_results = results_n2.filter(filter_)
-                cv_sources = [source for source in sources if source != target]
-                columns = (
-                    params
-                    + [f"{target}/test/{metric}", f"{target}/test/mean_residual"]
-                    + [
-                        f"{target}/test/quantile_{q}"
-                        for q in [0.1, 0.25, 0.5, 0.75, 0.9]
-                    ]
+            .group_by("gamma")
+            .agg(
+                pl.all().top_k_by(
+                    k=1,
+                    by=f"__cv_{cv_metric}",
+                    reverse=cv_metric not in GREATER_IS_BETTER,
                 )
-                result = results_n1.filter(filter_).select(columns)
-                for source in cv_sources:
-                    filter_ = ~pl.col("sources").list.contains(source)
-                    result = result.join(
-                        cv_results.filter(filter_).select(
-                            params
-                            + [
-                                (pl.col(f"{source}/train_val/{metric}") * mult).alias(
-                                    f"{source}/cv_value"
-                                )
-                            ]
-                        ),
-                        on=params,
-                        how="left",
-                        validate="1:1",
-                    )
-
-                agg = pl.mean_horizontal(
-                    [f"{source}/cv_value" for source in cv_sources]
-                )
-                result = result.with_columns(agg.alias("cv_value"))
-                grouped = (
-                    result.group_by(x)
-                    .agg(pl.all().top_k_by(k=1, by="cv_value", reverse=True))
-                    .select(pl.all().explode())
-                    .sort(x)
-                )
-
-                ax.set_xlabel(x)
-                color = "tab:blue"
-                ax.set_ylabel("residuals", color=color)
-                ax.plot(
-                    grouped[x],
-                    grouped[f"{target}/test/mean_residual"],
-                    color="black",
-                    label="mean" if idx == 0 else None,
-                )
-
-                ax.plot(
-                    grouped[x],
-                    np.zeros_like(grouped[x]),
-                    color="grey",
-                    ls="dotted",
-                    alpha=0.5,
-                )
-                ax.plot(
-                    grouped[x],
-                    grouped[f"{target}/test/quantile_0.5"],
-                    color=color,
-                    label="median" if idx == 0 else None,
-                )
-
-                ax.fill_between(
-                    grouped[x],
-                    grouped[f"{target}/test/quantile_0.1"],
-                    grouped[f"{target}/test/quantile_0.25"],
-                    color=color,
-                    alpha=0.1,
-                    label="10% - 90%" if idx == 0 else None,
-                )
-
-                ax.fill_between(
-                    grouped[x],
-                    grouped[f"{target}/test/quantile_0.75"],
-                    grouped[f"{target}/test/quantile_0.9"],
-                    color=color,
-                    alpha=0.1,
-                    label=None,
-                )
-
-                ax.fill_between(
-                    grouped[x],
-                    grouped[f"{target}/test/quantile_0.25"],
-                    grouped[f"{target}/test/quantile_0.75"],
-                    color=color,
-                    alpha=0.2,
-                    label="25% - 75%" if idx == 0 else None,
-                )
-
-                best = grouped.select(
-                    pl.col(x).top_k_by(k=1, by="cv_value", reverse=True)
-                ).item()
-                ax.axvline(best, color="black", ls="dashed", alpha=0.2)
-
-                ax.set_title(DATASET_NAMES[target])
-                ax.set_xscale("log")
-                ax.label_outer()
-                ax.yaxis.set_tick_params(
-                    labelleft=True
-                )  # manually add x & y ticks again
-                ax.xaxis.set_tick_params(labelbottom=True)
-
-            fig.legend(loc="outside lower center", ncols=4)
-            log_fig(
-                fig,
-                f"residuals/residuals_{experiment_name}_{x}_{metric}.png",
-                client,
-                target_run.info.run_id,
             )
-            log_fig(
-                fig,
-                f"residuals/residuals_{experiment_name}_{x}_{metric}.pdf",
-                client,
-                target_run.info.run_id,
-            )
-            plt.close(fig)
+            .select(pl.all().explode())
+            .sort("gamma")
+        )
+
+        ax.plot(
+            cv["gamma"],
+            cv[f"{target}/test/mean_residual"],
+            color="black",
+            label="mean" if idx == 0 else None,
+        )
+
+        ax.plot(
+            cv["gamma"],
+            np.zeros_like(cv["gamma"]),
+            color="grey",
+            ls="dotted",
+            alpha=0.5,
+        )
+
+        color = "tab:blue"
+
+        ax.plot(
+            cv["gamma"],
+            cv[f"{target}/test/quantile_0.5"],
+            color=color,
+            label="median" if idx == 0 else None,
+        )
+
+        ax.fill_between(
+            cv["gamma"],
+            cv[f"{target}/test/quantile_0.1"],
+            cv[f"{target}/test/quantile_0.25"],
+            color=color,
+            alpha=0.1,
+            label="10% - 90%" if idx == 0 else None,
+        )
+
+        ax.fill_between(
+            cv["gamma"],
+            cv[f"{target}/test/quantile_0.75"],
+            cv[f"{target}/test/quantile_0.9"],
+            color=color,
+            alpha=0.1,
+            label=None,
+        )
+
+        ax.fill_between(
+            cv["gamma"],
+            cv[f"{target}/test/quantile_0.25"],
+            cv[f"{target}/test/quantile_0.75"],
+            color=color,
+            alpha=0.2,
+            label="25% - 75%" if idx == 0 else None,
+        )
+        # twin_ax = ax.twinx()
+        # twin_ax.plot(
+        #     cv["gamma"],
+        #     cv[f"{target}/test/mse"],
+        #     color="red",
+        #     alpha=1,
+        # )
+        # twin_ax.plot(
+        #     cv["gamma"],
+        #     cv[f"{target}/test/mse"] - cv[f"{target}/test/mean_residual"].pow(2),
+        #     color="red",
+        #     alpha=1,
+        # )
+        # twin_ax.plot(
+        #     cv["gamma"],
+        #     cv[f"{target}/test/mean_residual"].pow(2),
+        #     color="red",
+        #     alpha=1,
+        # )
+
+        best = cv.select(
+            pl.col("gamma").top_k_by(k=1, by=f"__cv_{cv_metric}", reverse=True)
+        ).item()
+        ax.axvline(best, color="black", ls="dashed", alpha=0.2)
+
+        ax.set_xlabel("gamma", labelpad=2)
+        ax.set_ylabel("residuals")
+
+        ax.set_title(panel["title"], y=0.985)
+        ax.set_xscale("log")
+
+        def my_formatter(x, _):
+            return f"{x:.0f}".lstrip("0")
+
+        # ax.xaxis.set_tick_params(labelbottom=True)
+
+        if panel["target"] == "empty":
+            continue
+
+        # if panel.get("yticks") is not None:
+        #     ax.set_yticks(panel["yticks"])
+        #     ax.set_yticklabels(panel.get("yticklabels", panel["yticks"]))
+        # else:
+        #     ax.yaxis.set_major_locator(plt.MaxNLocator(4))
+
+        ax.tick_params(axis="y", which="both", pad=1)
+        ax.tick_params(axis="x", which="both", pad=2)
+
+        ax.xaxis.set_major_formatter(StrMethodFormatter("{x:.0f}"))
+        ax.xaxis.set_minor_formatter(NullFormatter())
+        ax.yaxis.set_tick_params(labelleft=True)  # manually add y ticks again
+
+        ax.label_outer()
+        ax.yaxis.set_tick_params(labelleft=True)  # manually add x & y ticks again
+        ax.xaxis.set_tick_params(labelbottom=True)
+
+    fig.align_ylabels(axes)
+
+    line = plt.Line2D(
+        [0.07, 0.925],
+        [0.37, 0.37],
+        transform=fig.transFigure,
+        color="black",
+        linewidth=2,
+        alpha=0.5,
+    )
+    _ = plt.text(
+        0.915,
+        0.56,
+        "core datasets",
+        transform=fig.transFigure,
+        fontsize=12,
+        rotation=90,
+        alpha=0.6,
+    )
+    _ = plt.text(
+        0.915,
+        0.165,
+        "truly OOD",
+        transform=fig.transFigure,
+        fontsize=12,
+        rotation=90,
+        alpha=0.6,
+    )
+
+    fig.add_artist(line)
+    # fig.legend(handles=legend_elements, loc="outside lower center", ncols=4)
+    if CONFIG.get("title") is not None:
+        fig.suptitle(CONFIG["title"], size="x-large", y=0.94)
+    fig.legend(loc="outside lower center", ncols=4)
+
+    log_fig(
+        fig,
+        f"{CONFIG['filename']}.pdf",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_inches="tight",
+    )
+    log_fig(
+        fig,
+        f"{CONFIG['filename']}.png",
+        client,
+        run_id=target_run.info.run_id,
+        bbox_inches="tight",
+    )
+
+    plt.close(fig)
 
 
 if __name__ == "__main__":

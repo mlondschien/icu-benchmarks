@@ -1,16 +1,12 @@
 import numpy as np
 import scipy
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    log_loss,
-    roc_auc_score,
-)
+from anchorboosting.models import Proj
+from sklearn.metrics import accuracy_score, average_precision_score, roc_auc_score
 
 from icu_benchmarks.constants import GREATER_IS_BETTER
 
 
-def metrics(y, yhat, prefix, task, groups=None):  # noqa D
+def metrics(y, yhat, prefix, task, Z=None):  # noqa D
     if not isinstance(y, np.ndarray):
         y = y.to_numpy()
     if not isinstance(yhat, np.ndarray):
@@ -19,71 +15,77 @@ def metrics(y, yhat, prefix, task, groups=None):  # noqa D
     y = y.flatten()
     yhat = yhat.flatten()
 
+    if task == "binary" and (yhat.max() > 1 or yhat.min()) < 0:
+        if False:
+            raise ValueError("Predictions need to be in [0, 1] for binary task")
+        else:
+            yhat = yhat.clip(1e-14, 1 - 1e-14)
+
     score_residuals = y - yhat
-    quantiles = np.quantile(score_residuals, [0.1, 0.25, 0.5, 0.75, 0.9])
+    q = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
+    quantiles = np.quantile(score_residuals, q)
+
+    out = {}
+    for i, q in enumerate(q):
+        out[f"{prefix}quantile_{q}"] = quantiles[i]
+    out[f"{prefix}mean_residual"] = np.mean(score_residuals)
+
     if task == "binary":
-        return {
-            f"{prefix}roc": roc_auc_score(y, yhat) if np.unique(y).size > 1 else 0.0,
-            f"{prefix}accuracy": (
-                accuracy_score(y, yhat >= 0.5) if np.unique(y).size > 1 else 0.0
-            ),
-            f"{prefix}log_loss": log_loss(y, yhat) if np.unique(y).size > 1 else np.inf,
-            f"{prefix}auprc": (
-                average_precision_score(y, yhat) if np.unique(y).size > 1 else 0.0
-            ),
-            f"{prefix}brier": (
-                np.mean((y - yhat) ** 2) if np.unique(y).size > 1 else np.inf
-            ),
-            f"{prefix}quantile_0.1": quantiles[0],
-            f"{prefix}quantile_0.25": quantiles[1],
-            f"{prefix}quantile_0.5": quantiles[2],
-            f"{prefix}quantile_0.75": quantiles[3],
-            f"{prefix}quantile_0.9": quantiles[4],
-            f"{prefix}mean_residual": np.mean(score_residuals),
-        }
+        yhat = yhat.clip(1e-14, 1 - 1e-14)
+        log_losses = np.where(y == 1, -np.log(yhat), -np.log(1 - yhat))
+        if np.unique(y).size > 1:
+            out[f"{prefix}roc"] = roc_auc_score(y, yhat)
+            out[f"{prefix}accuracy"] = accuracy_score(y, yhat >= 0.5)
+            out[f"{prefix}log_loss"] = np.mean(log_losses)
+            out[f"{prefix}auprc"] = average_precision_score(y, yhat)
+            out[f"{prefix}brier"] = np.mean(score_residuals**2)
+        else:
+            out[f"{prefix}roc"] = np.nan
+            out[f"{prefix}accuracy"] = np.nan
+            out[f"{prefix}log_loss"] = np.nan
+            out[f"{prefix}auprc"] = np.nan
+            out[f"{prefix}brier"] = np.nan
+
+        q = [0.8, 0.9, 0.95]
+        losses_q = np.quantile(log_losses, q)
+        for i, q in enumerate(q):
+            out[f"{prefix}log_loss_quantile_{q}"] = losses_q[i]
+
     elif task == "regression":
-        residuals = y - yhat
-        quantiles = np.quantile(residuals, [0.1, 0.25, 0.5, 0.75, 0.9])
-        abs_residuals = np.abs(residuals)
-        abs_quantiles = np.quantile(abs_residuals, [0.8, 0.9, 0.95])
-        se = abs_residuals**2
+        abs_residuals = np.abs(score_residuals)
+        q = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
+        abs_quantiles = np.quantile(abs_residuals, q)
+        se = score_residuals**2
         mse = np.mean(se)
-        out = {
-            f"{prefix}mse": mse,
-            f"{prefix}rmse": np.sqrt(mse),
-            f"{prefix}mae": np.mean(abs_residuals),
-            f"{prefix}abs_quantile_0.8": abs_quantiles[0],
-            f"{prefix}abs_quantile_0.9": abs_quantiles[1],
-            f"{prefix}abs_quantile_0.95": abs_quantiles[2],
-            f"{prefix}quantile_0.1": quantiles[0],
-            f"{prefix}quantile_0.25": quantiles[1],
-            f"{prefix}quantile_0.5": quantiles[2],
-            f"{prefix}quantile_0.75": quantiles[3],
-            f"{prefix}quantile_0.9": quantiles[4],
-            f"{prefix}mean_residual": np.mean(residuals),
-        }
 
-        if groups is not None:
-            grouped_mses = np.array(
-                list(
-                    map(
-                        np.mean,
-                        np.split(se, np.unique(groups, return_index=True)[1][1:]),
-                    )
-                )
-            )
-            mse_quantiles = np.quantile(grouped_mses, [0.5, 0.6, 0.7, 0.8, 0.9, 0.95])
-            out[f"{prefix}grouped_mse_quantile_0.5"] = mse_quantiles[0]
-            out[f"{prefix}grouped_mse_quantile_0.6"] = mse_quantiles[1]
-            out[f"{prefix}grouped_mse_quantile_0.7"] = mse_quantiles[2]
-            out[f"{prefix}grouped_mse_quantile_0.8"] = mse_quantiles[3]
-            out[f"{prefix}grouped_mse_quantile_0.9"] = mse_quantiles[4]
-            out[f"{prefix}grouped_mse_quantile_0.95"] = mse_quantiles[5]
+        out[f"{prefix}mse"] = mse
+        out[f"{prefix}rmse"] = np.sqrt(mse)
+        out[f"{prefix}mae"] = np.mean(abs_residuals)
 
-        return out
+        for i, q in enumerate(q):
+            out[f"{prefix}abs_quantile_{q}"] = abs_quantiles[i]
+            out[f"{prefix}mse_quantile_{q}"] = abs_quantiles[i] ** 2
 
-    else:
-        raise ValueError(f"Unknown task {task}")
+    if Z is not None:
+        proj = Proj(Z)
+        if task == "binary":
+            logloss_proj = proj(log_losses)
+            q = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
+            logloss_quantiles = np.quantile(logloss_proj, q)
+            for i, q in enumerate(q):
+                out[f"{prefix}proj_logloss_quantile_{q}"] = logloss_quantiles[i]
+            out[f"{prefix}proj_logloss"] = np.mean(logloss_proj)
+
+        residuals_proj = proj(score_residuals)
+        errors = residuals_proj**2
+        q = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
+        error_quantiles = np.quantile(errors, q)
+        for i, q in enumerate(q):
+            out[f"{prefix}proj_residuals_sq_quantile_{q}"] = error_quantiles[i]
+
+        out[f"{prefix}proj_residuals_sq"] = np.mean(errors)
+
+    return out
 
 
 def get_equivalent_number_of_samples(n_samples, values, metric):
@@ -111,16 +113,19 @@ def get_equivalent_number_of_samples(n_samples, values, metric):
         n_samples["test_value"], increasing=metric in GREATER_IS_BETTER
     ).x
 
-    log_n_target = np.log(n_samples["n_target"])
-    fit = np.polyfit(isotonic_regression[-3:], log_n_target[-3:], 1)
-    y = np.append(log_n_target, [log_n_target[-1] + 4])
-    x = np.append(isotonic_regression, [y[-1] * fit[0] + fit[1]])
-    # min_, max_ = np.log(n_samples["n_target"].min()), np.log(n_samples["n_target"].max())
+    log_n_target = np.log(n_samples["n_target"].to_numpy())
+    fit1 = np.polyfit(isotonic_regression[-6:], log_n_target[-6:], 1)
+    fit2 = np.polyfit(isotonic_regression[:6], log_n_target[:6], 1)
+    y = [log_n_target[0] - 4] + log_n_target.tolist() + [log_n_target[-1] + 4]
+    x = (
+        [y[0] * fit2[0] + fit2[1]]
+        + isotonic_regression.tolist()
+        + [y[-1] * fit1[0] + fit1[1]]
+    )
+
     interp = scipy.interpolate.interp1d(
         x=x,
         y=y,
         kind="linear",
-        # fill_value="extrapolate",
-        # bounds_error=False
     )
     return np.exp(interp(values))

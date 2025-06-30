@@ -32,7 +32,7 @@ def get_preprocessing(model, df):  # noqa D
         )
         preprocessor = Pipeline([("transformer", transformer), ("scaler", scaler)])
         preprocessor.set_output(transform="polars")
-    elif "LGBM" in str(model):
+    elif "LGBM" in str(model) or "Booster" in str(model) or "FFill" in str(model):
         preprocessor = ColumnTransformer(
             transformers=[
                 ("continuous", "passthrough", continuous_variables),

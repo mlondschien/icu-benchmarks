@@ -1,0 +1,129 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    # "title": "mortality at 24h",
+    "metric": "auprc",
+    "ylabel": "OOD AuPRC",
+    "cv_metric": "log_loss",
+    "target_experiment": "plots",
+    "filename": "circ/auprc_by_gamma",
+    "x": "gamma",
+    "xlim": (1, 128),
+    "panels": [
+        {
+            "source": "aumc",
+            "title": "AUMCdb",
+            "ylim": (0.74, 0.762),
+            "yticks": [0.74, 0.75, 0.76],
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": None,
+            "ylim": (0.768, 0.783),
+            "yticks": [0.77, 0.775, 0.78],
+            "yticklabels": [0.77, "", 0.78],
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": None,
+            "ylim": (0.425, 0.44),
+            "yticks": (0.425, 0.43, 0.435, 0.44),
+            "yticklabels": ["", 0.43, "", 0.44],
+            #"yticks": [0.34, 0.36, 0.38],
+        },
+        # {
+        #     "source": "miived",
+        #     "title": "MIMIV-IV ED",
+        #     "xlim": None,
+        #
+        #     "ylim": (0.1, 0.7),
+
+        # },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CareVue subset)",
+            "xlim": None,
+            "ylim": (0.728, 0.75),
+            "yticks": [0.73, 0.74, 0.75],
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": None,
+            "ylim": (0.637, 0.652),
+            "yticks": [0.64, 0.645, 0.65],
+            "yticklabels": [0.64, "", 0.65],
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": None,
+            "ylim": (0.378, 0.4),
+            "yticks": [0.38, 0.39, 0.4],
+            #"yticks": [0.38, 0.4, 0.42],
+        },
+        {
+            "source": "nwicu",
+            "title": "NWICU",
+            "ylim": (0.818, 0.83),
+            "yticks": [0.82, 0.825, 0.83],
+            "yticklabels": [0.82, "", 0.83],
+        },
+        {
+            "source": "picdb",
+            "title": "PICdb",
+            "xlim": None,
+            "ylim": (0.88, 0.905),
+            "yticks": [0.88, 0.89, 0.9],
+        },
+        {
+            "source": "zigong",
+            "title": "Zigong",
+            "xlim": None,
+            "ylim": (0.99, 1.0),
+            "yticks": [0.99, 0.995, 1.0],
+            "yticklabels": [0.99, "", 1.0],
+        },
+    ],
+    "lines": [
+        # {
+        #     "experiment_name": "mort_algbm2",
+        #     "label": "anchor boosting",
+        #     "color": "#0072B2",
+        #     "ls": "solid",
+        #     "alpha": 1,
+        # },
+        # {
+        #     "experiment_name": "mort_lgbm2",
+        #     "label": "LGBM",
+        #     "color": "#0072B2",
+        #     "ls": "dashed",
+        #     "alpha": 1,
+        # },
+        # {
+        #     "experiment_name": "mort_algbm",
+        #     "label": "anchor boosting",
+        #     "color": "green",
+        #     "ls": "solid",
+        #     "alpha": 1,
+        #     "n_samples": "mort_lgbm_n_samples"
+        # },
+        {
+            "experiment_name": "circ_algbm2",
+            "label": "anchor boosting",
+            "color": "#004488",
+            "ls": "solid",
+            "alpha": 1,
+        },
+        {
+            "experiment_name": "circ_algbm2",
+            "filter": {"gamma": 1},
+            "label": "standard LightGBM",
+            "color": "#BB5566",
+            "ls":  (0, (5,3)),
+            "alpha": 1,
+        },
+    ]
+}

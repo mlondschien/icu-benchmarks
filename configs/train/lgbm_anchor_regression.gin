@@ -1,21 +1,19 @@
 import icu_benchmarks.gin
 
-get_predict_kwargs.predict_kwargs = {"num_iteration": [200, 400, 600, 800, 1000]}
+get_predict_kwargs.predict_kwargs = {"num_iteration": [1000]}
 
-LGBMAnchorModel.num_boost_round = 1000
-get_model.model = @LGBMAnchorModel
+AnchorBooster.num_boost_round = 1000
+get_model.model = @AnchorBooster
 
 get_parameters.parameters = {
-    "objective": [@AnchorRegressionObjective],
-    "num_leaves": [31],
-    "learning_rate": [0.0125, 0.025, 0.05],
-    "gamma": [1, 1.4, 2.0, 2.8, 4.0, 5.6, 8.0, 11.2, 16.0, 22.4, 32.0, 44.8, 64.0, 89.6, 128.0],
-    # "gamma": [1, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
-    # "colsample_bytree": [0.5, 1],
-    # "bagging_fraction": [0.2],
-    # "bagging_freq": [5],
-    "lambda_l2": [0.1],
+    "objective": ["regression"],
+    "max_depth": [3],
+    "learning_rate": [0.1],
+    "lambda_l1": [0.0],
+    "gamma": [ 1.        ,  1.41421356, 2.        ,     2.82842712,  4.           ,   5.65685425,  8.        , 11.3137085 , 16.],
     "random_state": [0],
     "deterministic": [True],
     "verbosity": [-1],
+    "min_gain_to_split": [0.1],
+    "force_col_wise": [True],  # reproducibility
 }

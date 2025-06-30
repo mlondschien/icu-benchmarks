@@ -7,7 +7,7 @@ from pathlib import Path
 from time import sleep
 from typing import Optional
 
-from icu_benchmarks.constants import DATASETS, OBSERVATIONS_PER_GB, OUTCOMES, TASKS
+from icu_benchmarks.constants import DATASETS, OUTCOMES, TASKS
 
 
 def free_port():
@@ -116,8 +116,10 @@ mlflow.set_experiment_tag('mlflow.note.content', '{experiment_note}')"""
         f.write(
             f"""#!/bin/sh
 python {python_script.resolve()}
+echo $(hostname -i)
+echo "{port}"
 echo $(hostname -i) > {ip_file.resolve()}
-mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --default-artifact-root={artifact_location}" --artifacts-destinations {artifact_location}" --serve-artifacts"""
+mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --default-artifact-root={artifact_location} --artifacts-destination {artifact_location} --serve-artifacts"""
         )
 
     cmd = [
@@ -140,18 +142,17 @@ mlflow server --port {port} --host 0.0.0.0 --backend-store-uri {tracking_uri} --
 
     server_file = Path(".") / ".mlflow_server"
     server_file.touch()
+
     # -N ensures no shell is started and & runs the command in the background
-    with open(server_file, "w") as f:
-        f.write(
-            f"""
+    info_string = f"""
 ssh euler -L {port}:{ip}:{port} -N &
 http://localhost:{port}/
 {datetime.now()}
 """
-        )
+    with open(server_file, "w") as f:
+        f.write(info_string)
 
     if verbose:
-        print(f"ssh euler -L {port + 1}:{ip}:{port} -N &")
-        print(f"http://localhost:{port + 1}/")
+        print(info_string)
 
     return ip, port

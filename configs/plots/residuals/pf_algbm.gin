@@ -4,7 +4,8 @@ CONFIG = {
     "title": "log(Po2/Fio2 in 12h)",
     "metric": "mse",
     "experiment_name": "pf_algbm",
-    "filename": "residuals/mse_gamma",
+    "filename": "pf/residuals_anchor",
+    "target_experiment": "plots",
     "x": "gamma",
     "panels": [
         {

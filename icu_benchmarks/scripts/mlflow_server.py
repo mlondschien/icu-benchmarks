@@ -27,7 +27,7 @@ logging.basicConfig(
 def main(tracking_uri, hours, artifact_location):  # noqa D
     _, _ = setup_mlflow_server(
         tracking_uri=tracking_uri,
-        experiment_name="plots",
+        experiment_name="benchmarks",
         artifact_location=artifact_location,
         hours=hours,
         verbose=True,

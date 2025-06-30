@@ -1,0 +1,38 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "filename": "paper/lact_rescaled",
+    "target_experiment_name": "plots",
+    "title": "log(lactate) in 4h",
+    "panels": [
+        {
+            "xlim": (1, 16),
+            "xticks": [1, 2, 4, 8, 16],
+            "yticks": [100, 1000, 10000],
+            "yticklabels": ["100", "1k", "10k"],
+            "break_y_axis": False,
+            "ylim": (70, 14000),
+            "title": "anchor boosting",
+            "cv_metric": "mse",
+            "metric": "mse",
+            "experiment_name": "lact_algbm_7_d",
+            "result_name": "results",
+            "n_samples_experiment_name": "lact_algbm_n_samples_7_1",
+            "n_samples_result_name": "n_samples_results",
+        },
+        {
+            "xlim": (1, 256),
+            "xticks": [1, 4, 16, 64, 256],
+            "ylim": (15, 700),
+            "yticks": [20, 100, 500],
+            "yticklabels": ["20", "100", "500"],
+            "title": "anchor regression",
+            "cv_metric": "mse",
+            "metric": "mse",
+            "experiment_name": "lact_anchor_7_d",
+            "result_name": "results",
+            "n_samples_experiment_name": "lact_anchor_n_samples_7_1",
+            "n_samples_result_name": "n_samples_results",
+        }
+    ]
+}

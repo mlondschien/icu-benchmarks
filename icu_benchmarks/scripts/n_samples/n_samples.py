@@ -10,7 +10,7 @@ from joblib import Parallel, delayed
 from sklearn.model_selection import ParameterGrid
 
 from icu_benchmarks.constants import TASKS
-from icu_benchmarks.load import load
+from icu_benchmarks.gin import load
 from icu_benchmarks.metrics import metrics
 from icu_benchmarks.mlflow_utils import log_df, setup_mlflow
 from icu_benchmarks.models import PipelineCV
@@ -82,17 +82,18 @@ def main(config: str):  # noqa D
     _ = setup_mlflow(tags=tags)
 
     tic = perf_counter()
-    df, y, _, hashes = load(
-        outcome=get_outcome(), split="train_val", other_columns=["stay_id_hash"]
+    df, y, hashes = load(
+        outcome=get_outcome(), split="train_val", other_columns=["patient_id_hash"]
     )
     toc = perf_counter()
     logger.info(f"Loading data ({df.shape}) took {toc - tic:.1f} seconds")
 
     preprocessor = get_preprocessing(get_model(), df)
 
+    hashes = hashes["patient_id_hash"]
     unique_hashes = hashes.unique().sort()
     data = {}
-    n_target = np.unique(np.clip(get_n_target(), 0, len(unique_hashes)))
+    n_target = [x for x in get_n_target() if x <= len(unique_hashes)]
     for seed in get_seeds():
         sampled_hashes = unique_hashes.sample(max(n_target), seed=seed, shuffle=True)
         # For a single seed, the data increases monotonicly. We pass the data, including
@@ -140,7 +141,9 @@ def main(config: str):  # noqa D
     os.environ["MKL_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-    with Parallel(n_jobs=-1, prefer="processes") as parallel:
+    print(len(jobs))
+
+    with Parallel(n_jobs=8, prefer="processes") as parallel:
         parallel_results = parallel(jobs)
 
     del df, y

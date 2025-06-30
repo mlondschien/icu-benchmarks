@@ -1,0 +1,99 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "log(Po2/Fio2 in 12h)",
+    "metric": "mse",
+    "ylabel": "OOD MSE",
+    "target_experiment": "plots",
+    "filename": "pf/anchor_mse_by_gamma",
+    "x": "gamma",
+    "xlim": (1, 128),
+    "panels": [
+        {
+            "source": "aumc",
+            "title": "AUMCdb",
+            # "ylim": (0.29, 0.31),
+            "ylim": (0.09, 0.0915),
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "xlim": None,
+            # "ylim": (0.4, 0.42),
+            "ylim": (0.1695, 0.1715),
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "xlim": None,
+            # "ylim": (0, 0.3),
+            "ylim": (0.0952, 0.0957),
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CareVue subset)",
+            "xlim": None,
+            # "ylim": (0, 0.3),
+            "ylim": (0.1642, 0.175),
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "xlim": None,
+            # "ylim": (0, 0.3),
+            "ylim": (0.212, 0.23),
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "xlim": None,
+            # "ylim": (0, 0.3),
+            "ylim": (0.1247, 0.126),
+        },
+        {
+            "source": "empty",
+        },
+                {
+            "source": "picdb",
+            "title": "PICdb",
+            "xlim": None,
+            # "ylim": (0, 0.3),
+            "ylim": (0.335, 0.375),
+        },
+        {
+            "source": "empty",
+        },
+    ],
+    "lines": [
+        # {
+        #     "experiment_name": "pf_algbm",
+        #     # "experiment_name": "pf_algbm5",
+        #     "label": "anchor boosting",
+        #     "color": "#0072B2",
+        #     "ls": "solid",
+        #     "alpha": 1,
+        # },
+        {
+            "experiment_name": "pf_anchor",
+            "label": "(linear) anchor regression",
+            "color": "#004488",
+            "ls": "solid",
+            "alpha": 1,
+        },
+        {
+            "experiment_name": "pf_glm",
+            "label": "GLM",
+            "color":"#BB5566",
+            "alpha": 1,
+            "ls": (0, (5,3)),
+        },
+        # {
+        #  "experiment_name": "pf_lgbm",
+        # #     "experiment_name": "pf_lgbm5",
+        #     "label": "LGBM",
+        #     "color": "#0072B2",
+        #     "ls": "dashed",
+        #     "alpha": 1,
+        # },
+    ]
+}

@@ -1,0 +1,133 @@
+get_config.config = %CONFIG
+
+CONFIG = {
+    "title": "log(creatinine) in 24h",
+    "metric": "mse",
+    "ylabel": "OOD MSE",
+    "target_experiment": "plots",
+    "filename": "paper/crea_anchor_which_anchor",
+    "x": "gamma",
+    "xlim": (1, 256),
+    "xticks": [1, 4, 16, 64, 256],
+    "panels": [
+        {
+            "source": "aumc",
+            "title": "AUMCdb",
+            "ylim": (0.0435, 0.0515),
+            "yticks": [0.045, 0.0475, 0.05],
+            "yticklabels": [".045", "", ".05"],
+
+        },
+        {
+            "source": "eicu",
+            "title": "eICU",
+            "ylim": (0.0815, 0.09),
+            "yticks": [0.0825, 0.085, 0.0875, 0.09],
+            "yticklabels": ["", ".085", "", ".09"],
+        },
+        {
+            "source": "hirid",
+            "title": "HiRID",
+            "ylim": (0.0444, 0.0544),
+            "yticks": [0.045, 0.0475, 0.05, 0.0525],
+            "yticklabels": [".045", "", ".05", ""],
+        },
+        {
+            "source": "mimic-carevue",
+            "title": "MIMIC-III (CareVue subset)",
+            "ylim": (0.065, 0.076),
+            "yticks": [0.065, 0.0675, 0.07, 0.0725, 0.075],
+            "yticklabels": [".065", "", ".07", "", ".075"],
+        },
+        {
+            "source": "miiv",
+            "title": "MIMIC-IV",
+            "ylim": (0.0665, 0.0765),
+            "yticks": [0.0675, 0.07, 0.0725, 0.075],
+            "yticklabels": ["", ".07", "", ".075"],
+        },
+        {
+            "source": "sic",
+            "title": "SICdb",
+            "ylim": (0.04725, 0.05725),
+            "yticks": [0.0475, 0.05, 0.0525, 0.055],
+            "yticklabels": ["", ".05", "", ".055"],
+        },
+        {
+            "source": "nwicu",
+            "title": "NWICU",
+            "ylim": (0.078, 0.088),
+            "yticks": [0.08, 0.0825, 0.085, 0.0875],
+            "yticklabels": [".08", "", ".085", ""],
+        },
+        {
+            "source": "picdb",
+            "title": "PICdb",
+            # "ylim": (0.1815, 0.1915),
+            "ylim": (0.182, 0.192),
+            "yticks":  [0.185, 0.1875, 0.19, 0.1925],
+            "yticklabels": [".185", "", ".19", ""],
+        },
+        {
+            "source": "zigong",
+            "title": "Zigong",
+            "ylim": (0.093, 0.103),
+            "yticks": [0.095, 0.0975, 0.1, 0.1025],
+            "yticklabels": [".095", "", ".1", ""],
+        },
+    ],
+
+    "lines": [
+        {
+            "experiment_name": "crea_anchor_7_d",
+            "label": "standard boosting",
+            "color": "#BB5566",
+            "ls": "dashed",
+            "plot_all": False,
+            "alpha": 1,
+            "filter": {"gamma": 1},
+        },
+        {
+            "experiment_name": "crea_anchor_7_d",
+            "label": "$A = \mathrm{dataset}$",
+            "color": "#004488",
+            "ls": "solid",
+            "alpha": 1,
+            "plot_all": False,
+            "result_name": "results",
+            "zorder": 10,
+        },
+        {
+            "experiment_name": "crea_anchor_7",
+            "label": "$A = \\mathrm{dataset} \\times (\\mathrm{adm.} + \\mathrm{insur.} + \\mathrm{ward} + \\mathrm{spline(year)})$",
+            "color": "#F4A736",
+            "ls": "solid",
+            "alpha": 1.0,
+            "plot_all": False,
+            "result_name": "results",
+            "plot_star": False,
+        },
+        {
+            "experiment_name": "crea_anchor_7_icd_only",
+            "label": "$A = \\mathrm{ICD \\ codes}$",
+            "color": "#4EB265",
+            "ls": "solid",
+            "alpha": 1.0,
+            "plot_all": False,
+            "result_name": "results",
+            "plot_star": False,
+
+        },
+        {
+            "experiment_name": "crea_anchor_7_patient",
+            "label": "$A = \\mathrm{dataset} \\times \\mathrm{patient \\ ID}$",
+            "color": "#BBBBBB",
+            "ls": "solid",
+            "alpha": 1.0,
+            "plot_all": False,
+            "result_name": "results",
+            "plot_star": False,
+
+        },
+    ]
+}

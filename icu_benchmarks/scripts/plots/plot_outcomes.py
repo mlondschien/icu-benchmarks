@@ -1,26 +1,31 @@
 from pathlib import Path
 
 import click
-import matplotlib.colors as mcolors
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
+from icu_features.load import load
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+from matplotlib.transforms import Bbox
+from scipy.stats import gaussian_kde
 
-from icu_benchmarks.constants import DATA_DIR, DATASETS
-from icu_benchmarks.plotting import (
-    SHORT_DATASET_NAMES,
+from icu_benchmarks.constants import (
+    DATA_DIR,
+    DATASETS,
+    OUTCOME_NAMES,
     SOURCE_COLORS,
-    plot_continuous,
-    plot_discrete,
+    VERY_SHORT_DATASET_NAMES,
 )
 
 OUTPUT_PATH = Path(__file__).parents[3] / "figures" / "density_plots"
 
 
 @click.command()
-@click.option("--data_dir", type=click.Path(exists=True))
+@click.option(
+    "--data_dir", type=click.Path(exists=True), default="/cluster/work/math/lmalte/data"
+)
 @click.option("--prevalence", type=click.Choice(["time-step", "patient"]))
 @click.option("--extra_datasets", is_flag=True)
 def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
@@ -30,145 +35,161 @@ def main(data_dir=None, prevalence="time-step", extra_datasets=False):  # noqa D
     datasets = DATASETS
     datasets.reverse()
 
-    fig = plt.figure(figsize=(14, 10))
-    plt.rcParams.update({"ytick.labelsize": 12, "xtick.labelsize": 12})
-    gs = gridspec.GridSpec(4, 3, height_ratios=[1, 0.05, 1, 0.05], wspace=0.05)
+    fig = plt.figure(figsize=(9, 2.6))
+    gs = gridspec.GridSpec(1, 4, width_ratios=[1, 1, 1, 1], wspace=0.04, hspace=0.39)
 
-    top_outcomes = [
-        "mortality_at_24h",
-        "respiratory_failure_at_24h",
-        "circulatory_failure_at_8h",
-    ]
-    top_axes = [fig.add_subplot(gs[0, i]) for i in range(len(top_outcomes))]
+    binary_outcomes = ["circulatory_failure_at_8h", "kidney_failure_at_48h"]
+    binary_axes = [fig.add_subplot(gs[0, i]) for i in range(len(binary_outcomes))]
 
-    for ax, outcome in zip(top_axes, top_outcomes):
-        data = {
-            dataset: pl.read_parquet(
-                data_dir / dataset / "features.parquet", columns=["stay_id", outcome]
+    for ax, outcome in zip(binary_axes, binary_outcomes):
+        ax.xaxis.set_visible(False)
+        ax.set_xlim(0, 1)
+
+        y_pos = np.arange(len(datasets))
+        left = np.zeros(len(datasets))
+
+        _, y, other = load(
+            datasets,
+            outcome,
+            split=None,
+            data_dir="/cluster/work/math/lmalte/data",
+            other_columns=["dataset"],
+            variables=[],
+            horizons=[],
+        )
+        df = other.with_columns(y=y).group_by("dataset").agg(pl.col("y").mean())
+        df = df.sort("dataset")
+
+        bars = ax.barh(
+            y_pos,
+            1 - df["y"],
+            left=left,
+            label=df["dataset"],
+            height=0.8,
+            color="tab:blue",
+        )
+        for bar in bars:
+            width = bar.get_width()
+            ax.text(
+                0.2,
+                bar.get_y() + bar.get_height() / 2 - 0.05,
+                f"{width * 100:.1f}" if width < 0.9995 else "99.9",
+                ha="right",
+                va="center",
+                fontsize=10,
+                color="black",
             )
-            for dataset in datasets
-        }
-        if prevalence == "patient":
-            data = {
-                k: v.group_by("stay_id")
-                .agg(
-                    pl.when(pl.col(outcome).is_not_null().any()).then(
-                        pl.col(outcome).any()
-                    )
-                )
-                .select(outcome)
-                .to_series()
-                for k, v in data.items()
-            }
-        else:
-            data = {k: v.select(outcome).to_series() for k, v in data.items()}
 
-        plot_discrete(
-            ax,
-            data,
-            outcome,
-            missings=True,
-            legend=False,
-            yticklabels=ax.get_subplotspec().is_first_col(),
+        bars = ax.barh(
+            y_pos,
+            df["y"],
+            left=1 - df["y"],
+            label=df["dataset"],
+            height=0.8,
+            color="tab:orange",
         )
+        for bar in bars:
+            width = bar.get_width()
+            ax.text(
+                0.99 if width > 0.2 else 1 - width - 0.01,
+                bar.get_y() + bar.get_height() / 2 - 0.05,
+                f"{width * 100:.1f}" if width < 0.9995 else "99.9",
+                ha="right",
+                va="center",
+                fontsize=10,
+                color="black",
+            )
 
-    bottom_outcomes = [
-        "log_pf_ratio_in_12h",
+    binary_axes[0].set_yticks(
+        y_pos, labels=[VERY_SHORT_DATASET_NAMES[ds] for ds in datasets], fontsize=10
+    )
+    binary_axes[1].set_yticks([])
+
+    binary_axes[0].set_title("circ. failure within 8h", fontsize=10)
+    binary_axes[1].set_title("acute kidney inj. within 48h", fontsize=10)
+
+    cont_outcomes = [
         "log_lactate_in_4h",
+        "log_creatinine_in_24h",
     ]
-    ax1 = fig.add_subplot(gs[2, 1])
-    ax2 = fig.add_subplot(gs[2, 2], sharey=ax1)
-    bottom_axes = [ax1, ax2]
+    ax3 = fig.add_subplot(gs[0, 2])
+    ax4 = fig.add_subplot(gs[0, 3], sharey=ax3)
+    cont_axes = [ax3, ax4]
 
-    for ax, outcome in zip(bottom_axes, bottom_outcomes):
-        data = {
-            # Values < e^-10 ~ 0.00004 don't make sense.
-            dataset: pl.read_parquet(
-                data_dir / dataset / "features.parquet", columns=[outcome]
-            ).to_series()
-            for dataset in datasets
-        }
-        plot_continuous(
-            ax,
-            data,
+    for ax, outcome in zip(cont_axes, cont_outcomes):
+        _, y, other = load(
+            datasets,
             outcome,
-            legend=False,
-            missing_rate=False,
-            label=False,
+            split=None,
+            data_dir="/cluster/work/math/lmalte/data",
+            other_columns=["dataset"],
+            variables=[],
+            horizons=[],
         )
+        bw = (np.max(y, axis=0) - np.min(y, axis=0)) / 80 / np.std(y, axis=0)
+        for dataset in datasets:
+            filter_ = pl.col("dataset").eq(dataset)
+            y_ = other.with_columns(y=y).filter(filter_).select("y").to_series()
+            density = gaussian_kde(y_, bw_method=bw)
+            linspace = np.linspace(y_.min(), y_.max(), num=300)
 
-    # ax0 = fig.add_subplot(gs[2, 0])
+            ax.plot(
+                linspace,
+                density(linspace),
+                color=SOURCE_COLORS[dataset],
+                lw=2,
+                alpha=0.8,
+            )
+            ax.set_title(OUTCOME_NAMES[outcome], fontsize=10)
 
-    ax1.tick_params(axis="y")
-    ax2.tick_params(axis="y", labelleft=False)  # Hide y-tick labels on ax2
+    ax3.yaxis.tick_right()
+    ax4.yaxis.tick_right()
+    ax3.tick_params(axis="y", labelright=False)
 
-    tab_blue = mcolors.to_rgba("tab:blue", alpha=0.9)
     patches = [
-        Patch(facecolor=tab_blue, edgecolor=None, label="false"),
-        Patch(facecolor="tab:orange", edgecolor=None, label="true"),
-        Patch(facecolor="grey", edgecolor=None, label="missing"),
+        Patch(facecolor="tab:blue", edgecolor=None, label="False"),
+        Patch(facecolor="tab:orange", edgecolor=None, label="True"),
     ]
     fig.legend(
         patches,
-        ["false", "true", "missing"],
+        ["False", "True"],
         loc="center",
-        bbox_to_anchor=(0.5, 0.59 / 1.1),
-        ncol=3,
-        fontsize=12,
+        bbox_to_anchor=(0.32, 0.06),
+        ncol=2,
+        fontsize=10,
+        frameon=False,
     )
 
-    datasets.reverse()
-    white = Line2D([], [], color="none", lw=0)
-    lines = [white, white]
-    text = ["", ""]
+    for ax in cont_axes:
+        ax.set_ylim(-0.03, 1.3)
+        ax.set_yticks([0.0, 0.5, 1.0], labels=["0.0", "0.5", "1.0"], fontsize=10)
+        ax.tick_params(axis="x", labelsize=10)
 
-    # lines = [Line2D([0], [0], color="white", lw=0), Line2D([0], [0], color="white", lw=0)], Line2D([0], [0], color="white", lw=0), Line2D([0], [0], color="white", lw=0), Line2D([0], [0], color="white", lw=0), Line2D([0], [0], color="white", lw=0)]
-    # text = ["", "missings", "", "Po2/Fio2", "lactate"]
-    for d in datasets:
-        lines.append(Line2D([0], [0], color=SOURCE_COLORS[d], lw=2))
-        text.append(SHORT_DATASET_NAMES[d])
+    inv_fig = fig.transFigure.inverted()
+    for i, label in enumerate(binary_axes[0].yaxis.get_majorticklabels()):
+        bbox = label.get_window_extent()
 
-    lines += [white, white]
-    text += ["missing ", "Po2/Fio2"]
+        pixel_coords = (bbox.x0, bbox.y0 + bbox.height / 2)
+        label_x_fig, label_y_fig = inv_fig.transform(pixel_coords)
 
-    for d in datasets:
-        lines.append(white)
-        missingness = (
-            pl.scan_parquet(data_dir / d / "features.parquet")
-            .select(pl.col("log_pf_ratio_in_12h").is_null().mean())
-            .collect()
-            .item()
+        line_x_coords = [label_x_fig - 0.018, label_x_fig - 0.005]
+        line_y_coords = [label_y_fig + 0.005, label_y_fig + 0.005]
+        line = Line2D(
+            line_x_coords,
+            line_y_coords,
+            transform=fig.transFigure,  # Use the figure transform
+            color=SOURCE_COLORS[datasets[i]],
+            linewidth=3,
+            clip_on=False,
         )
-        text.append(f"{missingness:.1%}")
 
-    lines += [white, white]
-    text += ["values", "lactate"]
+        # Add the line to the axes' artists
+        binary_axes[0].add_artist(line)
 
-    for d in datasets:
-        lines.append(white)
-        missingness = (
-            pl.scan_parquet(data_dir / d / "features.parquet")
-            .select(pl.col("log_lactate_in_4h").is_null().mean())
-            .collect()
-            .item()
-        )
-        text.append(f"{missingness:.1%}")
-
-    fig.legend(
-        lines,
-        text,
-        loc="center",
-        bbox_to_anchor=(0.21, 0.33),  # (x, y), y from the bottom
-        ncol=3,
-        fontsize=12,
-        handlelength=1.5,  # default is ~2
-        labelspacing=0.8,
-        columnspacing=-1,
-        handletextpad=0.4,
+    fig.savefig(OUTPUT_PATH / "outcomes_m.png", bbox_inches="tight")
+    fig.savefig(
+        OUTPUT_PATH / "outcomes_m.pdf", bbox_inches=Bbox([[0.2, 0.05], [8.5, 2.5]])
     )
-
-    fig.savefig(OUTPUT_PATH / "outcomes.png", bbox_inches="tight", pad_inches=0.1)
-    fig.savefig(OUTPUT_PATH / "outcomes.pdf", bbox_inches="tight", pad_inches=0.1)
     plt.close(fig)
 
 
