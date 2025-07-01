@@ -1,5 +1,7 @@
 This repository was used to create the tables and figures of "Domain Generalization and Domain Adaptation in Intensive Care with Anchor Regression and Boosting" by Malte Londschien, Manuel Burger, Gunnar Rätsch, und Peter Bühlmann.
 
+The main models used are [anchorboosting](https://github.com/mlondschien/anchorboosting) and [ivmodels](https://github.com/mlondschien/ivmodels).
+
 All computations were done on the ETH Euler slurm cluster.
 It would be unreasonable to run the experiments on a laptop.
 
