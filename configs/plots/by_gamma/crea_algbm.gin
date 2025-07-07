@@ -87,7 +87,7 @@ CONFIG = {
     ],
     "lines": [
         {
-            "experiment_name": "crea_algbm_7",
+            "experiment_name": "crea_algbm",
             "label": "standard boosting",
             "color": "#BB5566",
             "ls": "dashed",
@@ -96,7 +96,7 @@ CONFIG = {
             "zorder": -1,
         },
         {
-            "experiment_name": "crea_algbm_7_d",
+            "experiment_name": "crea_algbm",
             "label": "anchor boosting",
             "color": "#004488",
             "ls": "solid",

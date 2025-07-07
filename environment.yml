@@ -13,8 +13,11 @@ dependencies:
   - pytest
   - gin-config
   - pyarrow
+  - cffi  # To support LGBM predictions from arrow tables / polars
   - tabulate
   - ivmodels
+  - anchorboosting
+  - scikit-learn
   - lightgbm
   - pip:
-    - "git+https://github.com/mlondschien/anchorboosting.git"
+    - "git+https://github.com/eth-mds/icu-features.git"

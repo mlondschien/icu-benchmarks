@@ -78,7 +78,7 @@ CONFIG = {
     ],
     "lines": [
         {
-            "experiment_name": "crea_anchor_7_d",
+            "experiment_name": "crea_anchor",
             "label": "anchor regression",
             "color": "#004488",
             "ls": "solid",
@@ -87,24 +87,22 @@ CONFIG = {
             "plot_star": False,
         },
         {
-            "experiment_name": "crea_anchor_7_d",
+            "experiment_name": "crea_anchor",
             "label": "linear regression",
             "color": "#BB5566",
             "filter": {"gamma": 1},
-            # "filter": {"num_iteration": 500},
             "ls": "dashed",
             "plot_all": False,
             "alpha": 1,
         },
         {
-            "experiment_name": "crea_anchor_7_d",
+            "experiment_name": "crea_anchor",
             "label": "anchor regression",
             "color": "#004488",
             "ls": "solid",
             "plot_all": False,
             "alpha": 1,
             "zorder": 10,
-
         },
     ]
 }

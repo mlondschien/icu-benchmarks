@@ -26,15 +26,14 @@ logging.basicConfig(
     type=str,
     default="sqlite:////cluster/work/math/lmalte/mlflow/mlruns3.db",
 )
-def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
+@click.option("--gamma_1", is_flag=True, default=False)
+def main(experiment_name: str, result_name: str, tracking_uri: str, gamma_1):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
     _, target_run = get_target_run(client, experiment_name)
 
     logger.info(f"logging to {target_run.info.run_id}")
 
-    experiment, run = get_target_run(
-        client, experiment_name, create_if_not_exists=False
-    )
+    _, run = get_target_run(client, experiment_name, create_if_not_exists=False)
     run_id = run.info.run_id
 
     all_results = []
@@ -55,6 +54,10 @@ def main(experiment_name: str, result_name: str, tracking_uri: str):  # noqa D
         results = results.filter(pl.col("max_depth").eq(3))
     if "num_iteration" in results.columns:
         results = results.filter(pl.col("num_iteration").eq(1000))
+
+    if gamma_1:
+        results = results.filter(pl.col("gamma").eq(1.0))
+        result_name = f"{result_name}1"
 
     results = results.filter(pl.col("seed") <= 19)
     group_by = [
