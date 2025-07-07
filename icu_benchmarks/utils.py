@@ -135,19 +135,6 @@ def get_model_matrix(df, formula):  # noqa: D
     if formula == "icd10_blocks only":
         return MultiLabelBinarizer().fit_transform(df["icd10_blocks"]).astype("float")
 
-    if formula == "random10":
-        rng = np.random.default_rng(0)
-        return rng.choice(10, size=df.shape[0])
-    elif formula == "random100":
-        rng = np.random.default_rng(0)
-        return rng.choice(100, size=df.shape[0])
-    elif formula == "random1000":
-        rng = np.random.default_rng(0)
-        return rng.choice(1000, size=df.shape[0])
-    elif formula == "random10000":
-        rng = np.random.default_rng(0)
-        return rng.choice(10000, size=df.shape[0])
-
     if formula == "":
         return OrdinalEncoder().fit_transform(df[["dataset"]]).astype("int32").flatten()
     elif formula == "patient_id":
@@ -164,38 +151,11 @@ def get_model_matrix(df, formula):  # noqa: D
     datasets = df["dataset"].unique()
     for dataset in datasets:
         mask = df["dataset"] == dataset
-        if formula == "icd10_blocks":  # interact icd10 blocks with dataset
-            df.loc[mask, "icd10_blocks"] = df.loc[mask, "icd10_blocks"].apply(
-                lambda x: x.tolist() + [dataset]
-            )
-            Zs.append(
-                MultiLabelBinarizer()
-                .fit_transform(df[mask]["icd10_blocks"])
-                .cast("float")
-            )
-        # icd10 blocks plus other stuff interacted with dataset
-        elif "icd10_blocks" in formula:
-            formula_ = formula.replace("icd10_blocks + ", "")
-            df.loc[mask, "icd10_blocks"] = df.loc[mask, "icd10_blocks"].apply(
-                lambda x: x.tolist() + [dataset]
-            )
-            Zs.append(
-                np.hstack(
-                    [
-                        MultiLabelBinarizer().fit_transform(df[mask]["icd10_blocks"]),
-                        formulaic.Formula(formula_)
-                        .get_model_matrix(df[mask], na_action="ignore")
-                        .to_numpy()
-                        .astype("float"),
-                    ]
-                )
-            )
-        else:
-            Zs.append(
-                formulaic.Formula(formula)
-                .get_model_matrix(df[mask], na_action="ignore")
-                .to_numpy()
-            )
+        Zs.append(
+            formulaic.Formula(formula)
+            .get_model_matrix(df[mask], na_action="ignore")
+            .to_numpy()
+        )
 
     csum = np.cumsum([0] + [Z.shape[1] for Z in Zs])
     Z = np.zeros((df.shape[0], csum[-1]), dtype=np.float64)
