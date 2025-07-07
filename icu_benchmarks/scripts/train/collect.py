@@ -39,7 +39,10 @@ ALL_SOURCES = [
 )
 @click.option("--result_name", default="results")
 @click.option("--output_name", default="cv_results")
-def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # noqa D
+@click.option("--gamma_1", is_flag=True, default=False)
+def main(
+    experiment_name: str, tracking_uri: str, result_name, output_name, gamma_1
+):  # noqa D
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment = client.get_experiment_by_name(experiment_name)
 
@@ -74,6 +77,9 @@ def main(experiment_name: str, tracking_uri: str, result_name, output_name):  # 
             ).alias("alpha_index")
         )
         results = results.filter(pl.col("alpha_index").eq(3))
+
+    if gamma_1:
+        results = results.filter(pl.col("gamma").eq(1.0))
 
     parameter_names = [x for x in PARAMETERS if x in results.columns]
 
